@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nhập phiếu khảo sát liệt sĩ</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f6f8;color:#17202a;font-family:Arial,sans-serif}.wrap{max-width:1100px;margin:24px auto;padding:0 16px}.card{background:#fff;border-radius:14px;box-shadow:0 3px 16px #00000012;padding:22px;margin-bottom:18px}h1{font-size:24px;margin:0 0 8px}.sub{color:#667085;margin-bottom:18px}.section{border:1px solid #e4e7ec;border-radius:12px;padding:16px;margin:14px 0}.section h2{font-size:18px;margin:0 0 14px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.full{grid-column:1/-1}label{display:block;font-size:13px;font-weight:600;margin-bottom:6px}input,select{width:100%;padding:10px 11px;border:1px solid #cfd5dd;border-radius:8px;font-size:14px}input:focus,select:focus{outline:2px solid #b8d4ff;border-color:#1677ff}.actions{display:flex;gap:10px;flex-wrap:wrap;position:sticky;bottom:0;background:#fff;padding-top:12px}.btn{border:0;border-radius:9px;padding:11px 16px;font-weight:700;cursor:pointer}.primary{background:#166534;color:white}.secondary{background:#e9eef5}.danger{background:#fee2e2;color:#991b1b}.rel{overflow:auto}.rel table{width:100%;border-collapse:collapse;min-width:950px}.rel th,.rel td{border:1px solid #d0d5dd;padding:7px;font-size:12px}.rel th{background:#f2f4f7}.note{font-size:12px;color:#667085;margin-top:8px}.status{margin-left:auto;font-size:13px;color:#475467;align-self:center}@media(max-width:720px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.status{width:100%;margin-left:0}}
+</style></head>
+<body><div class="wrap">
+<div class="card"><h1>Ứng dụng lập Phiếu khảo sát liệt sĩ</h1><div class="sub">Nhập thông tin → kiểm tra → xuất đúng mẫu Word 03 trang.</div>
+<div class="section"><h2>1. Người đại diện thân nhân / người hưởng trợ cấp thờ cúng</h2><div class="grid">
+<div><label>Họ và tên</label><input id="rep_name"></div><div><label>Ngày tháng năm sinh</label><input id="rep_dob" placeholder="dd/mm/yyyy"></div>
+<div><label>Giới tính</label><select id="rep_gender"><option value="">-- Chọn --</option><option>Nam</option><option>Nữ</option></select></div><div><label>Số ĐDCN</label><input id="rep_id" inputmode="numeric"></div>
+<div><label>Ngày cấp</label><input id="rep_issue_date" placeholder="dd/mm/yyyy"></div><div><label>Nơi cấp</label><input id="rep_issue_place"></div>
+<div class="full"><label>Quê quán</label><input id="rep_hometown"></div><div class="full"><label>Nơi thường trú</label><input id="rep_address"></div><div><label>Số điện thoại</label><input id="rep_phone"></div>
+</div></div>
+<div class="section"><h2>2. Thông tin về liệt sĩ</h2><div class="grid">
+<div><label>Mã số hồ sơ liệt sĩ</label><input id="file_id"></div><div><label>Mã hồ sơ Bộ quản lý</label><input id="ministry_file"></div><div><label>Mã hồ sơ tỉnh quản lý</label><input id="province_file"></div>
+<div><label>Họ và tên liệt sĩ</label><input id="martyr_name"></div><div><label>Bí danh</label><input id="martyr_alias"></div><div><label>Ngày tháng năm sinh</label><input id="martyr_dob" placeholder="dd/mm/yyyy"></div><div><label>Giới tính</label><select id="martyr_gender"><option value="">-- Chọn --</option><option>Nam</option><option>Nữ</option></select></div>
+<div class="full"><label>Quê quán</label><input id="martyr_hometown"></div><div class="full"><label>Cấp bậc, chức vụ khi hy sinh</label><input id="martyr_rank"></div><div class="full"><label>Cơ quan, đơn vị khi hy sinh</label><input id="martyr_unit"></div>
+<div><label>Ngày tháng năm hy sinh</label><input id="martyr_death_date" placeholder="dd/mm/yyyy"></div><div><label>Nơi hy sinh (nếu có)</label><input id="martyr_death_place"></div><div class="full"><label>Nơi an táng ban đầu</label><input id="burial_place"></div>
+<div><label>Bằng Tổ quốc ghi công số</label><input id="certificate_no"></div><div><label>Quyết định số</label><input id="decision_no"></div><div><label>Ngày quyết định</label><input id="decision_date" placeholder="dd/mm/yyyy"></div>
+<div><label>Con ông</label><input id="father"></div><div><label>Con bà</label><input id="mother"></div><div><label>Vợ</label><input id="wife"></div>
+</div></div>
+<div class="section"><h2>3. Phụ lục 1 – Thân nhân theo họ ngoại</h2><div class="note">Có thể nhập tối đa 10 dòng theo đúng các dòng có sẵn trong mẫu. Cột quan hệ/STT được giữ nguyên theo biểu mẫu.</div><div class="rel"><table><thead><tr><th>STT</th><th>Đối tượng</th><th>ĐDCN/CCCD/CMND</th><th>Họ tên</th><th>Ngày sinh</th><th>Giới tính</th><th>Họ tên bố</th><th>Họ tên mẹ</th><th>Nơi thường trú</th><th>Trạng thái</th><th>Chữ ký/họ tên</th></tr></thead><tbody id="relbody"></tbody></table></div></div>
+<div class="actions"><button class="btn secondary" onclick="saveDraft()">Lưu tạm trên máy</button><button class="btn danger" onclick="clearAll()">Xóa biểu mẫu</button><button class="btn primary" onclick="generate()">Xuất file Word chuẩn</button><span id="status" class="status"></span></div>
+</div></div>
+<script>
+const rels=['Mẹ đẻ liệt sĩ','Mẹ đẻ của mẹ đẻ liệt sĩ','Anh chị em cùng mẹ đẻ với liệt sĩ','Anh chị em cùng mẹ đẻ với liệt sĩ','Anh chị em cùng mẹ đẻ của mẹ đẻ liệt sĩ','Anh chị em cùng mẹ đẻ của mẹ đẻ liệt sĩ','Anh chị em con của chị gái, em gái mẹ đẻ liệt sĩ','Anh chị em con của chị gái, em gái mẹ đẻ liệt sĩ','Con của chị gái, em gái liệt sĩ','Con của chị gái, em gái liệt sĩ'];
+const priorities=[1,2,3,3,4,4,5,5,6,6];
+const cols=['id','name','dob','gender','father','mother','address','status','signature'];
+function init(){let b=document.getElementById('relbody'); for(let i=0;i<10;i++){let tr=document.createElement('tr');tr.innerHTML=`<td>${priorities[i]}</td><td>${rels[i]}</td>`+cols.map(c=>`<td><input data-rel="${i}" data-col="${c}"></td>`).join('');b.appendChild(tr)} loadDraft();}
+function collect(){let d={};document.querySelectorAll('input[id],select[id]').forEach(e=>d[e.id]=e.value);d.relatives=[];for(let i=0;i<10;i++){let r={};cols.forEach(c=>r[c]=document.querySelector(`[data-rel="${i}"][data-col="${c}"]`).value);d.relatives.push(r)}return d}
+function fill(d){Object.entries(d||{}).forEach(([k,v])=>{let e=document.getElementById(k);if(e)e.value=v||''});(d.relatives||[]).forEach((r,i)=>cols.forEach(c=>{let e=document.querySelector(`[data-rel="${i}"][data-col="${c}"]`);if(e)e.value=r[c]||''}))}
+function saveDraft(){localStorage.setItem('phieu_liet_si_draft',JSON.stringify(collect()));document.getElementById('status').textContent='Đã lưu tạm.'}
+function loadDraft(){try{let d=JSON.parse(localStorage.getItem('phieu_liet_si_draft')||'null');if(d)fill(d)}catch(e){}}
+function clearAll(){if(confirm('Xóa toàn bộ dữ liệu đang nhập?')){localStorage.removeItem('phieu_liet_si_draft');location.reload()}}
+async function generate(){let d=collect();if(!d.martyr_name){alert('Vui lòng nhập Họ và tên liệt sĩ.');return}let st=document.getElementById('status');st.textContent='Đang tạo file...';try{let r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});if(!r.ok)throw new Error(await r.text());let blob=await r.blob();let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Phieu_khao_sat_liet_si.docx';a.click();URL.revokeObjectURL(a.href);st.textContent='Đã xuất file Word.'}catch(e){console.error(e);st.textContent='Lỗi: '+e.message;alert('Không xuất được file. Nếu bạn đang chạy cục bộ, hãy chạy qua Vercel/Node server.')}}
+init();
+</script></body></html>
