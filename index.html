@@ -1,6 +1,9 @@
 <!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Nhập phiếu khảo sát liệt sĩ</title>
+<title>Phiếu Khảo Sát Liệt Sĩ</title>
+<meta name="description" content="Ứng dụng lập và xuất Phiếu khảo sát liệt sĩ (Mẫu 02) định dạng Word và PDF.">
+<meta property="og:title" content="Phiếu Khảo Sát Liệt Sĩ">
+<meta property="og:description" content="Ứng dụng lập và xuất Phiếu khảo sát liệt sĩ (Mẫu 02) định dạng Word và PDF.">
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f4f6f8;color:#17202a;font-family:Arial,sans-serif}.wrap{max-width:1100px;margin:24px auto;padding:0 16px}
 .card{background:#fff;border-radius:14px;box-shadow:0 3px 16px #00000012;padding:22px;margin-bottom:18px}
@@ -57,7 +60,12 @@ input:focus,select:focus{outline:2px solid #b8d4ff;border-color:#1677ff}
 </div>
 </div></div>
 
-<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="/pdf-lib.min.js"></script>
+<script>
+if (!window.PDFLib) {
+  document.write('<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"><\\/script>');
+}
+</script>
 <script>
 const rels=[
   'Mẹ đẻ liệt sĩ',
@@ -213,7 +221,7 @@ async function generatePdf(){
 
   try{
     const {PDFDocument}=window.PDFLib;
-    const templateBase64='JVBERi0xLjcNCiW1tbW1DQoxIDAgb2JqDQo8PC9UeXBlL0NhdGFsb2cvUGFn
+    const templateBase64=`JVBERi0xLjcNCiW1tbW1DQoxIDAgb2JqDQo8PC9UeXBlL0NhdGFsb2cvUGFn
 ZXMgMiAwIFIvTGFuZyhlbikgL1N0cnVjdFRyZWVSb290IDMzIDAgUi9NYXJr
 SW5mbzw8L01hcmtlZCB0cnVlPj4vTWV0YWRhdGEgNTI4IDAgUi9WaWV3ZXJQ
 cmVmZXJlbmNlcyA1MjkgMCBSPj4NCmVuZG9iag0KMiAwIG9iag0KPDwvVHlw
@@ -4580,10 +4588,19 @@ CjAgMA0KdHJhaWxlcg0KPDwvU2l6ZSA1MzEvUm9vdCAxIDAgUi9JbmZvIDMy
 IDAgUi9JRFs8MUU5NEY1MEVFN0UwNUE0OTg1NEExRDQxM0M1RTQ0QjI+PDFF
 OTRGNTBFRTdFMDVBNDk4NTRBMUQ0MTNDNUU0NEIyPl0gL1ByZXYgMTg1NTUw
 L1hSZWZTdG0gMTg0MjY5Pj4NCnN0YXJ0eHJlZg0KMTk2MzMwDQolJUVPRg==
-';
-    const binary=atob(templateBase64);
-    const bytes=new Uint8Array(binary.length);
-    for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+`.replace(/\s+/g, '');
+    let bytes;
+    try {
+      const resp = await fetch('/template/Mẫu 02.pdf');
+      if (resp.ok) {
+        bytes = new Uint8Array(await resp.arrayBuffer());
+      }
+    } catch (err) {}
+    if (!bytes || bytes.length === 0) {
+      const binary = atob(templateBase64);
+      bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    }
     const doc=await PDFDocument.load(bytes);
     const p1=doc.getPages()[0], p2=doc.getPages()[1];
 
