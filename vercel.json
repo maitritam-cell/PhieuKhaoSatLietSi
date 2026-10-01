@@ -1,7 +1,8 @@
 {
-  "functions": {"api/generate.py": {"runtime": "python3.12"}},
-  "routes": [
-    {"src": "/api/generate", "dest": "/api/generate.py"},
-    {"src": "/(.*)", "dest": "/public/$1"}
-  ]
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/generate.py": {
+      "maxDuration": 60
+    }
+  }
 }
