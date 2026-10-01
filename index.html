@@ -213,8 +213,8 @@ async function generatePdf(){
 
   try{
     const {PDFDocument}=window.PDFLib;
-    const bytes=await fetch('template/Mẫu%2002.pdf').then(r=>{
-      if(!r.ok)throw new Error('Không tải được template/Mẫu 02.pdf');
+    const bytes=await fetch('https://raw.githubusercontent.com/maitritam-cell/PhieuKhaoSatLietSi/main/template/M%C3%A2u%2002.pdf').then(r=>{
+      if(!r.ok)throw new Error('Không tải được file Mẫu 02.pdf từ GitHub');
       return r.arrayBuffer();
     });
     const doc=await PDFDocument.load(bytes);
