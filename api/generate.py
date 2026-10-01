@@ -2,7 +2,7 @@ import io, json, os
 from http.server import BaseHTTPRequestHandler
 from docx import Document
 
-TEMPLATE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'template', 'mau-02.docx')
+TEMPLATE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'template', 'Mẫu 02.docx')
 
 def replace_first(paragraph, label, value):
     value=(value or '').strip()
