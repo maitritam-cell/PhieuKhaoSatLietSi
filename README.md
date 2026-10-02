@@ -4,7 +4,7 @@
 
 ## Bám theo Mẫu 02
 
-Biểu mẫu có 3 phần chính: thông tin người đại diện; thông tin về liệt sĩ; và Phụ lục 1 về thân nhân theo họ ngoại với 6 nhóm ưu tiên và 11 cột. Phần xác nhận UBND cấp xã, Công an cấp xã và Sở Nội vụ được đưa vào phần nhập liệu bổ sung để lưu cùng hồ sơ.
+Biểu mẫu có 3 phần chính: thông tin người đại diện; thông tin về liệt sĩ; và Phụ lục 1 về thân nhân theo họ ngoại với 6 nhóm ưu tiên và 11 cột. Phần xác nhận UBND cấp xã, Công an cấp xã và Sở Nội vụ được đưa vào dữ liệu hồ sơ để lưu cùng phiếu.
 
 ## Công nghệ
 
@@ -19,9 +19,9 @@ Biểu mẫu có 3 phần chính: thông tin người đại diện; thông tin 
 - `public/index.html`: giao diện nhập liệu.
 - `public/app.js`: xử lý biểu mẫu, nháp, kho bản lưu, lưu Google Sheets và xuất PDF/Word.
 - `api/index.js`: entrypoint Node.js cho Vercel.
-- `server.js`: API `/api/generate` và kiểm tra mẫu Word.
+- `server.js`: Express app và API `/api/generate`.
 - `template/Mẫu 02.docx`: mẫu Word.
-- `google-apps-script/Code.gs`: mã Apps Script tạo 2 sheet `PHIEU_KHAO_SAT` và `PHU_LUC_1`, hỗ trợ ghi/cập nhật theo mã phiếu và đọc danh sách.
+- `google-apps-script/Code.gs`: mã Apps Script cho hai sheet `PHIEU_KHAO_SAT` và `PHU_LUC_1`.
 
 ## Lưu trữ
 
@@ -32,8 +32,11 @@ Biểu mẫu có 3 phần chính: thông tin người đại diện; thông tin 
 
 ## Apps Script
 
-Mở file `google-apps-script/Code.gs`, sao chép vào Apps Script gắn với bảng Google Sheets đang dùng, chạy `setup()` một lần, sau đó triển khai Web app và dùng URL Web app làm `APPS_SCRIPT_URL` trong `public/app.js`.
+Mở `google-apps-script/Code.gs`, sao chép toàn bộ mã vào Apps Script gắn với bảng Google Sheets đang dùng, chạy `setup()` một lần, sau đó triển khai Web app. URL Web app được đặt trong `public/app.js`.
 
 ## Vercel
 
-Đây là ứng dụng Node.js/Express, không phải Python. `vercel.json` đặt Framework Preset về Other và Node.js 22. Nếu Vercel vẫn báo "No python entrypoint found", kiểm tra Project Settings > General > Root Directory và bảo đảm project trỏ vào thư mục gốc của repository này.
+Đây là ứng dụng Node.js/Express, không phải Python. Repository không cần `vercel.json`; Vercel có thể nhận diện Express/Node từ mã nguồn. Vercel hiện hỗ trợ Node.js 22 cho Builds và Functions.
+
+Nếu Project Settings của Vercel hiện đang để **Python**, đổi **Framework Preset** sang **Other** và bật Override nếu giao diện yêu cầu. Đặt **Root Directory** là thư mục gốc của repository, không phải `api` hay một thư mục Python. Sau đó Redeploy commit mới.
+
