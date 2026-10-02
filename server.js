@@ -177,6 +177,108 @@ async function fillDocument(data){
   return zip.generateAsync({type:'nodebuffer'});
 }
 
+const SUPABASE_URL=process.env.SUPABASE_URL||'';
+const SUPABASE_SERVICE_ROLE_KEY=process.env.SUPABASE_SERVICE_ROLE_KEY||'';
+
+function dbReady(){
+  return Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
+}
+
+async function supabaseRequest(endpoint, options={}){
+  if(!dbReady()) throw new Error('Chưa cấu hình SUPABASE_URL và SUPABASE_SERVICE_ROLE_KEY trên Vercel.');
+  const response=await fetch(SUPABASE_URL+'/rest/v1/'+endpoint,{
+    ...options,
+    headers:{
+      apikey:SUPABASE_SERVICE_ROLE_KEY,
+      Authorization:'Bearer '+SUPABASE_SERVICE_ROLE_KEY,
+      'Content-Type':'application/json',
+      ...(options.headers||{})
+    }
+  });
+  const raw=await response.text();
+  let body=null;
+  try{body=raw?JSON.parse(raw):null;}catch{body=raw;}
+  if(!response.ok){
+    const detail=typeof body==='string'?body:body?.message||body?.hint||JSON.stringify(body);
+    throw new Error('Supabase '+response.status+': '+detail);
+  }
+  return body;
+}
+
+function cleanRecord(data){
+  const d={...data};
+  d.record_id=String(d.record_id||'').trim();
+  if(!d.record_id)d.record_id='LS02-'+Date.now();
+  d.martyr_name=String(d.martyr_name||'').trim();
+  d.martyr_hometown=String(d.martyr_hometown||'').trim();
+  d.file_id=String(d.file_id||'').trim();
+  d.rep_name=String(d.rep_name||'').trim();
+  return d;
+}
+
+app.get('/api/records',async(req,res)=>{
+  try{
+    const rows=await supabaseRequest('m02_records?select=record_id,status,martyr_name,martyr_hometown,file_id,rep_name,created_at,updated_at&order=updated_at.desc&limit=200');
+    const q=String(req.query.q||'').toLowerCase().trim();
+    const items=(Array.isArray(rows)?rows:[]).filter(r=>!q||[r.record_id,r.martyr_name,r.martyr_hometown,r.file_id,r.rep_name].join(' ').toLowerCase().includes(q));
+    res.json({ok:true,items,count:items.length});
+  }catch(err){
+    console.error('List records error:',err);
+    res.status(503).json({ok:false,error:err.message});
+  }
+});
+
+app.get('/api/records/:recordId',async(req,res)=>{
+  try{
+    const id=encodeURIComponent(req.params.recordId);
+    const rows=await supabaseRequest('m02_records?select=*&record_id=eq.'+id+'&limit=1');
+    const row=Array.isArray(rows)?rows[0]:null;
+    if(!row)return res.status(404).json({ok:false,error:'Không tìm thấy hồ sơ.'});
+    res.json({ok:true,record:row.data,row});
+  }catch(err){
+    console.error('Get record error:',err);
+    res.status(503).json({ok:false,error:err.message});
+  }
+});
+
+app.post('/api/records',async(req,res)=>{
+  try{
+    const data=cleanRecord(req.body||{});
+    if(!data.martyr_name)return res.status(400).json({ok:false,error:'Thiếu Họ và tên liệt sĩ.'});
+    const row={
+      record_id:data.record_id,
+      status:'Mới',
+      martyr_name:data.martyr_name,
+      martyr_hometown:data.martyr_hometown,
+      file_id:data.file_id,
+      rep_name:data.rep_name,
+      data,
+      updated_at:new Date().toISOString()
+    };
+    const saved=await supabaseRequest('m02_records?on_conflict=record_id',{
+      method:'POST',
+      headers:{Prefer:'resolution=merge-duplicates,return=representation'},
+      body:JSON.stringify(row)
+    });
+    const item=Array.isArray(saved)?saved[0]:saved;
+    res.json({ok:true,record:item?.data||data,meta:item||null});
+  }catch(err){
+    console.error('Save record error:',err);
+    res.status(503).json({ok:false,error:err.message});
+  }
+});
+
+app.delete('/api/records/:recordId',async(req,res)=>{
+  try{
+    const id=encodeURIComponent(req.params.recordId);
+    await supabaseRequest('m02_records?record_id=eq.'+id,{method:'DELETE'});
+    res.json({ok:true});
+  }catch(err){
+    console.error('Delete record error:',err);
+    res.status(503).json({ok:false,error:err.message});
+  }
+});
+
 app.post('/api/generate',async(req,res)=>{
   try{
     const data=req.body||{};
