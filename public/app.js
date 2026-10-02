@@ -85,31 +85,43 @@ function validate(d){
   }
   return true;
 }
-function getRecords(){
-  try{return JSON.parse(localStorage.getItem('phieu_liet_si_records')||'[]');}catch{return [];}
-}
+function getRecords(){try{return JSON.parse(localStorage.getItem('phieu_liet_si_records')||'[]');}catch{return [];}}
 function putRecords(list){localStorage.setItem('phieu_liet_si_records',JSON.stringify(list.slice(0,200)));}
+
 function saveLocal(d){
-  const list=getRecords();const i=list.findIndex(x=>x.record_id===d.record_id);
+  const list=getRecords();
+  const i=list.findIndex(x=>x.record_id===d.record_id);
   const item={...d,saved_at:new Date().toISOString()};
   if(i>=0)list[i]=item;else list.unshift(item);
-  putRecords(list);renderRecords();
+  putRecords(list);
 }
-function renderRecords(){
-  const q=($('recordSearch')?.value||'').toLowerCase().trim();
-  const rows=getRecords().filter(x=>!q||[x.record_id,x.file_id,x.martyr_name,x.rep_name,x.martyr_hometown].join(' ').toLowerCase().includes(q));
+
+async function renderRecords(){
+  const q=($('recordSearch')?.value||'').trim();
   const body=$('recordRows');if(!body)return;
-  body.innerHTML=rows.map(x=>'<tr>'+
-    '<td>'+escapeHtml(x.record_id)+'</td>'+
-    '<td>'+escapeHtml(x.martyr_name||'')+'</td>'+
-    '<td>'+escapeHtml(x.file_id||'')+'</td>'+
-    '<td>'+escapeHtml(x.rep_name||'')+'</td>'+
-    '<td>'+escapeHtml(x.saved_at?new Date(x.saved_at).toLocaleString('vi-VN'):'')+'</td>'+
-    '<td><button class="mini" onclick="openRecord(\''+escapeAttr(x.record_id)+'\')">Mở</button> <button class="mini danger" onclick="deleteRecord(\''+escapeAttr(x.record_id)+'\')">Xóa</button></td>'+
-  '</tr>').join('')||'<tr><td colspan="6" class="empty">Chưa có bản lưu trên thiết bị.</td></tr>';
+  body.innerHTML='<tr><td colspan="6" class="empty">Đang tải hồ sơ...</td></tr>';
+  try{
+    const r=await fetch('/api/records'+(q?'?q='+encodeURIComponent(q):''));
+    if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||'Không tải được kho hồ sơ.');
+    const data=await r.json();
+    const rows=data.items||[];
+    body.innerHTML=rows.map(x=>'<tr>'+
+      '<td>'+escapeHtml(x.record_id||'')+'</td>'+
+      '<td>'+escapeHtml(x.martyr_name||'')+'</td>'+
+      '<td>'+escapeHtml(x.file_id||'')+'</td>'+
+      '<td>'+escapeHtml(x.rep_name||'')+'</td>'+
+      '<td>'+escapeHtml(x.updated_at?new Date(x.updated_at).toLocaleString('vi-VN'):'')+'</td>'+
+      '<td><button class="mini" onclick="openRecord(\\''+escapeAttr(x.record_id||'')+'\\')">Mở</button> <button class="mini danger" onclick="deleteRecord(\\''+escapeAttr(x.record_id||'')+'\\')">Xóa</button></td>'+
+    '</tr>').join('')||'<tr><td colspan="6" class="empty">Chưa có hồ sơ trong cơ sở dữ liệu.</td></tr>';
+  }catch(e){
+    console.error(e);
+    body.innerHTML='<tr><td colspan="6" class="empty">Không tải được kho hồ sơ: '+escapeHtml(e.message)+'</td></tr>';
+  }
 }
+
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function escapeAttr(v){return String(v??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
+
 function saveDraft(){
   localStorage.setItem('phieu_liet_si_draft',JSON.stringify(collect()));
   setStatus('Đã lưu bản nháp trên máy.','ok');
@@ -119,54 +131,89 @@ function loadDraft(){
     const d=JSON.parse(localStorage.getItem('phieu_liet_si_draft')||'null');
     if(d){fill(d);return;}
   }catch{}
-  currentRecordId=makeRecordId();$('record_id').value=currentRecordId;$('created_date').value=today();
+  currentRecordId=makeRecordId();
+  $('record_id').value=currentRecordId;
+  $('created_date').value=today();
 }
 function newRecord(){
   document.querySelectorAll('input,select').forEach(e=>{if(!['record_id','created_date'].includes(e.id)&&!e.dataset.rel)e.value='';});
   initRelations();
-  currentRecordId=makeRecordId();$('record_id').value=currentRecordId;$('created_date').value=today();
-  currentSaved=false;localStorage.removeItem('phieu_liet_si_saved');setExportEnabled(false);saveDraft();
-  setStatus('Đã tạo phiếu mới.','ok');window.scrollTo({top:0,behavior:'smooth'});
+  currentRecordId=makeRecordId();
+  $('record_id').value=currentRecordId;
+  $('created_date').value=today();
+  currentSaved=false;
+  localStorage.removeItem('phieu_liet_si_saved');
+  setExportEnabled(false);
+  saveDraft();
+  setStatus('Đã tạo phiếu mới.','ok');
+  window.scrollTo({top:0,behavior:'smooth'});
 }
-function openRecord(id){
-  const d=getRecords().find(x=>x.record_id===id);if(!d)return;
-  fill(d);currentSaved=true;setExportEnabled(true);saveDraft();setStatus('Đã mở phiếu '+id+'.','ok');window.scrollTo({top:0,behavior:'smooth'});
-}
-function deleteRecord(id){
-  if(!confirm('Xóa bản lưu '+id+' trên thiết bị này?'))return;
-  putRecords(getRecords().filter(x=>x.record_id!==id));renderRecords();setStatus('Đã xóa bản lưu.','ok');
-}
-function buildPayload(d){
-  return {
-    maPhieu:d.record_id,
-    hoTenLietSi:d.martyr_name||'',
-    ngaySinh:d.martyr_dob||'',
-    ngayHySinh:d.martyr_death_date||'',
-    queQuan:d.martyr_hometown||'',
-    hoTenNguoiDaiDien:d.rep_name||'',
-    soDienThoai:d.rep_phone||'',
-    trangThai:'Mới',
-    donVi:d.martyr_unit||'',
-    ghiChu:d.martyr_death_place||'',
-    ngayLuu:new Date().toISOString(),
-    duLieuDayDu:JSON.stringify(d)
-  };
-}
-async function saveToSheets(){
-  const d=collect();if(!validate(d))return;
-  setStatus('Đang lưu hồ sơ...','loading');
+async function openRecord(id){
   try{
-    await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(buildPayload(d))});
-    saveLocal(d);
-    localStorage.setItem('phieu_liet_si_last_saved',JSON.stringify(buildPayload(d)));
+    setStatus('Đang mở hồ sơ...','loading');
+    const r=await fetch('/api/records/'+encodeURIComponent(id));
+    const j=await r.json();
+    if(!r.ok)throw new Error(j.error||'Không tìm thấy hồ sơ.');
+    fill(j.record||{});
+    currentSaved=true;
     localStorage.setItem('phieu_liet_si_saved','1');
-    currentSaved=true;setExportEnabled(true);
-    setStatus('Đã lưu hồ sơ và tạo bản sao trên máy.','ok');
-    alert('Đã lưu hồ sơ '+d.record_id+'.');
+    saveDraft();
+    setExportEnabled(true);
+    setStatus('Đã mở hồ sơ '+id+'.','ok');
+    window.scrollTo({top:0,behavior:'smooth'});
   }catch(e){
-    console.error(e);setStatus('Lỗi lưu hồ sơ: '+e.message,'error');alert('Không lưu được hồ sơ: '+e.message);
+    console.error(e);setStatus('Lỗi mở hồ sơ: '+e.message,'error');alert(e.message);
   }
 }
+async function deleteRecord(id){
+  if(!confirm('Xóa hồ sơ '+id+' khỏi cơ sở dữ liệu?'))return;
+  try{
+    const r=await fetch('/api/records/'+encodeURIComponent(id),{method:'DELETE'});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(j.error||'Không xóa được hồ sơ.');
+    getRecords();
+    if(currentRecordId===id){
+      localStorage.removeItem('phieu_liet_si_draft');
+      localStorage.removeItem('phieu_liet_si_saved');
+    }
+    await renderRecords();
+    setStatus('Đã xóa hồ sơ khỏi cơ sở dữ liệu.','ok');
+  }catch(e){
+    console.error(e);setStatus('Lỗi xóa hồ sơ: '+e.message,'error');alert(e.message);
+  }
+}
+
+async function saveRecord(){
+  const d=collect();
+  if(!validate(d))return;
+  currentRecordId=d.record_id;
+  setStatus('Đang lưu hồ sơ vào cơ sở dữ liệu...','loading');
+  setBusy(true);
+  try{
+    const r=await fetch('/api/records',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(d)
+    });
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(j.error||'Không lưu được hồ sơ.');
+    const saved=j.record||d;
+    fill(saved);
+    saveLocal(saved);
+    localStorage.setItem('phieu_liet_si_draft',JSON.stringify(saved));
+    localStorage.setItem('phieu_liet_si_saved','1');
+    currentSaved=true;
+    setExportEnabled(true);
+    await renderRecords();
+    setStatus('Đã lưu hồ sơ vào cơ sở dữ liệu.','ok');
+    alert('Đã lưu hồ sơ '+saved.record_id+'.');
+  }catch(e){
+    console.error(e);
+    setStatus('Lỗi lưu hồ sơ: '+e.message,'error');
+    alert('Không lưu được hồ sơ: '+e.message);
+  }finally{setBusy(false);}
+}
+
 function setExportEnabled(enabled){
   ['btnWord','btnPdf'].forEach(id=>{const b=$(id);if(b)b.disabled=!enabled;});
   currentSaved=enabled;
@@ -176,9 +223,6 @@ function clearAll(){
   localStorage.removeItem('phieu_liet_si_draft');
   localStorage.removeItem('phieu_liet_si_saved');
   newRecord();
-}
-function downloadBlob(blob,name){
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 async function generateWord(){
   const d=collect();
@@ -4702,7 +4746,7 @@ window.openRecord=openRecord;
 window.deleteRecord=deleteRecord;
 window.newRecord=newRecord;
 window.saveDraft=saveDraft;
-window.saveToSheets=saveToSheets;
+window.saveRecord=saveRecord;
 window.generateWord=generateWord;
 window.generatePdf=generatePdf;
 window.clearAll=clearAll;
