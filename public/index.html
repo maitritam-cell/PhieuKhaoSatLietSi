@@ -54,6 +54,7 @@ input:focus,select:focus{outline:2px solid #b8d4ff;border-color:#1677ff}
 <div class="actions">
 <button class="btn secondary" onclick="saveDraft()">Lưu tạm trên máy</button>
 <button class="btn danger" onclick="clearAll()">Xóa biểu mẫu</button>
+<button class="btn secondary" onclick="saveToSheets()">Lưu vào Google Sheets</button>
 <button class="btn primary" onclick="generateWord()">Xuất Word</button>
 <button class="btn pdfbtn" onclick="generatePdf()">Xuất PDF đúng Mẫu 02</button>
 <span id="status" class="status"></span>
@@ -136,6 +137,47 @@ function clearAll(){
 }
 
 function setStatus(msg){document.getElementById('status').textContent=msg;}
+
+const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbwXHveyxf6Z1Hi-P-Ex9RtELyGszNRGhHsGMv6vVEsb43HcFyg3sbTa2XKvtJfkiT0orw/exec';
+
+async function saveToSheets(){
+  const d=collect();
+  if(!d.martyr_name){
+    alert('Vui lòng nhập Họ và tên liệt sĩ.');
+    return;
+  }
+
+  const payload={
+    maPhieu:d.file_id || ('LS-'+Date.now()),
+    hoTenLietSi:d.martyr_name,
+    ngaySinh:d.martyr_dob,
+    ngayHySinh:d.martyr_death_date,
+    queQuan:d.martyr_hometown,
+    hoTenNguoiDaiDien:d.rep_name,
+    soDienThoai:d.rep_phone,
+    trangThai:'Mới',
+    donVi:d.martyr_unit,
+    ghiChu:d.martyr_death_place || ''
+  };
+
+  setStatus('Đang lưu vào Google Sheets...');
+  try{
+    await fetch(APPS_SCRIPT_URL,{
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(payload)
+    });
+
+    setStatus('Đã gửi dữ liệu vào Google Sheets.');
+    localStorage.setItem('phieu_liet_si_last_saved',JSON.stringify(payload));
+    alert('Đã gửi phiếu vào Google Sheets.');
+  }catch(e){
+    console.error(e);
+    setStatus('Lỗi kết nối Google Sheets.');
+    alert('Không gửi được dữ liệu: '+e.message);
+  }
+}
 
 function downloadBlob(blob,name){
   const a=document.createElement('a');
