@@ -59,6 +59,10 @@ td input,td select{min-width:100px;padding:8px;font-size:12px}td:nth-child(9) in
 .search{max-width:360px}.mini{border:1px solid #cfd7e3;background:#fff;border-radius:7px;padding:6px 9px;cursor:pointer;font-size:12px}
 .empty{text-align:center;color:#667085;padding:18px}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#edf6ff;color:#075985;font-size:11px;font-weight:700}
 @media(max-width:850px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.meta{grid-template-columns:1fr}.status{width:100%;margin-left:0}}
+
+.relative-toggle{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid #cfd9e6;border-radius:12px;background:#f8fbff;font-size:16px;font-weight:700;color:#123b67;cursor:pointer}
+.relative-toggle input{width:22px;height:22px;flex:0 0 22px}
+#relativeDetails[hidden],#confirmationSection[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -115,16 +119,19 @@ td input,td select{min-width:100px;padding:8px;font-size:12px}td:nth-child(9) in
 </div>
 
 <div class="section">
-<h2>3. Phụ lục 1 – Thông tin thân nhân liệt sĩ chưa xác định được danh tính theo họ ngoại</h2>
-<div class="help">Giữ đúng 6 nhóm đối tượng và 11 cột của mẫu: STT; đối tượng ưu tiên; số ĐDCN/CCCD/CMND; họ và tên; ngày sinh; giới tính; họ tên bố; họ tên mẹ; nơi thường trú; trạng thái; chữ ký.</div>
+<h2>3. Thông tin thân nhân liệt sĩ</h2>
+<label class="relative-toggle"><input type="checkbox" id="hasRelatives"> Có thông tin thân nhân cần kê khai</label>
+<div id="relativeDetails" hidden>
+<div class="help">Chỉ mở phần này khi có thân nhân cần kê khai. Giữ đúng 6 nhóm đối tượng và các thông tin theo Mẫu 02.</div>
 <div class="relwrap rel"><table>
 <thead><tr>
 <th>(1)<br>STT</th><th>(2)<br>Đối tượng theo thứ tự ưu tiên từ 1 đến 6</th><th>(3)<br>Số ĐDCN/CCCD/CMND</th><th>(4)<br>Họ và tên</th><th>(5)<br>Ngày tháng năm sinh</th><th>(6)<br>Giới tính</th><th>(7)<br>Họ tên bố</th><th>(8)<br>Họ tên mẹ</th><th>(9)<br>Nơi thường trú</th><th>(10)<br>Trạng thái: Còn sống/Đã chết</th><th>(11)<br>Chữ ký và ghi rõ họ tên</th>
 </tr></thead><tbody id="relbody"></tbody></table></div>
 <div class="note" style="margin-top:10px">Chú ý theo mẫu: thân nhân tự nguyện cung cấp mẫu ADN và thông tin sinh trắc học ADN thì ký, ghi rõ họ tên ở cột (11); thu thập theo thứ tự ưu tiên từ 1 đến 6; tối thiểu 01 người còn sống và trường hợp có nhiều hơn có thể lựa chọn 02 người theo thứ tự ưu tiên.</div>
 </div>
+</div>
 
-<div class="section">
+<div class="section" id="confirmationSection" hidden>
 <h2>4. Thông tin xác nhận trên phiếu</h2>
 <div class="help">Phần này phản ánh các vị trí xác nhận/chữ ký có trên biểu mẫu và có thể để trống cho đến khi cơ quan có thẩm quyền xác nhận.</div>
 <div class="grid">
