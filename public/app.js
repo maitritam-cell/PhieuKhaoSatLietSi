@@ -15,6 +15,12 @@ const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbwXHveyxf6Z1Hi-P-
 
 function $(id){return document.getElementById(id);}
 function setStatus(msg,type=''){const e=$('status');if(e){e.textContent=msg;e.className='status '+type;}}
+function setBusy(busy){
+  document.querySelectorAll('[data-busy]').forEach(el=>{
+    el.disabled=!!busy;
+    el.setAttribute('aria-busy',busy?'true':'false');
+  });
+}
 function makeRecordId(){
   const d=new Date(), p=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0'),String(d.getHours()).padStart(2,'0'),String(d.getMinutes()).padStart(2,'0'),String(d.getSeconds()).padStart(2,'0')];
   return 'LS02-'+p.join('')+'-'+Math.random().toString(36).slice(2,7).toUpperCase();
