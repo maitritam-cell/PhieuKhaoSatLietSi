@@ -26,7 +26,31 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c7ddff;border-color:#
 .status{margin-left:auto;font-size:13px;color:#475467}.status.ok{color:#166534}.status.error{color:#b42318}.status.loading{color:#075985}
 .meta{display:grid;grid-template-columns:220px 180px 1fr;gap:12px;margin-top:14px}
 .codebox{font-weight:700;letter-spacing:.3px;background:#f8fafc}
-.relwrap{overflow:auto;border:1px solid #d0d5dd;border-radius:10px}.rel table{min-width:1180px}
+.relwrap{overflow:visible;border:0;border-radius:0}
+.rel table{width:100%;min-width:0;border-collapse:separate;border-spacing:0 12px}
+.rel thead{display:none}
+.rel tbody{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.rel tr{display:block;border:1px solid #cfd9e6;border-radius:14px;padding:14px;background:#f8fbff;box-shadow:0 2px 8px #00000008;min-width:0}
+.rel td{display:block;border:0;padding:0;margin:0 0 11px;min-width:0;width:auto;text-align:left}
+.rel td:last-child{margin-bottom:0}
+.rel td.stt{display:block;width:auto;text-align:left;background:#e5efff;color:#123b67;padding:9px 11px;border-radius:9px;font-size:15px;margin-bottom:12px}
+.rel td.stt:before{content:"THÂN NHÂN SỐ "}
+.rel td.relation{font-size:15px;line-height:1.4;color:#123b67;min-width:0;margin-bottom:14px}
+.rel td:nth-child(3):before{content:"Số ĐDCN/CCCD/CMND"}
+.rel td:nth-child(4):before{content:"Họ và tên"}
+.rel td:nth-child(5):before{content:"Ngày tháng năm sinh"}
+.rel td:nth-child(6):before{content:"Giới tính"}
+.rel td:nth-child(7):before{content:"Họ tên bố"}
+.rel td:nth-child(8):before{content:"Họ tên mẹ"}
+.rel td:nth-child(9):before{content:"Nơi thường trú"}
+.rel td:nth-child(10):before{content:"Trạng thái"}
+.rel td:nth-child(11):before{content:"Chữ ký và ghi rõ họ tên"}
+.rel td:nth-child(n+3):before{display:block;font-size:13px;font-weight:700;color:#344054;margin:0 0 5px}
+.rel td input,.rel td select{display:block;width:100%;min-width:0;min-height:44px;padding:10px 11px;font-size:15px;border-radius:9px}
+.rel td:nth-child(9) input,.rel td:nth-child(11) input{min-width:0}
+.rel td:nth-child(4){order:0}
+@media(max-width:850px){.rel tbody{grid-template-columns:1fr}.rel tr{padding:14px}.rel td input,.rel td select{font-size:16px;min-height:46px}}
+
 th,td{border:1px solid #d0d5dd;padding:7px;font-size:12px;vertical-align:middle}th{background:#f2f4f7;font-weight:700;text-align:center}
 td.stt{text-align:center;width:42px;font-weight:700}td.relation{min-width:185px;font-weight:600}
 td input,td select{min-width:100px;padding:8px;font-size:12px}td:nth-child(9) input{min-width:170px}
