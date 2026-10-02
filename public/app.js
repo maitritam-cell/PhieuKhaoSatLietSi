@@ -105,7 +105,7 @@ async function renderRecords(){
     '<td>'+escapeHtml(x.file_id||'')+'</td>'+
     '<td>'+escapeHtml(x.rep_name||'')+'</td>'+
     '<td>'+escapeHtml(x.saved_at?new Date(x.saved_at).toLocaleString('vi-VN'):'')+'</td>'+
-    '<td><button class="mini" onclick="openRecord(\\''+escapeAttr(x.record_id||'')+'\\')">Mở</button> <button class="mini danger" onclick="deleteRecord(\\''+escapeAttr(x.record_id||'')+'\\')">Xóa khỏi danh sách máy</button></td>'+
+    '<td><button class="mini" data-id="'+escapeAttr(x.record_id||'')+'" onclick="openRecord(this.dataset.id)">Mở</button> <button class="mini danger" data-id="'+escapeAttr(x.record_id||'')+'" onclick="deleteRecord(this.dataset.id)">Xóa khỏi danh sách máy</button></td>'+
   '</tr>').join('')||'<tr><td colspan="6" class="empty">Chưa có phiếu đã lưu trên thiết bị này. Dữ liệu đã gửi lên Google Sheets cần xem tại bảng tính.</td></tr>';
 }
 
