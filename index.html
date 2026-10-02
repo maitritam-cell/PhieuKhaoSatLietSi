@@ -64,7 +64,7 @@ input:focus,select:focus{outline:2px solid #b8d4ff;border-color:#1677ff}
 <script src="/pdf-lib.min.js"></script>
 <script>
 if (!window.PDFLib) {
-  document.write('<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"><\\/script>');
+  document.write('<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"><\/script>');
 }
 </script>
 <script>
@@ -203,7 +203,7 @@ async function generateWord(){
     downloadBlob(await r.blob(),'Phieu_khao_sat_liet_si.docx');
     setStatus('Đã xuất Word.');
   }catch(e){
-    console.error(e);setStatus('Lỗi Word: '+e.message);alert('Không xuất được Word.');
+    console.error('Lỗi xuất Word:',e);setStatus('Lỗi Word: '+e.message);alert('Không xuất được Word: '+e.message);
   }
 }
 
