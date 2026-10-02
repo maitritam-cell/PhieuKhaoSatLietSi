@@ -4725,7 +4725,18 @@ L1hSZWZTdG0gMTg0MjY5Pj4NCnN0YXJ0eHJlZg0KMTk2MzMwDQolJUVPRg==
 
 
 function initApp(){
-  initRelations();loadDraft();renderRecords();
+  initRelations();
+  const hasRelatives=$('hasRelatives'), relativeDetails=$('relativeDetails');
+  if(hasRelatives&&relativeDetails){
+    hasRelatives.addEventListener('change',()=>{
+      relativeDetails.hidden=!hasRelatives.checked;
+      if(!hasRelatives.checked){
+        relativeDetails.querySelectorAll('input,select').forEach(el=>{el.value='';});
+        localStorage.setItem('phieu_liet_si_draft',JSON.stringify(collect()));
+      }
+    });
+  }
+  loadDraft();renderRecords();
   $('recordSearch')?.addEventListener('input',()=>renderRecords());
   document.querySelectorAll('input,select').forEach(e=>{
     e.addEventListener('input',()=>{localStorage.setItem('phieu_liet_si_draft',JSON.stringify(collect()));if(currentSaved){currentSaved=false;localStorage.removeItem('phieu_liet_si_saved');setExportEnabled(false);}});
