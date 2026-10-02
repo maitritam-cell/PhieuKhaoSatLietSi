@@ -10,24 +10,44 @@ const REL_COLS=['id','name','dob','gender','father','mother','address','status',
 const REL_LABELS={id:'Số ĐDCN/CCCD/CMND',name:'Họ và tên',dob:'Ngày tháng năm sinh',gender:'Giới tính',father:'Họ tên bố',mother:'Họ tên mẹ',address:'Nơi thường trú',status:'Trạng thái',signature:'Chữ ký'};
 
 let currentRecordId='';
+let isEditingExisting=false;
 let currentSaved=false;
-const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbwXHveyxf6Z1Hi-P-Ex9RtELyGszNRGhHsGMv6vVEsb43HcFyg3sbTa2XKvtJfkiT0orw/exec';
+
+const DEFAULT_APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbwXHveyxf6Z1Hi-P-Ex9RtELyGszNRGhHsGMv6vVEsb43HcFyg3sbTa2XKvtJfkiT0orw/exec';
 
 function $(id){return document.getElementById(id);}
-function setStatus(msg,type=''){const e=$('status');if(e){e.textContent=msg;e.className='status '+type;}}
+function getAppsScriptUrl(){return (localStorage.getItem('phieu_apps_script_url')||DEFAULT_APPS_SCRIPT_URL).trim();}
+
+function setStatus(msg,type=''){
+  const e=$('status');
+  if(e){e.textContent=msg;e.className='status '+type;}
+}
+
+function showNotification(type,title,msg){
+  const t=$('toast');if(!t)return;
+  t.className='toast '+type;
+  t.innerHTML='<div><strong>'+escapeHtml(title)+'</strong><div style="margin-top:3px;font-size:13px;">'+msg+'</div></div>';
+  t.style.display='flex';
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>{t.style.display='none';},6000);
+}
+
 function setBusy(busy){
   document.querySelectorAll('[data-busy]').forEach(el=>{
     el.disabled=!!busy;
     el.setAttribute('aria-busy',busy?'true':'false');
   });
 }
+
 function makeRecordId(){
   const d=new Date(), p=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0'),String(d.getHours()).padStart(2,'0'),String(d.getMinutes()).padStart(2,'0'),String(d.getSeconds()).padStart(2,'0')];
-  return 'LS02-'+p.join('')+'-'+Math.random().toString(36).slice(2,7).toUpperCase();
+  return 'LS02-'+p.join('')+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
 }
+
 function today(){
   const d=new Date();return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
 }
+
 function initRelations(){
   const body=$('relbody');if(!body)return;
   body.innerHTML=RELATIONSHIPS.map((name,i)=>{
@@ -35,210 +55,598 @@ function initRelations(){
       REL_COLS.map(c=>{
         const date=c==='dob'?' class="date" placeholder="dd/mm/yyyy"':'';
         const select=c==='gender'
-          ? '<select data-rel="'+i+'" data-col="gender"><option value="">--</option><option>Nam</option><option>Nữ</option></select>'
+          ? '<select data-rel="'+i+'" data-col="gender"><option value="">-- Chọn --</option><option>Nam</option><option>Nữ</option></select>'
           : c==='status'
-          ? '<select data-rel="'+i+'" data-col="status"><option value="">--</option><option>Còn sống</option><option>Đã chết</option></select>'
+          ? '<select data-rel="'+i+'" data-col="status"><option value="">-- Chọn --</option><option>Còn sống</option><option>Đã chết</option></select>'
           : '<input data-rel="'+i+'" data-col="'+c+'"'+date+'>';
         return '<td>'+select+'</td>';
       }).join('')+'</tr>';
   }).join('');
   attachDateMask();
 }
+
 function attachDateMask(){
-  document.querySelectorAll('input.date').forEach(el=>{
+  document.querySelectorAll('input.date, #rep_dob, #rep_issue_date, #decision_date, #martyr_dob, #martyr_death_date').forEach(el=>{
     el.addEventListener('input',()=>{
       const raw=el.value.replace(/\D/g,'').slice(0,8);
       el.value=raw.length>4?raw.slice(0,2)+'/'+raw.slice(2,4)+'/'+raw.slice(4):raw.length>2?raw.slice(0,2)+'/'+raw.slice(2):raw;
     });
   });
 }
+
 function collect(){
-  const ids=['rep_name','rep_dob','rep_gender','rep_id','rep_issue_date','rep_issue_place','rep_hometown','rep_address','rep_phone',
+  const ids=[
+    'rep_name','rep_dob','rep_gender','rep_id','rep_issue_date','rep_issue_place','rep_hometown','rep_address','rep_phone',
     'file_id','ministry_file','province_file','martyr_name','martyr_alias','martyr_dob','martyr_gender','martyr_hometown','martyr_rank',
-    'martyr_unit','martyr_death_date','martyr_death_place','burial_place','certificate_no','decision_no','decision_date','father','mother','wife',
-    'created_date','ubnd_date','ubnd_title','ubnd_name','police_date','police_title','police_name','donvi_date','donvi_title','donvi_name'];
-  const d={record_id:$('record_id')?.value||currentRecordId||makeRecordId()};
-  ids.forEach(id=>{const e=$(id);if(e)d[id]=e.value.trim();});
+    'martyr_unit','martyr_death_date','martyr_death_place','burial_place','certificate_no','decision_no','decision_date','father','mother','wife'
+  ];
+  const d={
+    record_id: currentRecordId || makeRecordId()
+  };
+  ids.forEach(id=>{
+    const e=$(id);
+    if(e) d[id]=(e.value||'').trim();
+  });
+
   d.relatives=RELATIONSHIPS.map((relationship,i)=>{
     const r={priority:i+1,relationship};
     REL_COLS.forEach(c=>{
       const e=document.querySelector('[data-rel="'+i+'"][data-col="'+c+'"]');
-      r[c]=e?e.value.trim():'';
+      r[c]=e?(e.value||'').trim():'';
     });
     return r;
   });
   return d;
 }
+
 function fill(d){
   if(!d)return;
   currentRecordId=d.record_id||makeRecordId();
+  isEditingExisting=true;
+
   Object.keys(d).forEach(k=>{
     const e=$(k);if(e&&k!=='relatives')e.value=d[k]??'';
   });
+
   (d.relatives||[]).slice(0,6).forEach((r,i)=>{
     REL_COLS.forEach(c=>{
-      const e=document.querySelector('[data-rel="'+i+'"][data-col="'+c+'"]');if(e)e.value=r[c]||'';
+      const e=document.querySelector('[data-rel="'+i+'"][data-col="'+c+'"]');
+      if(e)e.value=r[c]||'';
     });
   });
-  $('record_id').value=currentRecordId;
-  if(!$('created_date').value)$('created_date').value=today();
+
+  // Hiển thị banner chỉnh sửa
+  const banner=$('editingBanner');
+  const txt=$('editingText');
+  if(banner&&txt){
+    txt.textContent=(d.record_id||'Phiếu')+' – Liệt sĩ: '+(d.martyr_name||'Chưa có tên');
+    banner.style.display='flex';
+  }
 }
-function validate(d){
-  if(!d.martyr_name){
-    alert('Vui lòng nhập Họ và tên liệt sĩ.');
-    $('martyr_name')?.focus();return false;
+
+function validateForm(){
+  const errors=[];
+  document.querySelectorAll('.input-error').forEach(el=>el.classList.remove('input-error'));
+
+  function addError(id,msg){
+    const el=$(id);
+    if(el){
+      el.classList.add('input-error');
+      errors.push({id,el,msg});
+    }
+  }
+
+  // 1. Người đại diện thân nhân / người hưởng trợ cấp thờ cúng
+  const repName=($('rep_name')?.value||'').trim();
+  if(!repName)addError('rep_name','Họ và tên người đại diện');
+
+  const repDob=($('rep_dob')?.value||'').trim();
+  if(!repDob){
+    addError('rep_dob','Ngày tháng năm sinh người đại diện');
+  }else if(!/^\d{2}\/\d{2}\/\d{4}$/.test(repDob)){
+    addError('rep_dob','Ngày sinh người đại diện phải đủ ngày/tháng/năm (dd/mm/yyyy)');
+  }
+
+  const repGender=($('rep_gender')?.value||'').trim();
+  if(!repGender)addError('rep_gender','Giới tính người đại diện');
+
+  const repId=($('rep_id')?.value||'').trim();
+  const cleanRepId=repId.replace(/\D/g,'');
+  if(!cleanRepId){
+    addError('rep_id','Số Căn cước người đại diện');
+  }else if(cleanRepId.length!==12){
+    addError('rep_id',`Số Căn cước người đại diện phải đủ đúng 12 số (hiện có ${cleanRepId.length} số)`);
+  }
+
+  const repHometown=($('rep_hometown')?.value||'').trim();
+  if(!repHometown)addError('rep_hometown','Quê quán người đại diện');
+
+  const repAddress=($('rep_address')?.value||'').trim();
+  if(!repAddress)addError('rep_address','Nơi thường trú người đại diện');
+
+  const repPhone=($('rep_phone')?.value||'').trim();
+  if(!repPhone){
+    addError('rep_phone','Số điện thoại người đại diện');
+  }else if(repPhone.replace(/\D/g,'').length<9){
+    addError('rep_phone','Số điện thoại người đại diện không hợp lệ (cần ít nhất 9-11 chữ số)');
+  }
+
+  // 2. Thông tin về liệt sĩ
+  const martyrName=($('martyr_name')?.value||'').trim();
+  if(!martyrName)addError('martyr_name','Họ và tên liệt sĩ');
+
+  const martyrDob=($('martyr_dob')?.value||'').trim();
+  if(!martyrDob)addError('martyr_dob','Ngày tháng năm sinh liệt sĩ');
+
+  const martyrGender=($('martyr_gender')?.value||'').trim();
+  if(!martyrGender)addError('martyr_gender','Giới tính liệt sĩ');
+
+  const martyrHometown=($('martyr_hometown')?.value||'').trim();
+  if(!martyrHometown)addError('martyr_hometown','Quê quán liệt sĩ');
+
+  const martyrRank=($('martyr_rank')?.value||'').trim();
+  if(!martyrRank)addError('martyr_rank','Cấp bậc, chức vụ khi hy sinh');
+
+  const martyrUnit=($('martyr_unit')?.value||'').trim();
+  if(!martyrUnit)addError('martyr_unit','Cơ quan, đơn vị khi hy sinh');
+
+  const martyrDeathDate=($('martyr_death_date')?.value||'').trim();
+  if(!martyrDeathDate)addError('martyr_death_date','Ngày tháng năm hy sinh');
+
+  const certNo=($('certificate_no')?.value||'').trim();
+  if(!certNo)addError('certificate_no','Bằng Tổ quốc ghi công số');
+
+  const decNo=($('decision_no')?.value||'').trim();
+  if(!decNo)addError('decision_no','Quyết định số');
+
+  const decDate=($('decision_date')?.value||'').trim();
+  if(!decDate){
+    addError('decision_date','Ngày quyết định');
+  }
+
+  return errors;
+}
+
+function checkValidationAndReport(actionName){
+  const errors=validateForm();
+  if(errors.length>0){
+    const first=errors[0];
+    first.el.focus();
+    first.el.scrollIntoView({behavior:'smooth',block:'center'});
+    const errorListStr=errors.map((e,idx)=>`${idx+1}. ${e.msg}`).join('\n');
+    setStatus('Thiếu '+errors.length+' thông tin bắt buộc (*)','error');
+    showNotification('error','Chưa điền đủ thông tin bắt buộc (*)',
+      `Vui lòng bổ sung ${errors.length} mục còn thiếu để ${actionName}: <strong>${errors[0].msg}</strong>${errors.length>1?', ...':''}`
+    );
+    alert(`Không thể ${actionName} do chưa điền đủ ${errors.length} thông tin bắt buộc (*):\n\n`+errorListStr);
+    return false;
   }
   return true;
 }
+
 function getRecords(){try{return JSON.parse(localStorage.getItem('phieu_liet_si_records')||'[]');}catch{return [];}}
-function putRecords(list){localStorage.setItem('phieu_liet_si_records',JSON.stringify(list.slice(0,200)));}
+function putRecords(list){localStorage.setItem('phieu_liet_si_records',JSON.stringify(list.slice(0,300)));}
 
 function saveLocal(d){
   const list=getRecords();
-  const i=list.findIndex(x=>x.record_id===d.record_id);
+  const i=list.findIndex(x=>(x.record_id&&x.record_id===d.record_id)||(x.file_id&&x.file_id===d.file_id));
   const item={...d,saved_at:new Date().toISOString()};
-  if(i>=0)list[i]=item;else list.unshift(item);
+  if(i>=0){
+    list[i]=item;
+  }else{
+    list.unshift(item);
+  }
   putRecords(list);
 }
 
-async function renderRecords(){
+function renderRecords(){
   const q=($('recordSearch')?.value||'').trim().toLowerCase();
   const body=$('recordRows');if(!body)return;
-  const rows=getRecords().filter(x=>!q||[x.record_id,x.martyr_name,x.file_id,x.rep_name].join(' ').toLowerCase().includes(q));
-  body.innerHTML=rows.map(x=>'<tr>'+
-    '<td>'+escapeHtml(x.record_id||'')+'</td>'+
-    '<td>'+escapeHtml(x.martyr_name||'')+'</td>'+
-    '<td>'+escapeHtml(x.file_id||'')+'</td>'+
-    '<td>'+escapeHtml(x.rep_name||'')+'</td>'+
-    '<td>'+escapeHtml(x.saved_at?new Date(x.saved_at).toLocaleString('vi-VN'):'')+'</td>'+
-    '<td><button class="mini" data-id="'+escapeAttr(x.record_id||'')+'" onclick="openRecord(this.dataset.id)">Mở</button> <button class="mini danger" data-id="'+escapeAttr(x.record_id||'')+'" onclick="deleteRecord(this.dataset.id)">Xóa khỏi danh sách máy</button></td>'+
-  '</tr>').join('')||'<tr><td colspan="6" class="empty">Chưa có phiếu đã lưu trên thiết bị này. Dữ liệu đã gửi lên Google Sheets cần xem tại bảng tính.</td></tr>';
+  const list=getRecords();
+  const badge=$('recordCountBadge');
+  if(badge)badge.textContent=list.length+' phiếu';
+
+  const rows=list.filter(x=>!q||[x.record_id,x.martyr_name,x.file_id,x.rep_name,x.rep_phone,x.rep_id].join(' ').toLowerCase().includes(q));
+
+  if(!rows.length){
+    body.innerHTML='<tr><td colspan="8" class="empty" style="text-align:center;padding:16px;color:#64748b;">Chưa có phiếu phù hợp. Hãy nhập phiếu và bấm "Lưu vào Google Sheets".</td></tr>';
+    return;
+  }
+
+  body.innerHTML=rows.map((x,idx)=>'<tr>'+
+    '<td style="text-align:center;">'+(idx+1)+'</td>'+
+    '<td><strong>'+escapeHtml(x.record_id||x.file_id||'')+'</strong></td>'+
+    '<td><strong style="color:#0f172a;">'+escapeHtml(x.martyr_name||'')+'</strong>'+(x.martyr_dob?`<br><small style="color:#64748b;">Sinh: ${escapeHtml(x.martyr_dob)}</small>`:'')+'</td>'+
+    '<td>'+escapeHtml(x.file_id||'--')+'</td>'+
+    '<td>'+escapeHtml(x.rep_name||'')+(x.rep_phone?`<br><small style="color:#0369a1;">📞 ${escapeHtml(x.rep_phone)}</small>`:'')+'</td>'+
+    '<td style="font-size:12px;">'+escapeHtml(x.saved_at?new Date(x.saved_at).toLocaleString('vi-VN'):'')+'</td>'+
+    '<td><span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;background:'+(x.trangThai==='Đã cập nhật'?'#fef3c7;color:#b45309':'#ecfdf5;color:#047857')+';">'+escapeHtml(x.trangThai||'Mới')+'</span></td>'+
+    '<td style="text-align:center;white-space:nowrap;">'+
+      '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="openRecord(\''+escapeAttr(x.record_id||'')+'\')">✏️ Sửa</button>'+
+      '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectWord(\''+escapeAttr(x.record_id||'')+'\')">📄 Word</button>'+
+      '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectPdf(\''+escapeAttr(x.record_id||'')+'\')">📑 PDF</button>'+
+      '<button type="button" class="btn danger" style="padding:4px 8px;font-size:12px;" onclick="deleteRecord(\''+escapeAttr(x.record_id||'')+'\')">🗑️</button>'+
+    '</td>'+
+  '</tr>').join('');
 }
 
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function escapeAttr(v){return String(v??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
 
-function saveDraft(){
-  localStorage.setItem('phieu_liet_si_draft',JSON.stringify(collect()));
-  setStatus('Đã lưu bản nháp trên máy.','ok');
-}
-function loadDraft(){
-  try{
-    const d=JSON.parse(localStorage.getItem('phieu_liet_si_draft')||'null');
-    if(d){fill(d);return;}
-  }catch{}
-  currentRecordId=makeRecordId();
-  $('record_id').value=currentRecordId;
-  $('created_date').value=today();
-}
 function newRecord(){
-  document.querySelectorAll('input,select').forEach(e=>{if(!['record_id','created_date'].includes(e.id)&&!e.dataset.rel)e.value='';});
+  document.querySelectorAll('input,select').forEach(e=>{if(!e.dataset.rel)e.value='';});
   initRelations();
   currentRecordId=makeRecordId();
-  $('record_id').value=currentRecordId;
-  $('created_date').value=today();
+  isEditingExisting=false;
   currentSaved=false;
   localStorage.removeItem('phieu_liet_si_saved');
   setExportEnabled(false);
-  saveDraft();
-  setStatus('Đã tạo phiếu mới.','ok');
+
+  const banner=$('editingBanner');
+  if(banner)banner.style.display='none';
+
+  setStatus('Đã làm mới biểu mẫu để lập phiếu mới.');
   window.scrollTo({top:0,behavior:'smooth'});
 }
-async function openRecord(id){
-  const item=getRecords().find(x=>x.record_id===id);
-  if(!item){alert('Không tìm thấy phiếu trong danh sách lưu trên thiết bị này.');return;}
+
+function openRecord(id){
+  const list=getRecords();
+  const item=list.find(x=>x.record_id===id||x.file_id===id);
+  if(!item){
+    alert('Không tìm thấy thông tin phiếu trong danh sách lưu trên thiết bị.');
+    return;
+  }
   fill(item);
   currentSaved=true;
   localStorage.setItem('phieu_liet_si_saved','1');
-  saveDraft();
   setExportEnabled(true);
-  setStatus('Đã mở phiếu đã lưu trên thiết bị.','ok');
+  setStatus('Đang chỉnh sửa phiếu: '+(item.record_id||''));
+  showNotification('success','Đã tải phiếu','Đã đưa thông tin phiếu vào biểu mẫu để xem và sửa.');
   window.scrollTo({top:0,behavior:'smooth'});
 }
-async function deleteRecord(id){
-  if(!confirm('Xóa phiếu '+id+' khỏi danh sách lưu trên thiết bị này? Dữ liệu đã gửi lên Google Sheets không bị xóa.'))return;
-  putRecords(getRecords().filter(x=>x.record_id!==id));
+
+function deleteRecord(id){
+  if(!confirm('Xóa phiếu '+id+' khỏi danh sách máy? Lưu ý: Dữ liệu trên Google Sheets sẽ không bị xóa.'))return;
+  putRecords(getRecords().filter(x=>x.record_id!==id&&x.file_id!==id));
   if(currentRecordId===id){
-    localStorage.removeItem('phieu_liet_si_draft');
-    localStorage.removeItem('phieu_liet_si_saved');
+    newRecord();
   }
-  await renderRecords();
-  setStatus('Đã xóa phiếu khỏi danh sách trên thiết bị. Dữ liệu Google Sheets vẫn được giữ.','ok');
+  renderRecords();
+  setStatus('Đã xóa phiếu khỏi danh sách trên thiết bị.');
 }
 
-async function saveRecord(){
-  const d=collect();
-  if(!validate(d))return;
-  currentRecordId=d.record_id;
-  setBusy(true);
-  setStatus('Đang lưu bản sao trên thiết bị...','loading');
-  const payload={
-    maPhieu:d.file_id||d.record_id,
-    record_id:d.record_id,
-    hoTenLietSi:d.martyr_name,
-    ngaySinh:d.martyr_dob,
-    ngayHySinh:d.martyr_death_date,
-    queQuan:d.martyr_hometown,
-    hoTenNguoiDaiDien:d.rep_name,
-    soDienThoai:d.rep_phone,
-    trangThai:'Mới',
-    donVi:d.martyr_unit,
-    ghiChu:d.martyr_death_place||'',
-    duLieuDayDu:JSON.stringify(d)
-  };
-  const saved={...d,saved_at:new Date().toISOString()};
+async function fetchFromGoogleSheets(){
+  setStatus('Đang tra cứu danh sách từ Google Sheets...');
+  const scriptUrl=getAppsScriptUrl();
   try{
-    // Lưu cục bộ trước để người dùng không mất phiếu nếu mạng/Apps Script bị treo.
-    saveLocal(saved);
-    localStorage.setItem('phieu_liet_si_draft',JSON.stringify(saved));
-    localStorage.setItem('phieu_liet_si_saved','1');
-    currentSaved=true;
-    setExportEnabled(true);
-    renderRecords();
-    setStatus('Đã lưu trên thiết bị. Đang gửi lên Google Sheets...','loading');
+    const res=await fetch('/api/records?appsScriptUrl='+encodeURIComponent(scriptUrl));
+    const data=await res.json().catch(()=>({}));
+    if(res.ok && data.records && Array.isArray(data.records) && data.records.length>0){
+      const currentList=getRecords();
+      let added=0;
+      data.records.forEach(r=>{
+        const exists=currentList.find(c=>(c.record_id&&c.record_id===r.record_id)||(c.file_id&&c.file_id===r.file_id));
+        if(!exists){
+          currentList.push({
+            record_id: r.record_id,
+            martyr_name: r.martyr_name,
+            martyr_dob: r.martyr_dob,
+            martyr_death_date: r.martyr_death_date,
+            martyr_hometown: r.martyr_hometown,
+            file_id: r.file_id,
+            rep_name: r.rep_name,
+            rep_phone: r.rep_phone,
+            saved_at: r.saved_at,
+            trangThai: r.status||'Mới',
+            ...(r.data||{})
+          });
+          added++;
+        }
+      });
+      putRecords(currentList);
+      renderRecords();
+      setStatus(`Đã đồng bộ xong ${data.records.length} phiếu từ Google Sheets (thêm mới ${added} phiếu).`);
+      alert(`Đã đồng bộ thành công ${data.records.length} phiếu từ Google Sheets!`);
+    }else{
+      setStatus('Không có bản ghi mới từ Google Sheets.');
+      alert('Đã kết nối Google Sheets nhưng chưa tìm thấy thêm bản ghi nào.');
+    }
+  }catch(err){
+    console.error(err);
+    setStatus('Lỗi khi tra cứu từ Google Sheets: '+err.message);
+    alert('Không thể kết nối lấy dữ liệu từ Google Sheets: '+err.message);
+  }
+}
 
-    const request=fetch(APPS_SCRIPT_URL,{
+async function saveToSheets(){
+  const actionText = isEditingExisting ? 'cập nhật thông tin phiếu' : 'lưu phiếu vào Google Sheets';
+  if(!checkValidationAndReport(actionText))return;
+
+  const d=collect();
+  currentRecordId=d.record_id;
+
+  const statusLabel = isEditingExisting ? 'Đã cập nhật' : 'Mới';
+
+  // Toàn bộ 33+ trường thông tin đẩy lên Google Sheets
+  const payload={
+    record_id: d.record_id,
+    maPhieu: d.file_id || d.record_id,
+    file_id: d.file_id || '',
+    ministry_file: d.ministry_file || '',
+    province_file: d.province_file || '',
+    martyr_name: d.martyr_name,
+    hoTenLietSi: d.martyr_name,
+    martyr_alias: d.martyr_alias || '',
+    biDanh: d.martyr_alias || '',
+    martyr_dob: d.martyr_dob,
+    ngaySinh: d.martyr_dob,
+    martyr_gender: d.martyr_gender,
+    gioiTinhLS: d.martyr_gender,
+    martyr_hometown: d.martyr_hometown,
+    queQuan: d.martyr_hometown,
+    martyr_rank: d.martyr_rank,
+    capBac: d.martyr_rank,
+    martyr_unit: d.martyr_unit,
+    donVi: d.martyr_unit,
+    martyr_death_date: d.martyr_death_date,
+    ngayHySinh: d.martyr_death_date,
+    martyr_death_place: d.martyr_death_place || '',
+    noiHySinh: d.martyr_death_place || '',
+    burial_place: d.burial_place || '',
+    noiAnTang: d.burial_place || '',
+    certificate_no: d.certificate_no,
+    soBangTQGC: d.certificate_no,
+    decision_no: d.decision_no,
+    soQuyetDinh: d.decision_no,
+    decision_date: d.decision_date,
+    ngayQuyetDinh: d.decision_date,
+    father: d.father || '',
+    hoTenBo: d.father || '',
+    mother: d.mother || '',
+    hoTenMe: d.mother || '',
+    wife: d.wife || '',
+    hoTenVo: d.wife || '',
+    rep_name: d.rep_name,
+    hoTenNguoiDaiDien: d.rep_name,
+    rep_dob: d.rep_dob,
+    ngaySinhNDD: d.rep_dob,
+    rep_gender: d.rep_gender,
+    gioiTinhNDD: d.rep_gender,
+    rep_id: d.rep_id,
+    soCCCD: d.rep_id,
+    rep_issue_date: d.rep_issue_date || '',
+    ngayCapCCCD: d.rep_issue_date || '',
+    rep_issue_place: d.rep_issue_place || '',
+    noiCapCCCD: d.rep_issue_place || '',
+    rep_hometown: d.rep_hometown,
+    queQuanNDD: d.rep_hometown,
+    rep_address: d.rep_address,
+    noiThuongTruNDD: d.rep_address,
+    rep_phone: d.rep_phone,
+    soDienThoai: d.rep_phone,
+    trangThai: statusLabel,
+    ghiChu: d.martyr_death_place || '',
+    relatives: d.relatives,
+    duLieuDayDu: JSON.stringify(d)
+  };
+
+  const btnSave=$('btnSaveSheets');
+  if(btnSave){
+    btnSave.disabled=true;
+    btnSave.textContent='Đang lưu vào Sheets...';
+  }
+  setStatus('Đang gửi và lưu toàn bộ thông tin vào Google Sheets...');
+
+  const scriptUrl=getAppsScriptUrl();
+  const savedRecord={...d,trangThai:statusLabel,saved_at:new Date().toISOString()};
+
+  try{
+    // Lưu cục bộ trước để tránh mất dữ liệu
+    saveLocal(savedRecord);
+    renderRecords();
+
+    const proxyRes=await fetch('/api/save-sheet',{
       method:'POST',
-      mode:'no-cors',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify(payload)
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        ...payload,
+        appsScriptUrl: scriptUrl
+      })
     });
-    const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('Hết thời gian chờ phản hồi từ Google Apps Script')),15000));
-    await Promise.race([request,timeout]);
-    setStatus('Đã gửi yêu cầu lên Google Sheets. Vui lòng kiểm tra bảng tính để xác nhận dữ liệu đã được ghi.','ok');
-    alert('Phiếu đã được lưu trên thiết bị và đã gửi yêu cầu lên Google Sheets. Hãy kiểm tra bảng tính để xác nhận dữ liệu đã xuất hiện.');
-  }catch(e){
-    console.error(e);
-    setStatus('Phiếu vẫn được lưu trên thiết bị, nhưng chưa xác nhận được việc ghi lên Google Sheets. Hãy kiểm tra bảng tính và thử gửi lại nếu chưa có dữ liệu.','error');
-    alert('Phiếu đã lưu trên thiết bị để tránh mất dữ liệu, nhưng chưa xác nhận được việc ghi lên Google Sheets. Hãy kiểm tra bảng tính trước khi gửi lại để tránh tạo bản trùng.');
+
+    const result=await proxyRes.json().catch(()=>({}));
+
+    if(proxyRes.ok && result.ok){
+      markSaved();
+      const msg = isEditingExisting
+        ? `Đã cập nhật thành công thông tin phiếu "${d.record_id}" của liệt sĩ "${d.martyr_name}" trên Google Sheets!`
+        : `Đã lưu thành công thông tin liệt sĩ "${d.martyr_name}" vào Google Sheets!`;
+      setStatus(msg);
+      showNotification('success','Lưu thành công!',msg);
+      alert(msg+'\n\nNút Xuất Word và Xuất PDF đúng Mẫu 02 đã sẵn sàng.');
+      return;
+    }
+
+    if(result.isAuthError || result.isNotFoundError){
+      throw new Error(result.error);
+    }
+
+    throw new Error(result.error||`Lỗi máy chủ (${proxyRes.status})`);
+  }catch(err){
+    console.warn('Proxy save error:', err);
+
+    if(err.message.includes('404')||err.message.includes('quyền truy cập')||err.message.includes('đăng nhập')){
+      setStatus('Lỗi cấu hình Google Sheets: '+err.message,'error');
+      showNotification('error','Lỗi lưu Google Sheets',err.message);
+      if(confirm(err.message+'\n\nBạn có muốn mở bảng Cài đặt Google Sheets để kiểm tra hoặc cập nhật lại URL không?')){
+        openScriptConfigModal();
+      }
+      return;
+    }
+
+    // Fallback: direct fetch from browser
+    try{
+      await fetch(scriptUrl,{
+        method:'POST',
+        mode:'no-cors',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify(payload)
+      });
+      markSaved();
+      const msg=`Đã gửi yêu cầu lưu thông tin liệt sĩ "${d.martyr_name}" tới Google Sheets. Nút Xuất Word và PDF đã mở khóa.`;
+      setStatus(msg);
+      showNotification('success','Đã gửi tới Google Sheets',msg);
+      alert(msg);
+    }catch(fallbackErr){
+      setStatus('Lỗi kết nối Google Sheets: '+err.message,'error');
+      showNotification('error','Lỗi lưu Google Sheets',err.message);
+      alert('Không thể lưu vào Google Sheets: '+err.message);
+    }
   }finally{
-    setBusy(false);
+    if(btnSave){
+      btnSave.disabled=false;
+      btnSave.textContent='Lưu vào Google Sheets';
+    }
   }
 }
 
 function setExportEnabled(enabled){
-  ['btnWord','btnPdf'].forEach(id=>{const b=$(id);if(b)b.disabled=!enabled;});
+  ['btnWord','btnPdf'].forEach(id=>{
+    const b=$(id);if(b)b.disabled=!enabled;
+  });
   currentSaved=enabled;
 }
+
+function markSaved(){
+  localStorage.setItem('phieu_liet_si_saved','1');
+  setExportEnabled(true);
+}
+
 function clearAll(){
-  if(!confirm('Xóa dữ liệu đang nhập và bản nháp hiện tại?'))return;
-  localStorage.removeItem('phieu_liet_si_draft');
+  if(!confirm('Xóa trắng biểu mẫu đang nhập?'))return;
   localStorage.removeItem('phieu_liet_si_saved');
   newRecord();
 }
+
+function downloadBlob(blob,name){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
 async function generateWord(){
+  if(!checkValidationAndReport('xuất Word'))return;
+  if(localStorage.getItem('phieu_liet_si_saved')!=='1'){
+    alert('Vui lòng bấm "Lưu vào Google Sheets" để lưu dữ liệu vào hệ thống trước khi xuất Word.');
+    return;
+  }
   const d=collect();
-  if(!currentSaved || localStorage.getItem('phieu_liet_si_saved')!=='1'){alert('Hãy lưu hồ sơ trước khi xuất Word.');return;}
-  if(!validate(d))return;
   setStatus('Đang tạo Word...','loading');
   try{
-    const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+    const r=await fetch('/api/generate',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(d)
+    });
     if(!r.ok)throw new Error(await r.text());
-    downloadBlob(await r.blob(),'Phieu_khao_sat_liet_si_'+d.record_id+'.docx');
-    setStatus('Đã xuất Word.','ok');
+    downloadBlob(await r.blob(),'Phieu_khao_sat_liet_si_'+(d.record_id||d.martyr_name)+'.docx');
+    setStatus('Đã xuất Word thành công.');
   }catch(e){
     console.error(e);setStatus('Lỗi Word: '+e.message,'error');alert('Không xuất được Word: '+e.message);
   }
+}
+
+async function exportDirectWord(id){
+  const item=getRecords().find(x=>x.record_id===id||x.file_id===id);
+  if(!item){alert('Không tìm thấy dữ liệu.');return;}
+  fill(item);
+  setStatus('Đang xuất Word cho phiếu '+id+'...');
+  try{
+    const r=await fetch('/api/generate',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(item)
+    });
+    if(!r.ok)throw new Error(await r.text());
+    downloadBlob(await r.blob(),'Phieu_khao_sat_liet_si_'+(item.record_id||id)+'.docx');
+    setStatus('Đã xuất Word thành công.');
+  }catch(e){
+    alert('Lỗi xuất Word: '+e.message);
+  }
+}
+
+async function exportDirectPdf(id){
+  const item=getRecords().find(x=>x.record_id===id||x.file_id===id);
+  if(!item){alert('Không tìm thấy dữ liệu.');return;}
+  fill(item);
+  await generatePdf();
+}
+
+function openScriptConfigModal(){
+  $('input-script-url').value=getAppsScriptUrl();
+  $('config-test-status').innerHTML='';
+  $('script-config-modal').style.display='flex';
+}
+
+function closeScriptConfigModal(){
+  $('script-config-modal').style.display='none';
+}
+
+function saveScriptConfig(){
+  const url=$('input-script-url').value.trim();
+  if(!url){
+    localStorage.removeItem('phieu_apps_script_url');
+    alert('Đã khôi phục URL Google Apps Script mặc định.');
+  }else if(!url.startsWith('https://script.google.com/')){
+    alert('URL không hợp lệ! URL Web App phải bắt đầu bằng https://script.google.com/macros/s/...');
+    return;
+  }else{
+    localStorage.setItem('phieu_apps_script_url',url);
+    alert('Đã lưu URL Google Apps Script thành công!');
+  }
+  closeScriptConfigModal();
+  setStatus('Đã cập nhật URL Google Sheets.');
+}
+
+async function testScriptConnection(){
+  const url=$('input-script-url').value.trim()||getAppsScriptUrl();
+  const statusEl=$('config-test-status');
+  statusEl.innerHTML='<span style="color:#0284c7;">Đang kiểm tra kết nối tới Google Apps Script...</span>';
+
+  try{
+    const res=await fetch('/api/save-sheet',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        appsScriptUrl:url,
+        record_id:'TEST-PING',
+        hoTenLietSi:'KIỂM TRA KẾT NỐI',
+        ghiChu:'Test ping từ ứng dụng',
+        trangThai:'Kiểm tra'
+      })
+    });
+    const data=await res.json().catch(()=>({}));
+    if(res.ok && data.ok){
+      statusEl.innerHTML='<span style="color:#16a34a;font-weight:600;">✓ Kết nối thành công! Google Apps Script đã sẵn sàng ghi/sửa dữ liệu vào trang tính.</span>';
+    }else{
+      statusEl.innerHTML=`<span style="color:#dc2626;font-weight:600;">⚠️ Kết nối thất bại:</span> <div style="color:#991b1b;margin-top:4px;">${escapeHtml(data.error||'Lỗi không xác định')}</div>`;
+    }
+  }catch(err){
+    statusEl.innerHTML=`<span style="color:#dc2626;font-weight:600;">⚠️ Lỗi:</span> <div style="color:#991b1b;margin-top:4px;">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function copySampleCode(){
+  const code=$('sample-script-code').textContent;
+  navigator.clipboard.writeText(code).then(()=>{
+    alert('Đã sao chép mã nguồn Google Apps Script vào bộ nhớ tạm!');
+  }).catch(()=>{
+    alert('Vui lòng chọn và sao chép mã trong khung.');
+  });
 }
 
 function makeTextPng(text,widthPt,heightPt,opt={}){
@@ -290,8 +698,12 @@ async function overlayBox(doc,page,x0,y0,x1,y1,text,opt={}){
 }
 
 async function generatePdf(){
+  if(!checkValidationAndReport('xuất PDF'))return;
+  if(localStorage.getItem('phieu_liet_si_saved')!=='1'){
+    alert('Vui lòng bấm "Lưu vào Google Sheets" để lưu dữ liệu vào hệ thống trước khi xuất PDF.');
+    return;
+  }
   const d=collect();
-  if(!d.martyr_name){alert('Vui lòng nhập Họ và tên liệt sĩ.');return;}
   if(!window.PDFLib){alert('Thư viện PDF chưa tải xong. Hãy thử lại sau vài giây.');return;}
   setStatus('Đang tạo PDF theo mẫu gốc...');
 
@@ -4738,29 +5150,50 @@ L1hSZWZTdG0gMTg0MjY5Pj4NCnN0YXJ0eHJlZg0KMTk2MzMwDQolJUVPRg==
 
 function initApp(){
   initRelations();
-  const hasRelatives=$('hasRelatives'), relativeDetails=$('relativeDetails');
-  if(hasRelatives&&relativeDetails){
-    hasRelatives.addEventListener('change',()=>{
-      relativeDetails.hidden=!hasRelatives.checked;
-      if(!hasRelatives.checked){
-        relativeDetails.querySelectorAll('input,select').forEach(el=>{el.value='';});
-        localStorage.setItem('phieu_liet_si_draft',JSON.stringify(collect()));
-      }
+  localStorage.removeItem('phieu_liet_si_saved');
+  setExportEnabled(false);
+
+  renderRecords();
+  $('recordSearch')?.addEventListener('input',()=>renderRecords());
+
+  const repIdEl=$('rep_id');
+  if(repIdEl){
+    repIdEl.addEventListener('input',function(){
+      this.value=this.value.replace(/\D/g,'').slice(0,12);
     });
   }
-  loadDraft();renderRecords();
-  $('recordSearch')?.addEventListener('input',()=>renderRecords());
+
+  // Khi sửa thông tin bất kỳ, khóa xuất để yêu cầu bấm Lưu lại
   document.querySelectorAll('input,select').forEach(e=>{
-    e.addEventListener('input',()=>{localStorage.setItem('phieu_liet_si_draft',JSON.stringify(collect()));if(currentSaved){currentSaved=false;localStorage.removeItem('phieu_liet_si_saved');setExportEnabled(false);}});
+    const handleEdit=()=>{
+      e.classList.remove('input-error');
+      if(localStorage.getItem('phieu_liet_si_saved')==='1'){
+        localStorage.removeItem('phieu_liet_si_saved');
+        setExportEnabled(false);
+        setStatus('Thông tin vừa chỉnh sửa. Hãy bấm "Lưu vào Google Sheets" để cập nhật và mở khóa xuất file.');
+      }
+    };
+    e.addEventListener('input',handleEdit);
+    e.addEventListener('change',handleEdit);
   });
-  setExportEnabled(localStorage.getItem('phieu_liet_si_saved')==='1');
 }
+
 window.openRecord=openRecord;
 window.deleteRecord=deleteRecord;
 window.newRecord=newRecord;
-window.saveDraft=saveDraft;
-window.saveRecord=saveRecord;
+window.saveToSheets=saveToSheets;
+window.saveRecord=saveToSheets;
 window.generateWord=generateWord;
 window.generatePdf=generatePdf;
 window.clearAll=clearAll;
+window.exportDirectWord=exportDirectWord;
+window.exportDirectPdf=exportDirectPdf;
+window.fetchFromGoogleSheets=fetchFromGoogleSheets;
+window.openScriptConfigModal=openScriptConfigModal;
+window.closeScriptConfigModal=closeScriptConfigModal;
+window.saveScriptConfig=saveScriptConfig;
+window.testScriptConnection=testScriptConnection;
+window.copySampleCode=copySampleCode;
+window.renderRecords=renderRecords;
 window.addEventListener('DOMContentLoaded',initApp);
+

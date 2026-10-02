@@ -214,7 +214,7 @@ app.post('/api/generate', async (req, res) => {
   }
 });
 
-// Proxy endpoint to save to Google Sheets via Google Apps Script
+// Proxy endpoint to save to Google Sheets via Google Apps Script (and optional Supabase)
 app.post('/api/save-sheet', async (req, res) => {
   try {
     const payload = req.body || {};
@@ -229,24 +229,32 @@ app.post('/api/save-sheet', async (req, res) => {
     }
 
     const queryParams = new URLSearchParams({
-      maPhieu: payload.maPhieu || '',
-      hoTenLietSi: payload.hoTenLietSi || '',
-      ngaySinh: payload.ngaySinh || '',
-      ngayHySinh: payload.ngayHySinh || '',
-      queQuan: payload.queQuan || '',
-      hoTenNguoiDaiDien: payload.hoTenNguoiDaiDien || '',
-      soDienThoai: payload.soDienThoai || '',
+      record_id: payload.record_id || payload.maPhieu || '',
+      maPhieu: payload.file_id || payload.maPhieu || payload.record_id || '',
+      hoTenLietSi: payload.martyr_name || payload.hoTenLietSi || '',
+      ngaySinh: payload.martyr_dob || payload.ngaySinh || '',
+      ngayHySinh: payload.martyr_death_date || payload.ngayHySinh || '',
+      queQuan: payload.martyr_hometown || payload.queQuan || '',
+      hoTenNguoiDaiDien: payload.rep_name || payload.hoTenNguoiDaiDien || '',
+      soDienThoai: payload.rep_phone || payload.soDienThoai || '',
       trangThai: payload.trangThai || 'Mới',
-      donVi: payload.donVi || '',
-      ghiChu: payload.ghiChu || '',
-      ngayQuyetDinh: payload.ngayQuyetDinh || '',
-      soQuyetDinh: payload.soQuyetDinh || '',
-      soBangTQGC: payload.soBangTQGC || '',
-      soCCCD: payload.soCCCD || ''
+      donVi: payload.martyr_unit || payload.donVi || '',
+      ghiChu: payload.martyr_death_place || payload.ghiChu || '',
+      ngayQuyetDinh: payload.decision_date || payload.ngayQuyetDinh || '',
+      soQuyetDinh: payload.decision_no || payload.soQuyetDinh || '',
+      soBangTQGC: payload.certificate_no || payload.soBangTQGC || '',
+      soCCCD: payload.rep_id || payload.soCCCD || '',
+      gioiTinhLS: payload.martyr_gender || payload.gioiTinhLS || '',
+      gioiTinhNDD: payload.rep_gender || payload.gioiTinhNDD || '',
+      queQuanNDD: payload.rep_hometown || payload.queQuanNDD || '',
+      noiThuongTruNDD: payload.rep_address || payload.noiThuongTruNDD || '',
+      capBac: payload.martyr_rank || payload.capBac || '',
+      file_id: payload.file_id || ''
     });
 
     const targetUrl = appsScriptUrl + (appsScriptUrl.includes('?') ? '&' : '?') + queryParams.toString();
 
+    // Send full JSON payload to Google Apps Script
     const googleRes = await fetch(targetUrl, {
       method: 'POST',
       redirect: 'follow',
@@ -282,9 +290,43 @@ app.post('/api/save-sheet', async (req, res) => {
       });
     }
 
+    // Optional: If Supabase connection is configured, also upsert record to database
+    if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const recordId = payload.record_id || payload.file_id || ('LS02-' + Date.now());
+        const supabaseEndpoint = `${process.env.SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/m02_records?on_conflict=record_id`;
+        await fetch(supabaseEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'Prefer': 'resolution=merge-duplicates,return=representation'
+          },
+          body: JSON.stringify([{
+            record_id: recordId,
+            status: payload.trangThai || 'Mới',
+            martyr_name: payload.martyr_name || payload.hoTenLietSi || '',
+            martyr_hometown: payload.martyr_hometown || payload.queQuan || '',
+            file_id: payload.file_id || '',
+            rep_name: payload.rep_name || payload.hoTenNguoiDaiDien || '',
+            data: payload,
+            updated_at: new Date().toISOString()
+          }])
+        });
+      } catch (dbErr) {
+        console.warn('Supabase optional upsert warning:', dbErr.message);
+      }
+    }
+
+    let parsedGoogleResult = {};
+    try { parsedGoogleResult = JSON.parse(responseText); } catch (e) {}
+
     res.json({
       ok: true,
-      message: 'Đã lưu thành công vào Google Sheets'
+      message: parsedGoogleResult.message || 'Đã lưu thành công vào Google Sheets',
+      action: parsedGoogleResult.action || 'saved',
+      record_id: payload.record_id || payload.maPhieu
     });
   } catch (err) {
     console.error('Error saving to Google Sheets:', err);
@@ -293,6 +335,51 @@ app.post('/api/save-sheet', async (req, res) => {
       error: 'Lỗi khi gửi dữ liệu tới Google Apps Script: ' + err.message
     });
   }
+});
+
+// Endpoint to search or list records
+app.get('/api/records', async (req, res) => {
+  const q = (req.query.q || '').trim().toLowerCase();
+  const appsScriptUrl = (req.query.appsScriptUrl || '').trim();
+
+  // Try Supabase first if configured
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      let queryUrl = `${process.env.SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/m02_records?select=*&order=updated_at.desc&limit=100`;
+      if (q) {
+        queryUrl += `&or=(martyr_name.ilike.*${encodeURIComponent(q)}*,record_id.ilike.*${encodeURIComponent(q)}*,rep_name.ilike.*${encodeURIComponent(q)}*,file_id.ilike.*${encodeURIComponent(q)}*)`;
+      }
+      const dbRes = await fetch(queryUrl, {
+        headers: {
+          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+        }
+      });
+      if (dbRes.ok) {
+        const records = await dbRes.json();
+        return res.json({ ok: true, source: 'supabase', records });
+      }
+    } catch (e) {
+      console.warn('Supabase query error, fallback to sheets:', e.message);
+    }
+  }
+
+  // Fallback to Google Apps Script if URL provided
+  if (appsScriptUrl && appsScriptUrl.startsWith('https://script.google.com/')) {
+    try {
+      const gRes = await fetch(`${appsScriptUrl}?action=list&q=${encodeURIComponent(q)}`, {
+        redirect: 'follow'
+      });
+      if (gRes.ok) {
+        const data = await gRes.json();
+        return res.json(data);
+      }
+    } catch (e) {
+      console.warn('Apps Script query error:', e.message);
+    }
+  }
+
+  res.json({ ok: true, records: [] });
 });
 
 // Health check endpoint
