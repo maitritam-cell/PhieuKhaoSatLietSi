@@ -299,7 +299,7 @@ app.post('/api/generate',async(req,res)=>{
 app.get('/api/health',(req,res)=>{
   let template='missing';
   try{template=path.relative(__dirname,resolveTemplatePath());}catch{}
-  res.json({status:'ok',runtime:'node',template});
+  res.json({status:'ok',runtime:'node',template,storage:'supabase',databaseConfigured:dbReady()});
 });
 
 if(fs.existsSync(path.join(__dirname,'public')))app.use(express.static(path.join(__dirname,'public')));
