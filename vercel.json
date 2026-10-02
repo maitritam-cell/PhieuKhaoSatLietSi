@@ -1,7 +1,11 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
+  "framework": null,
+  "buildCommand": "npm run build",
   "functions": {
     "api/index.js": {
+      "runtime": "nodejs22.x",
       "includeFiles": "{template/**,Mẫu 02.docx,public/**,index.html}"
     }
   },
