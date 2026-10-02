@@ -164,8 +164,8 @@ async function saveRecord(){
   const d=collect();
   if(!validate(d))return;
   currentRecordId=d.record_id;
-  setStatus('Đang gửi hồ sơ lên Google Sheets...','loading');
   setBusy(true);
+  setStatus('Đang lưu bản sao trên thiết bị...','loading');
   const payload={
     maPhieu:d.file_id||d.record_id,
     record_id:d.record_id,
@@ -180,28 +180,34 @@ async function saveRecord(){
     ghiChu:d.martyr_death_place||'',
     duLieuDayDu:JSON.stringify(d)
   };
+  const saved={...d,saved_at:new Date().toISOString()};
   try{
-    // Apps Script web app is called in no-cors mode, so the browser cannot read its response.
-    await fetch(APPS_SCRIPT_URL,{
-      method:'POST',
-      mode:'no-cors',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify(payload)
-    });
-    const saved={...d,saved_at:new Date().toISOString()};
+    // Lưu cục bộ trước để người dùng không mất phiếu nếu mạng/Apps Script bị treo.
     saveLocal(saved);
     localStorage.setItem('phieu_liet_si_draft',JSON.stringify(saved));
     localStorage.setItem('phieu_liet_si_saved','1');
     currentSaved=true;
     setExportEnabled(true);
-    await renderRecords();
-    setStatus('Đã gửi yêu cầu lưu lên Google Sheets; hãy kiểm tra bảng tính để xác nhận.','ok');
-    alert('Đã gửi yêu cầu lưu phiếu lên Google Sheets. Vì trình duyệt không đọc được phản hồi từ Google Apps Script, vui lòng kiểm tra bảng tính để xác nhận dữ liệu đã xuất hiện.');
+    renderRecords();
+    setStatus('Đã lưu trên thiết bị. Đang gửi lên Google Sheets...','loading');
+
+    const request=fetch(APPS_SCRIPT_URL,{
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(payload)
+    });
+    const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('Hết thời gian chờ phản hồi từ Google Apps Script')),15000));
+    await Promise.race([request,timeout]);
+    setStatus('Đã gửi yêu cầu lên Google Sheets. Vui lòng kiểm tra bảng tính để xác nhận dữ liệu đã được ghi.','ok');
+    alert('Phiếu đã được lưu trên thiết bị và đã gửi yêu cầu lên Google Sheets. Hãy kiểm tra bảng tính để xác nhận dữ liệu đã xuất hiện.');
   }catch(e){
     console.error(e);
-    setStatus('Lỗi gửi dữ liệu lên Google Sheets: '+e.message,'error');
-    alert('Không gửi được dữ liệu lên Google Sheets: '+e.message);
-  }finally{setBusy(false);}
+    setStatus('Phiếu vẫn được lưu trên thiết bị, nhưng chưa xác nhận được việc ghi lên Google Sheets. Hãy kiểm tra bảng tính và thử gửi lại nếu chưa có dữ liệu.','error');
+    alert('Phiếu đã lưu trên thiết bị để tránh mất dữ liệu, nhưng chưa xác nhận được việc ghi lên Google Sheets. Hãy kiểm tra bảng tính trước khi gửi lại để tránh tạo bản trùng.');
+  }finally{
+    setBusy(false);
+  }
 }
 
 function setExportEnabled(enabled){
