@@ -55,8 +55,8 @@ input:focus,select:focus{outline:2px solid #b8d4ff;border-color:#1677ff}
 <button class="btn secondary" onclick="saveDraft()">Lưu tạm trên máy</button>
 <button class="btn danger" onclick="clearAll()">Xóa biểu mẫu</button>
 <button class="btn secondary" onclick="saveToSheets()">Lưu vào Google Sheets</button>
-<button class="btn primary" onclick="generateWord()">Xuất Word</button>
-<button class="btn pdfbtn" onclick="generatePdf()">Xuất PDF đúng Mẫu 02</button>
+<button id="btnWord" class="btn primary" onclick="generateWord()" disabled>Xuất Word</button>
+<button id="btnPdf" class="btn pdfbtn" onclick="generatePdf()" disabled>Xuất PDF đúng Mẫu 02</button>
 <span id="status" class="status"></span>
 </div>
 </div></div>
@@ -123,6 +123,7 @@ function saveDraft(){
 }
 
 function loadDraft(){
+  setExportEnabled(localStorage.getItem('phieu_liet_si_saved')==='1');
   try{
     const d=JSON.parse(localStorage.getItem('phieu_liet_si_draft')||'null');
     if(d)fill(d);
@@ -132,11 +133,22 @@ function loadDraft(){
 function clearAll(){
   if(confirm('Xóa toàn bộ dữ liệu đang nhập?')){
     localStorage.removeItem('phieu_liet_si_draft');
+    localStorage.removeItem('phieu_liet_si_saved');
     location.reload();
   }
 }
 
 function setStatus(msg){document.getElementById('status').textContent=msg;}
+function setExportEnabled(enabled){
+  ['btnWord','btnPdf'].forEach(id=>{
+    const b=document.getElementById(id);
+    if(b)b.disabled=!enabled;
+  });
+}
+function markSaved(){
+  localStorage.setItem('phieu_liet_si_saved','1');
+  setExportEnabled(true);
+}
 
 const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbwXHveyxf6Z1Hi-P-Ex9RtELyGszNRGhHsGMv6vVEsb43HcFyg3sbTa2XKvtJfkiT0orw/exec';
 
@@ -171,9 +183,10 @@ async function saveToSheets(){
       body:JSON.stringify(payload)
     });
 
-    setStatus('Đã gửi yêu cầu lưu phiếu vào Google Sheets. Hãy kiểm tra trang tính để xác nhận dữ liệu đã được ghi.');
+    markSaved();
+    setStatus('Đã lưu phiếu. Có thể xuất Word hoặc PDF.');
     localStorage.setItem('phieu_liet_si_last_saved',JSON.stringify(payload));
-    alert('Đã gửi yêu cầu lưu phiếu. Vui lòng kiểm tra trang tính để xác nhận dữ liệu đã được ghi.');
+    alert('Đã lưu phiếu vào Google Sheets. Bạn có thể xuất Word hoặc PDF.');
   }catch(e){
     console.error(e);
     setStatus('Lỗi kết nối Google Sheets.');
