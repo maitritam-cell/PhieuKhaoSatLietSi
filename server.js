@@ -237,6 +237,12 @@ app.get('*', (req, res) => {
   }
 });
 
-app.listen(PORT, HOST, () => {
-  console.log(`Server listening at http://${HOST}:${PORT}`);
-});
+// Vercel imports the Express app as a serverless function.
+// Keep the local listener only when running this file directly.
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, HOST, () => {
+    console.log(`Server listening at http://${HOST}:${PORT}`);
+  });
+}
+
+export default app;
