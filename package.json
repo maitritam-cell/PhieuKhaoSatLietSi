@@ -13,5 +13,8 @@
     "@xmldom/xmldom": "^0.9.8",
     "express": "^4.21.2",
     "jszip": "^3.10.1"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }
