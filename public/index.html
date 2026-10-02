@@ -157,7 +157,9 @@ async function saveToSheets(){
     soDienThoai:d.rep_phone,
     trangThai:'Mới',
     donVi:d.martyr_unit,
-    ghiChu:d.martyr_death_place || ''
+    ghiChu:d.martyr_death_place || '',
+    // Lưu toàn bộ dữ liệu biểu mẫu, gồm các thân nhân và trường bổ sung.
+    duLieuDayDu:JSON.stringify(d)
   };
 
   setStatus('Đang lưu vào Google Sheets...');
@@ -169,9 +171,9 @@ async function saveToSheets(){
       body:JSON.stringify(payload)
     });
 
-    setStatus('Đã gửi dữ liệu vào Google Sheets.');
+    setStatus('Đã gửi yêu cầu lưu phiếu vào Google Sheets. Hãy kiểm tra trang tính để xác nhận dữ liệu đã được ghi.');
     localStorage.setItem('phieu_liet_si_last_saved',JSON.stringify(payload));
-    alert('Đã gửi phiếu vào Google Sheets.');
+    alert('Đã gửi yêu cầu lưu phiếu. Vui lòng kiểm tra trang tính để xác nhận dữ liệu đã được ghi.');
   }catch(e){
     console.error(e);
     setStatus('Lỗi kết nối Google Sheets.');
