@@ -7,242 +7,211 @@ import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 const app = express();
 const PORT = 3000;
 const HOST = '0.0.0.0';
 
-// Locate template file (check template/Mẫu 02.docx or Mẫu 02.docx at root)
-let templatePath = path.join(__dirname, 'template', 'Mẫu 02.docx');
-if (!fs.existsSync(templatePath)) {
-  templatePath = path.join(__dirname, 'Mẫu 02.docx');
+function resolveTemplatePath(){
+  const candidates = [
+    path.join(__dirname,'template','Mẫu 02.docx'),
+    path.join(__dirname,'template','mau-02.docx'),
+    path.join(__dirname,'Mẫu 02.docx'),
+    path.join(__dirname,'mau-02.docx')
+  ];
+  const found=candidates.find(p=>fs.existsSync(p));
+  if(!found)throw new Error('Không tìm thấy file mẫu Word Mẫu 02.docx trong thư mục template hoặc thư mục gốc.');
+  return found;
 }
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({limit:'10mb'}));
 
-// Helper to replace label in a paragraph with label + ' ' + value
-function replaceFirst(doc, p, label, value) {
-  const val = (value || '').trim();
-  if (!val) return false;
-  
-  const tNodes = p.getElementsByTagName('w:t');
-  const texts = [];
-  for (let i = 0; i < tNodes.length; i++) {
-    texts.push(tNodes[i].textContent || '');
+function paragraphText(p){
+  const nodes=p.getElementsByTagName('w:t');
+  let out='';
+  for(let i=0;i<nodes.length;i++)out+=nodes[i].textContent||'';
+  return out;
+}
+
+function replaceParagraph(doc,p,label,value){
+  const val=String(value??'').trim();
+  if(!val)return false;
+  const text=paragraphText(p);
+  if(!text.includes(label))return false;
+  const newText=text.replace(label,label+' '+val);
+
+  const runs=[];
+  for(let i=0;i<p.childNodes.length;i++){
+    if(p.childNodes[i].nodeName==='w:r')runs.push(p.childNodes[i]);
   }
-  const text = texts.join('');
-  if (!text.includes(label)) return false;
+  runs.forEach(r=>p.removeChild(r));
 
-  const newText = text.replace(label, label + ' ' + val);
-
-  // Remove existing runs from this paragraph
-  const runs = [];
-  for (let i = 0; i < p.childNodes.length; i++) {
-    if (p.childNodes[i].nodeName === 'w:r') {
-      runs.push(p.childNodes[i]);
-    }
-  }
-  for (const r of runs) {
-    p.removeChild(r);
-  }
-
-  // Create replacement run preserving Times New Roman font
-  const rElem = doc.createElementNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'w:r');
-  const rPr = doc.createElementNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'w:rPr');
-  const rFonts = doc.createElementNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'w:rFonts');
-  rFonts.setAttribute('w:ascii', 'Times New Roman');
-  rFonts.setAttribute('w:hAnsi', 'Times New Roman');
-  rFonts.setAttribute('w:cs', 'Times New Roman');
-  rPr.appendChild(rFonts);
-  rElem.appendChild(rPr);
-
-  const tElem = doc.createElementNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'w:t');
-  tElem.setAttribute('xml:space', 'preserve');
-  tElem.textContent = newText;
-  rElem.appendChild(tElem);
-
-  p.appendChild(rElem);
+  const ns='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const r=doc.createElementNS(ns,'w:r');
+  const rPr=doc.createElementNS(ns,'w:rPr');
+  const fonts=doc.createElementNS(ns,'w:rFonts');
+  fonts.setAttribute('w:ascii','Times New Roman');
+  fonts.setAttribute('w:hAnsi','Times New Roman');
+  fonts.setAttribute('w:cs','Times New Roman');
+  rPr.appendChild(fonts);r.appendChild(rPr);
+  const t=doc.createElementNS(ns,'w:t');
+  t.setAttribute('xml:space','preserve');t.textContent=newText;r.appendChild(t);
+  p.appendChild(r);
   return true;
 }
 
-// Helper to set cell text in a table row
-function setCellText(doc, cell, val) {
-  const strVal = String(val ?? '');
-  let p = null;
-  for (let i = 0; i < cell.childNodes.length; i++) {
-    if (cell.childNodes[i].nodeName === 'w:p') {
-      p = cell.childNodes[i];
-      break;
+function replaceOccurrence(doc,paragraphs,label,occurrence,value){
+  if(!String(value??'').trim())return false;
+  let seen=0;
+  for(const p of paragraphs){
+    if(paragraphText(p).includes(label)){
+      seen++;
+      if(seen===occurrence)return replaceParagraph(doc,p,label,value);
     }
   }
-  if (!p) {
-    p = doc.createElementNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'w:p');
-    cell.appendChild(p);
-  }
-
-  const runs = [];
-  for (let i = 0; i < p.childNodes.length; i++) {
-    if (p.childNodes[i].nodeName === 'w:r') {
-      runs.push(p.childNodes[i]);
-    }
-  }
-  for (const r of runs) {
-    p.removeChild(r);
-  }
-
-  const rElem = doc.createElementNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'w:r');
-  const rPr = doc.createElementNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'w:rPr');
-  const rFonts = doc.createElementNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'w:rFonts');
-  rFonts.setAttribute('w:ascii', 'Times New Roman');
-  rFonts.setAttribute('w:hAnsi', 'Times New Roman');
-  rFonts.setAttribute('w:cs', 'Times New Roman');
-  rPr.appendChild(rFonts);
-  rElem.appendChild(rPr);
-
-  const tElem = doc.createElementNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'w:t');
-  tElem.setAttribute('xml:space', 'preserve');
-  tElem.textContent = strVal;
-  rElem.appendChild(tElem);
-
-  p.appendChild(rElem);
+  return false;
 }
 
-async function fillDocument(data) {
-  const buf = fs.readFileSync(templatePath);
-  const zip = await JSZip.loadAsync(buf);
-  const xmlStr = await zip.file('word/document.xml').async('text');
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(xmlStr, 'application/xml');
-  const body = doc.getElementsByTagName('w:body')[0];
-
-  const paragraphs = [];
-  const tables = [];
-  for (let i = 0; i < body.childNodes.length; i++) {
-    const node = body.childNodes[i];
-    if (node.nodeName === 'w:p') paragraphs.push(node);
-    if (node.nodeName === 'w:tbl') tables.push(node);
+function setCellText(doc,cell,val){
+  const strVal=String(val??'');
+  const ns='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  let p=null;
+  for(let i=0;i<cell.childNodes.length;i++){
+    if(cell.childNodes[i].nodeName==='w:p'){p=cell.childNodes[i];break;}
   }
+  if(!p){p=doc.createElementNS(ns,'w:p');cell.appendChild(p);}
+  const runs=[];
+  for(let i=0;i<p.childNodes.length;i++)if(p.childNodes[i].nodeName==='w:r')runs.push(p.childNodes[i]);
+  runs.forEach(r=>p.removeChild(r));
 
-  const mapping = {
-    4: [['Họ và tên:', data.rep_name]],
-    5: [['Ngày tháng năm sinh:', data.rep_dob], ['Giới tính:', data.rep_gender]],
-    6: [['Số ĐDCN', data.rep_id], ['Ngày cấp', data.rep_issue_date], ['Nơi cấp:', data.rep_issue_place]],
-    7: [['Quê quán:', data.rep_hometown]],
-    8: [['Nơi thường trú:', data.rep_address]],
-    9: [['Số điện thoại:', data.rep_phone]],
-    12: [['Mã hồ sơ Bộ quản lý:', data.ministry_file], ['Mã hồ sơ tỉnh quản lý:', data.province_file]],
-    13: [['Họ và tên liệt sĩ:', data.martyr_name], ['Bí danh:', data.martyr_alias]],
-    14: [['Ngày tháng năm sinh:', data.martyr_dob], ['Giới tính:', data.martyr_gender]],
-    15: [['Quê quán:', data.martyr_hometown]],
-    16: [['Cấp bậc, chức vụ khi hy sinh:', data.martyr_rank]],
-    17: [['Cơ quan, đơn vị khi hy sinh:', data.martyr_unit]],
-    18: [['Ngày tháng năm hy sinh:', data.martyr_death_date]],
-    19: [['Nơi hy sinh (nếu có):', data.martyr_death_place]],
-    20: [['Nơi an táng ban đầu:', data.burial_place]],
-    21: [['Bằng Tổ quốc ghi công số', data.certificate_no], ['Quyết định số', data.decision_no], ['ngày', data.decision_date]],
-    22: [['Con ông:', data.father]],
-    23: [['Con bà:', data.mother]],
-    24: [['Vợ:', data.wife]]
-  };
-
-  for (const [idxStr, items] of Object.entries(mapping)) {
-    const idx = parseInt(idxStr, 10);
-    if (idx < paragraphs.length) {
-      const p = paragraphs[idx];
-      for (const [label, value] of items) {
-        if (value) replaceFirst(doc, p, label, value);
-      }
-    }
-  }
-
-  if (tables.length >= 3) {
-    const table = tables[2];
-    const rows = [];
-    for (let i = 0; i < table.childNodes.length; i++) {
-      if (table.childNodes[i].nodeName === 'w:tr') rows.push(table.childNodes[i]);
-    }
-    const relatives = data.relatives || [];
-    const colIndices = [2, 3, 4, 5, 6, 7, 8, 9, 10];
-    for (let i = 0; i < Math.min(relatives.length, 10); i++) {
-      if (i + 2 >= rows.length) break;
-      const row = rows[i + 2];
-      const cells = [];
-      for (let j = 0; j < row.childNodes.length; j++) {
-        if (row.childNodes[j].nodeName === 'w:tc') cells.push(row.childNodes[j]);
-      }
-      const rel = relatives[i] || {};
-      const vals = [
-        rel.id || '',
-        rel.name || '',
-        rel.dob || '',
-        rel.gender || '',
-        rel.father || '',
-        rel.mother || '',
-        rel.address || '',
-        rel.status || '',
-        rel.signature || ''
-      ];
-      for (let k = 0; k < colIndices.length; k++) {
-        const colIdx = colIndices[k];
-        if (colIdx < cells.length) {
-          setCellText(doc, cells[colIdx], vals[k]);
-        }
-      }
-    }
-  }
-
-  const serializer = new XMLSerializer();
-  const newXml = serializer.serializeToString(doc);
-  zip.file('word/document.xml', newXml);
-  return await zip.generateAsync({ type: 'nodebuffer' });
+  const r=doc.createElementNS(ns,'w:r');
+  const rPr=doc.createElementNS(ns,'w:rPr');
+  const fonts=doc.createElementNS(ns,'w:rFonts');
+  fonts.setAttribute('w:ascii','Times New Roman');
+  fonts.setAttribute('w:hAnsi','Times New Roman');
+  fonts.setAttribute('w:cs','Times New Roman');
+  rPr.appendChild(fonts);r.appendChild(rPr);
+  const t=doc.createElementNS(ns,'w:t');
+  t.setAttribute('xml:space','preserve');t.textContent=strVal;r.appendChild(t);
+  p.appendChild(r);
 }
 
-// Generate Word document route
-app.post('/api/generate', async (req, res) => {
-  try {
-    const data = req.body || {};
-    const content = await fillDocument(data);
-    const filename = 'Phieu_khao_sat_liet_si.docx';
+async function fillDocument(data){
+  const templatePath=resolveTemplatePath();
+  const buf=fs.readFileSync(templatePath);
+  const zip=await JSZip.loadAsync(buf);
+  const documentFile=zip.file('word/document.xml');
+  if(!documentFile)throw new Error('Mẫu Word không chứa word/document.xml hợp lệ.');
+  const xmlStr=await documentFile.async('text');
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Content-Length', content.length);
+  const doc=new DOMParser().parseFromString(xmlStr,'application/xml');
+  const body=doc.getElementsByTagName('w:body')[0];
+  if(!body)throw new Error('Không đọc được nội dung mẫu Word.');
+
+  const paragraphs=[];
+  for(let i=0;i<body.childNodes.length;i++){
+    if(body.childNodes[i].nodeName==='w:p')paragraphs.push(body.childNodes[i]);
+  }
+
+  // Trang 1 – bám theo nhãn của Mẫu 02, không phụ thuộc số thứ tự paragraph.
+  replaceOccurrence(doc,paragraphs,'Họ và tên:',1,data.rep_name);
+  replaceOccurrence(doc,paragraphs,'Ngày tháng năm sinh:',1,data.rep_dob);
+  replaceOccurrence(doc,paragraphs,'Giới tính:',1,data.rep_gender);
+  replaceOccurrence(doc,paragraphs,'Số ĐDCN',1,data.rep_id);
+  replaceOccurrence(doc,paragraphs,'Ngày cấp',1,data.rep_issue_date);
+  replaceOccurrence(doc,paragraphs,'Nơi cấp:',1,data.rep_issue_place);
+  replaceOccurrence(doc,paragraphs,'Quê quán:',1,data.rep_hometown);
+  replaceOccurrence(doc,paragraphs,'Nơi thường trú:',1,data.rep_address);
+  replaceOccurrence(doc,paragraphs,'Số điện thoại:',1,data.rep_phone);
+
+  replaceOccurrence(doc,paragraphs,'Mã số hồ sơ liệt sĩ:',1,data.file_id);
+  replaceOccurrence(doc,paragraphs,'Mã hồ sơ Bộ quản lý:',1,data.ministry_file);
+  replaceOccurrence(doc,paragraphs,'Mã hồ sơ tỉnh quản lý:',1,data.province_file);
+  replaceOccurrence(doc,paragraphs,'Họ và tên liệt sĩ:',1,data.martyr_name);
+  replaceOccurrence(doc,paragraphs,'Bí danh:',1,data.martyr_alias);
+  replaceOccurrence(doc,paragraphs,'Ngày tháng năm sinh:',2,data.martyr_dob);
+  replaceOccurrence(doc,paragraphs,'Giới tính:',2,data.martyr_gender);
+  replaceOccurrence(doc,paragraphs,'Quê quán:',2,data.martyr_hometown);
+  replaceOccurrence(doc,paragraphs,'Cấp bậc, chức vụ khi hy sinh:',1,data.martyr_rank);
+  replaceOccurrence(doc,paragraphs,'Cơ quan, đơn vị khi hy sinh:',1,data.martyr_unit);
+  replaceOccurrence(doc,paragraphs,'Ngày tháng năm hy sinh:',1,data.martyr_death_date);
+  replaceOccurrence(doc,paragraphs,'Nơi hy sinh (nếu có):',1,data.martyr_death_place);
+  replaceOccurrence(doc,paragraphs,'Nơi an táng ban đầu:',1,data.burial_place);
+  replaceOccurrence(doc,paragraphs,'Bằng Tổ quốc ghi công số',1,data.certificate_no);
+  replaceOccurrence(doc,paragraphs,'Quyết định số',1,data.decision_no);
+  replaceOccurrence(doc,paragraphs,'ngày',1,data.decision_date);
+  replaceOccurrence(doc,paragraphs,'Con ông:',1,data.father);
+  replaceOccurrence(doc,paragraphs,'Con bà:',1,data.mother);
+  replaceOccurrence(doc,paragraphs,'Vợ:',1,data.wife);
+
+  // Phụ lục 1 – chỉ ghi vào 6 dòng STT thật; mẫu DOCX có các dòng phụ do ô gộp dọc.
+  const tables=Array.from(body.childNodes).filter(n=>n.nodeName==='w:tbl');
+  if(tables.length>=3){
+    const table=tables[2];
+    const rows=[];
+    for(let i=0;i<table.childNodes.length;i++){
+      if(table.childNodes[i].nodeName==='w:tr')rows.push(table.childNodes[i]);
+    }
+    const byStt={};
+    for(const row of rows){
+      const cells=[];
+      for(let i=0;i<row.childNodes.length;i++)if(row.childNodes[i].nodeName==='w:tc')cells.push(row.childNodes[i]);
+      if(!cells.length)continue;
+      const first=paragraphText(cells[0]).trim();
+      if(/^[1-6]$/.test(first))byStt[first]=cells;
+    }
+    const rels=data.relatives||[];
+    for(let i=0;i<6;i++){
+      const cells=byStt[String(i+1)];
+      if(!cells)continue;
+      const r=rels[i]||{};
+      const vals=[r.id,r.name,r.dob,r.gender,r.father,r.mother,r.address,r.status,r.signature];
+      // DOCX columns: 0=STT, 1=đối tượng, 2..10=dữ liệu.
+      for(let k=0;k<9;k++){
+        const cellIndex=k+2;
+        if(cells[cellIndex])setCellText(doc,cells[cellIndex],vals[k]);
+      }
+    }
+  }
+
+  zip.file('word/document.xml',new XMLSerializer().serializeToString(doc));
+  return zip.generateAsync({type:'nodebuffer'});
+}
+
+app.post('/api/generate',async(req,res)=>{
+  try{
+    const data=req.body||{};
+    if(!data.martyr_name){
+      return res.status(400).json({error:'Thiếu Họ và tên liệt sĩ.'});
+    }
+    const content=await fillDocument(data);
+    res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition','attachment; filename="Phieu_khao_sat_liet_si.docx"');
+    res.setHeader('Content-Length',content.length);
     res.send(content);
-  } catch (err) {
-    console.error('Error generating document:', err);
-    res.status(500).json({ error: err.message });
+  }catch(err){
+    console.error('Error generating document:',err);
+    res.status(500).json({error:err?.message||'Không tạo được file Word.'});
   }
 });
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
+app.get('/api/health',(req,res)=>{
+  let template='missing';
+  try{template=path.relative(__dirname,resolveTemplatePath());}catch{}
+  res.json({status:'ok',runtime:'node',template});
 });
 
-// Serve static assets from public/ or root
-if (fs.existsSync(path.join(__dirname, 'public'))) {
-  app.use(express.static(path.join(__dirname, 'public')));
-}
-if (fs.existsSync(path.join(__dirname, 'template'))) {
-  app.use('/template', express.static(path.join(__dirname, 'template')));
-}
+if(fs.existsSync(path.join(__dirname,'public')))app.use(express.static(path.join(__dirname,'public')));
+if(fs.existsSync(path.join(__dirname,'template')))app.use('/template',express.static(path.join(__dirname,'template')));
 app.use(express.static(__dirname));
 
-// Fallback to index.html
-app.get('*', (req, res) => {
-  if (fs.existsSync(path.join(__dirname, 'public', 'index.html'))) {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-  } else {
-    res.sendFile(path.join(__dirname, 'index.html'));
-  }
+app.get('*',(req,res)=>{
+  const pub=path.join(__dirname,'public','index.html');
+  const root=path.join(__dirname,'index.html');
+  res.sendFile(fs.existsSync(pub)?pub:root);
 });
 
-// Vercel imports the Express app as a serverless function.
-// Keep the local listener only when running this file directly.
-if (process.env.VERCEL !== '1') {
-  app.listen(PORT, HOST, () => {
-    console.log(`Server listening at http://${HOST}:${PORT}`);
-  });
+if(process.env.VERCEL!=='1'){
+  app.listen(PORT,HOST,()=>console.log(`Server listening at http://${HOST}:${PORT}`));
 }
 
 export default app;
