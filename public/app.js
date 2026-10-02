@@ -11,6 +11,7 @@ const REL_LABELS={id:'Số ĐDCN/CCCD/CMND',name:'Họ và tên',dob:'Ngày thá
 
 let currentRecordId='';
 let currentSaved=false;
+const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbwXHveyxf6Z1Hi-P-Ex9RtELyGszNRGhHsGMv6vVEsb43HcFyg3sbTa2XKvtJfkiT0orw/exec';
 
 function $(id){return document.getElementById(id);}
 function setStatus(msg,type=''){const e=$('status');if(e){e.textContent=msg;e.className='status '+type;}}
@@ -95,26 +96,17 @@ function saveLocal(d){
 }
 
 async function renderRecords(){
-  const q=($('recordSearch')?.value||'').trim();
+  const q=($('recordSearch')?.value||'').trim().toLowerCase();
   const body=$('recordRows');if(!body)return;
-  body.innerHTML='<tr><td colspan="6" class="empty">Đang tải hồ sơ...</td></tr>';
-  try{
-    const r=await fetch('/api/records'+(q?'?q='+encodeURIComponent(q):''));
-    if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||'Không tải được kho hồ sơ.');
-    const data=await r.json();
-    const rows=data.items||[];
-    body.innerHTML=rows.map(x=>'<tr>'+
-      '<td>'+escapeHtml(x.record_id||'')+'</td>'+
-      '<td>'+escapeHtml(x.martyr_name||'')+'</td>'+
-      '<td>'+escapeHtml(x.file_id||'')+'</td>'+
-      '<td>'+escapeHtml(x.rep_name||'')+'</td>'+
-      '<td>'+escapeHtml(x.updated_at?new Date(x.updated_at).toLocaleString('vi-VN'):'')+'</td>'+
-      '<td><button class="mini" onclick="openRecord(\\''+escapeAttr(x.record_id||'')+'\\')">Mở</button> <button class="mini danger" onclick="deleteRecord(\\''+escapeAttr(x.record_id||'')+'\\')">Xóa</button></td>'+
-    '</tr>').join('')||'<tr><td colspan="6" class="empty">Chưa có hồ sơ trong cơ sở dữ liệu.</td></tr>';
-  }catch(e){
-    console.error(e);
-    body.innerHTML='<tr><td colspan="6" class="empty">Không tải được kho hồ sơ: '+escapeHtml(e.message)+'</td></tr>';
-  }
+  const rows=getRecords().filter(x=>!q||[x.record_id,x.martyr_name,x.file_id,x.rep_name].join(' ').toLowerCase().includes(q));
+  body.innerHTML=rows.map(x=>'<tr>'+
+    '<td>'+escapeHtml(x.record_id||'')+'</td>'+
+    '<td>'+escapeHtml(x.martyr_name||'')+'</td>'+
+    '<td>'+escapeHtml(x.file_id||'')+'</td>'+
+    '<td>'+escapeHtml(x.rep_name||'')+'</td>'+
+    '<td>'+escapeHtml(x.saved_at?new Date(x.saved_at).toLocaleString('vi-VN'):'')+'</td>'+
+    '<td><button class="mini" onclick="openRecord(\\''+escapeAttr(x.record_id||'')+'\\')">Mở</button> <button class="mini danger" onclick="deleteRecord(\\''+escapeAttr(x.record_id||'')+'\\')">Xóa khỏi danh sách máy</button></td>'+
+  '</tr>').join('')||'<tr><td colspan="6" class="empty">Chưa có phiếu đã lưu trên thiết bị này. Dữ liệu đã gửi lên Google Sheets cần xem tại bảng tính.</td></tr>';
 }
 
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
@@ -147,68 +139,68 @@ function newRecord(){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 async function openRecord(id){
-  try{
-    setStatus('Đang mở hồ sơ...','loading');
-    const r=await fetch('/api/records/'+encodeURIComponent(id));
-    const j=await r.json();
-    if(!r.ok)throw new Error(j.error||'Không tìm thấy hồ sơ.');
-    fill(j.record||{});
-    currentSaved=true;
-    localStorage.setItem('phieu_liet_si_saved','1');
-    saveDraft();
-    setExportEnabled(true);
-    setStatus('Đã mở hồ sơ '+id+'.','ok');
-    window.scrollTo({top:0,behavior:'smooth'});
-  }catch(e){
-    console.error(e);setStatus('Lỗi mở hồ sơ: '+e.message,'error');alert(e.message);
-  }
+  const item=getRecords().find(x=>x.record_id===id);
+  if(!item){alert('Không tìm thấy phiếu trong danh sách lưu trên thiết bị này.');return;}
+  fill(item);
+  currentSaved=true;
+  localStorage.setItem('phieu_liet_si_saved','1');
+  saveDraft();
+  setExportEnabled(true);
+  setStatus('Đã mở phiếu đã lưu trên thiết bị.','ok');
+  window.scrollTo({top:0,behavior:'smooth'});
 }
 async function deleteRecord(id){
-  if(!confirm('Xóa hồ sơ '+id+' khỏi cơ sở dữ liệu?'))return;
-  try{
-    const r=await fetch('/api/records/'+encodeURIComponent(id),{method:'DELETE'});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok)throw new Error(j.error||'Không xóa được hồ sơ.');
-    getRecords();
-    if(currentRecordId===id){
-      localStorage.removeItem('phieu_liet_si_draft');
-      localStorage.removeItem('phieu_liet_si_saved');
-    }
-    await renderRecords();
-    setStatus('Đã xóa hồ sơ khỏi cơ sở dữ liệu.','ok');
-  }catch(e){
-    console.error(e);setStatus('Lỗi xóa hồ sơ: '+e.message,'error');alert(e.message);
+  if(!confirm('Xóa phiếu '+id+' khỏi danh sách lưu trên thiết bị này? Dữ liệu đã gửi lên Google Sheets không bị xóa.'))return;
+  putRecords(getRecords().filter(x=>x.record_id!==id));
+  if(currentRecordId===id){
+    localStorage.removeItem('phieu_liet_si_draft');
+    localStorage.removeItem('phieu_liet_si_saved');
   }
+  await renderRecords();
+  setStatus('Đã xóa phiếu khỏi danh sách trên thiết bị. Dữ liệu Google Sheets vẫn được giữ.','ok');
 }
 
 async function saveRecord(){
   const d=collect();
   if(!validate(d))return;
   currentRecordId=d.record_id;
-  setStatus('Đang lưu hồ sơ vào cơ sở dữ liệu...','loading');
+  setStatus('Đang gửi hồ sơ lên Google Sheets...','loading');
   setBusy(true);
+  const payload={
+    maPhieu:d.file_id||d.record_id,
+    record_id:d.record_id,
+    hoTenLietSi:d.martyr_name,
+    ngaySinh:d.martyr_dob,
+    ngayHySinh:d.martyr_death_date,
+    queQuan:d.martyr_hometown,
+    hoTenNguoiDaiDien:d.rep_name,
+    soDienThoai:d.rep_phone,
+    trangThai:'Mới',
+    donVi:d.martyr_unit,
+    ghiChu:d.martyr_death_place||'',
+    duLieuDayDu:JSON.stringify(d)
+  };
   try{
-    const r=await fetch('/api/records',{
+    // Apps Script web app is called in no-cors mode, so the browser cannot read its response.
+    await fetch(APPS_SCRIPT_URL,{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(d)
+      mode:'no-cors',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(payload)
     });
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok)throw new Error(j.error||'Không lưu được hồ sơ.');
-    const saved=j.record||d;
-    fill(saved);
+    const saved={...d,saved_at:new Date().toISOString()};
     saveLocal(saved);
     localStorage.setItem('phieu_liet_si_draft',JSON.stringify(saved));
     localStorage.setItem('phieu_liet_si_saved','1');
     currentSaved=true;
     setExportEnabled(true);
     await renderRecords();
-    setStatus('Đã lưu hồ sơ vào cơ sở dữ liệu.','ok');
-    alert('Đã lưu hồ sơ '+saved.record_id+'.');
+    setStatus('Đã gửi yêu cầu lưu lên Google Sheets; hãy kiểm tra bảng tính để xác nhận.','ok');
+    alert('Đã gửi yêu cầu lưu phiếu lên Google Sheets. Vì trình duyệt không đọc được phản hồi từ Google Apps Script, vui lòng kiểm tra bảng tính để xác nhận dữ liệu đã xuất hiện.');
   }catch(e){
     console.error(e);
-    setStatus('Lỗi lưu hồ sơ: '+e.message,'error');
-    alert('Không lưu được hồ sơ: '+e.message);
+    setStatus('Lỗi gửi dữ liệu lên Google Sheets: '+e.message,'error');
+    alert('Không gửi được dữ liệu lên Google Sheets: '+e.message);
   }finally{setBusy(false);}
 }
 
