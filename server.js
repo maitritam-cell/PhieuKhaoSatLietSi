@@ -217,7 +217,23 @@ app.post('/api/generate', async (req, res) => {
 // Proxy endpoint to save to Google Sheets via Google Apps Script (and optional Supabase)
 app.post('/api/save-sheet', async (req, res) => {
   try {
+    const staff = await requireStaff(req, res);
+    if (!staff) return;
     const payload = req.body || {};
+    if (staff.profile.role !== 'admin') {
+      const supabaseUrl = process.env.SUPABASE_URL.replace(/\\/+$/, '');
+      const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const linksRes = await fetch(supabaseUrl + '/rest/v1/staff_to_dan_pho?select=to_dan_pho_id,to_dan_pho(name)&staff_id=eq.' + encodeURIComponent(staff.user.id), {
+        headers: { apikey: key, Authorization: 'Bearer ' + key }
+      });
+      const links = linksRes.ok ? await linksRes.json() : [];
+      const names = links.map(x => x.to_dan_pho && x.to_dan_pho.name).filter(Boolean);
+      const nums = names.map(n => (String(n).match(/\\d+/) || [])[0]).filter(Boolean);
+      const norm = v => String(v || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
+      const address = norm(payload.rep_address || payload.noiThuongTruNDD || '');
+      const allowed = nums.some(n => new RegExp('\\\\bto\\\\s*dan\\\\s*pho\\\\s*' + n + '\\\\b').test(address));
+      if (!allowed) return res.status(403).json({ ok: false, error: 'Chỉ được lưu phiếu có nơi thường trú thuộc Tổ dân phố được phân công.' });
+    }
     const appsScriptUrl = (payload.appsScriptUrl || '').trim() ||
       'https://script.google.com/macros/s/AKfycbwXHveyxf6Z1Hi-P-Ex9RtELyGszNRGhHsGMv6vVEsb43HcFyg3sbTa2XKvtJfkiT0orw/exec';
 
@@ -435,47 +451,52 @@ app.get('/api/admin-records', async (req, res) => {
 
 // Endpoint to search or list records
 app.get('/api/records', async (req, res) => {
+  const staff = await requireStaff(req, res);
+  if (!staff) return;
+
   const q = (req.query.q || '').trim().toLowerCase();
   const appsScriptUrl = (req.query.appsScriptUrl || '').trim();
+  let records = [];
 
-  // Try Supabase first if configured
   if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
-      let queryUrl = `${process.env.SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/m02_records?select=*&order=updated_at.desc&limit=100`;
-      if (q) {
-        queryUrl += `&or=(martyr_name.ilike.*${encodeURIComponent(q)}*,record_id.ilike.*${encodeURIComponent(q)}*,rep_name.ilike.*${encodeURIComponent(q)}*,file_id.ilike.*${encodeURIComponent(q)}*)`;
-      }
-      const dbRes = await fetch(queryUrl, {
-        headers: {
-          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-        }
-      });
-      if (dbRes.ok) {
-        const records = await dbRes.json();
-        return res.json({ ok: true, source: 'supabase', records });
-      }
-    } catch (e) {
-      console.warn('Supabase query error, fallback to sheets:', e.message);
-    }
+      let queryUrl = `${process.env.SUPABASE_URL.replace(/\\/+$/, '')}/rest/v1/m02_records?select=*&order=updated_at.desc&limit=500`;
+      if (q) queryUrl += `&or=(martyr_name.ilike.*${encodeURIComponent(q)}*,record_id.ilike.*${encodeURIComponent(q)}*,rep_name.ilike.*${encodeURIComponent(q)}*,file_id.ilike.*${encodeURIComponent(q)}*)`;
+      const dbRes = await fetch(queryUrl, { headers: {
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+      }});
+      if (dbRes.ok) records = await dbRes.json();
+    } catch (e) { console.warn('Supabase query error:', e.message); }
   }
 
-  // Fallback to Google Apps Script if URL provided
-  if (appsScriptUrl && appsScriptUrl.startsWith('https://script.google.com/')) {
+  if (!records.length && appsScriptUrl && appsScriptUrl.startsWith('https://script.google.com/')) {
     try {
-      const gRes = await fetch(`${appsScriptUrl}?action=list&q=${encodeURIComponent(q)}`, {
-        redirect: 'follow'
-      });
+      const gRes = await fetch(`${appsScriptUrl}?action=list&q=${encodeURIComponent(q)}`, { redirect: 'follow' });
       if (gRes.ok) {
         const data = await gRes.json();
-        return res.json(data);
+        records = Array.isArray(data.records) ? data.records : [];
       }
-    } catch (e) {
-      console.warn('Apps Script query error:', e.message);
-    }
+    } catch (e) { console.warn('Apps Script query error:', e.message); }
   }
 
-  res.json({ ok: true, records: [] });
+  if (staff.profile.role !== 'admin') {
+    const supabaseUrl = process.env.SUPABASE_URL.replace(/\\/+$/, '');
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const linksRes = await fetch(supabaseUrl + '/rest/v1/staff_to_dan_pho?select=to_dan_pho_id,to_dan_pho(name)&staff_id=eq.' + encodeURIComponent(staff.user.id), {
+      headers: { apikey: key, Authorization: 'Bearer ' + key }
+    });
+    const links = linksRes.ok ? await linksRes.json() : [];
+    const names = links.map(x => x.to_dan_pho && x.to_dan_pho.name).filter(Boolean);
+    const normalize = v => String(v || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
+    const nums = names.map(n => (String(n).match(/\\d+/) || [])[0]).filter(Boolean);
+    records = records.filter(r => {
+      const d = r.data || r;
+      const address = normalize(d.rep_address || d.noiThuongTruNDD || d['Nơi thường trú NĐD'] || d['Nơi thường trú người đại diện'] || '');
+      return nums.some(n => new RegExp('\\\\bto\\\\s*dan\\\\s*pho\\\\s*' + n + '\\\\b').test(address));
+    });
+  }
+  return res.json({ ok: true, records });
 });
 
 // Health check endpoint
