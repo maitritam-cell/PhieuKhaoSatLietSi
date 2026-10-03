@@ -2,7 +2,8 @@ const SUPABASE_URL='https://zyvckivbwwlhmpkbonze.supabase.co';
 const SUPABASE_KEY='sb_publishable_1ojllrmwxQSMPZWtO6VBqw_5oygalyC';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbwXHveyxf6Z1Hi-P-Ex9RtELyGszNRGhHsGMv6vVEsb43HcFyg3sbTa2XKvtJfkiT0orw/exec';
-let me=null, profile=null, profiles=[], records=[], allAssignments=[], authLoadToken=0;
+let me=null, profile=null, profiles=[], territories=[], staffTerritories={}, records=[], allAssignments=[], authLoadToken=0;
+const ADMIN_STAFF_FUNCTION='https://zyvckivbwwlhmpkbonze.supabase.co/functions/v1/admin-manage-staff';
 const $=id=>document.getElementById(id);
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function msg(text,type=''){const el=$('message');el.textContent=text;el.className='notice'+(type?' '+type:'');el.classList.remove('hidden');}
@@ -41,34 +42,128 @@ $('loginBtn').onclick=async()=>{
  if(error)return msg('Đăng nhập thất bại: '+error.message,'error');
  await authChanged(data.user);
 };
-$('signupBtn').onclick=async()=>{
- clearMsg();const email=$('email').value.trim(),password=$('password').value,full_name=$('fullName').value.trim(),unit_name=$('unitName').value.trim();
- if(!email||!password||!full_name)return msg('Nhập email, mật khẩu và họ tên để tạo tài khoản.','error');
- if(password.length<8)return msg('Mật khẩu cần ít nhất 8 ký tự.','error');
- $('signupBtn').disabled=true;
- const {data,error}=await sb.auth.signUp({email,password,options:{data:{full_name,unit_name}}});
- $('signupBtn').disabled=false;
- if(error)return msg('Không tạo được tài khoản: '+error.message,'error');
- if(data.session) await authChanged(data.user);
- else msg('Đã gửi yêu cầu tạo tài khoản. Nếu hệ thống yêu cầu xác nhận email, hãy xác nhận email rồi đăng nhập. Tài khoản đầu tiên sẽ là quản trị viên.','success');
-};
 $('logoutBtn').onclick=async()=>{await sb.auth.signOut();profile=null;me=null;authChanged(null);};
 $('refreshBtn').onclick=loadAssignments;
 async function loadStaff(){
- const {data,error}=await sb.from('staff_profiles').select('*').order('created_at',{ascending:true});
- if(error)return msg('Không tải được danh sách cán bộ: '+error.message,'error');
- profiles=data||[];
- $('staffList').innerHTML='<div class="tablewrap"><table><thead><tr><th>Họ tên</th><th>Đơn vị</th><th>Vai trò</th><th>Hoạt động</th><th>Lưu</th></tr></thead><tbody>'+profiles.map((p,i)=>'<tr><td><input data-profile="'+i+'" data-field="full_name" value="'+esc(p.full_name)+'"></td><td><input data-profile="'+i+'" data-field="unit_name" value="'+esc(p.unit_name)+'"></td><td><select data-profile="'+i+'" data-field="role"><option value="cadre" '+(p.role==='cadre'?'selected':'')+'>Cán bộ</option><option value="admin" '+(p.role==='admin'?'selected':'')+'>Quản trị viên</option></select></td><td><select data-profile="'+i+'" data-field="active"><option value="true" '+(p.active?'selected':'')+'>Đang hoạt động</option><option value="false" '+(!p.active?'selected':'')+'>Đã khóa</option></select></td><td><button class="btn secondary" data-save-profile="'+i+'">Lưu</button></td></tr>').join('')+'</tbody></table></div>';
+ const [staffRes,tdpRes,linkRes]=await Promise.all([
+  sb.from('staff_profiles').select('*').order('created_at',{ascending:true}),
+  sb.from('to_dan_pho').select('id,name').eq('active',true).order('id'),
+  sb.from('staff_to_dan_pho').select('staff_id,to_dan_pho_id')
+ ]);
+ if(staffRes.error)return msg('Không tải được danh sách cán bộ: '+staffRes.error.message,'error');
+ if(tdpRes.error)return msg('Không tải được danh sách 31 Tổ dân phố: '+tdpRes.error.message,'error');
+ if(linkRes.error)return msg('Không tải được phân công Tổ dân phố: '+linkRes.error.message,'error');
+
+ profiles=staffRes.data||[];
+ territories=tdpRes.data||[];
+ staffTerritories={};
+ (linkRes.data||[]).forEach(x=>{(staffTerritories[x.staff_id]??=[]).push(x.to_dan_pho_id);});
+
+ renderNewStaffTerritories();
+ const tdpOptions=(selected=[])=>territories.map(t=>'<option value="'+t.id+'" '+(selected.includes(t.id)?'selected':'')+'>'+esc(t.name)+'</option>').join('');
+ const tableBody=profiles.map((p,i)=>{
+  const selected=staffTerritories[p.user_id]||[];
+  const status=p.active?'Đang hoạt động':'Đã khóa';
+  return '<tr>'+
+   '<td><input data-profile="'+i+'" data-field="full_name" value="'+esc(p.full_name)+'"></td>'+
+   '<td>'+esc(p.email||'')+'</td>'+
+   '<td><select multiple size="5" data-profile="'+i+'" data-field="territories" style="min-width:180px">'+tdpOptions(selected)+'</select><div class="muted">Giữ Ctrl để chọn nhiều trên máy tính.</div></td>'+
+   '<td><select data-profile="'+i+'" data-field="active"><option value="true" '+(p.active?'selected':'')+'>Đang hoạt động</option><option value="false" '+(!p.active?'selected':'')+'>Đã khóa</option></select></td>'+
+   '<td><button class="btn secondary" data-reset-password="'+i+'">Đổi mật khẩu</button></td>'+
+   '<td><button class="btn secondary" data-save-profile="'+i+'">Lưu</button></td>'+
+  '</tr>';
+ }).join('');
+ $('staffTableBody').innerHTML=tableBody||'<tr><td colspan="6" class="muted">Chưa có tài khoản cán bộ.</td></tr>';
+
  document.querySelectorAll('[data-save-profile]').forEach(b=>b.onclick=async()=>{
   const i=Number(b.dataset.saveProfile),p=profiles[i],changes={};
-  document.querySelectorAll('[data-profile="'+i+'"]').forEach(el=>changes[el.dataset.field]=el.dataset.field==='active'?el.value==='true':el.value);
-  if(p.user_id===me.id && changes.role!=='admin')return msg('Không thể tự hạ quyền quản trị viên đang đăng nhập.','error');
-  const {error}=await sb.from('staff_profiles').update({...changes,updated_at:new Date().toISOString()}).eq('user_id',p.user_id);
-  if(error)return msg('Không lưu được cán bộ: '+error.message,'error');
-  msg('Đã cập nhật quyền và thông tin cán bộ.','success');await loadStaff();await loadRecords();
+  const nameEl=document.querySelector('[data-profile="'+i+'"][data-field="full_name"]');
+  const activeEl=document.querySelector('[data-profile="'+i+'"][data-field="active"]');
+  const territoryEl=document.querySelector('[data-profile="'+i+'"][data-field="territories"]');
+  const selected=[...territoryEl.selectedOptions].map(o=>Number(o.value));
+  if(!selected.length)return msg('Mỗi cán bộ phải được phụ trách ít nhất một Tổ dân phố.','error');
+  changes.full_name=(nameEl?.value||'').trim(); changes.active=activeEl?.value==='true';
+  if(!changes.full_name)return msg('Họ tên cán bộ không được để trống.','error');
+  if(p.user_id===me.id && !changes.active)return msg('Không thể tự khóa tài khoản quản trị đang đăng nhập.','error');
+  b.disabled=true;
+  const {error:pe}=await sb.from('staff_profiles').update({...changes,updated_at:new Date().toISOString()}).eq('user_id',p.user_id);
+  if(pe){b.disabled=false;return msg('Không lưu được cán bộ: '+pe.message,'error');}
+  const {error:de}=await sb.from('staff_to_dan_pho').delete().eq('staff_id',p.user_id);
+  if(de){b.disabled=false;return msg('Không cập nhật được Tổ dân phố: '+de.message,'error');}
+  const {error:ie}=await sb.from('staff_to_dan_pho').insert(selected.map(id=>({staff_id:p.user_id,to_dan_pho_id:id})));
+  b.disabled=false;
+  if(ie)return msg('Không cập nhật được Tổ dân phố: '+ie.message,'error');
+  msg('Đã cập nhật cán bộ và Tổ dân phố phụ trách.','success');
+  await loadStaff();
  });
+
+ document.querySelectorAll('[data-reset-password]').forEach(b=>b.onclick=async()=>{
+  const i=Number(b.dataset.resetPassword),p=profiles[i];
+  const pw=prompt('Nhập mật khẩu mới cho '+(p.full_name||p.email||'cán bộ')+' (ít nhất 8 ký tự):');
+  if(pw===null)return;
+  if(pw.length<8)return msg('Mật khẩu mới phải có ít nhất 8 ký tự.','error');
+  b.disabled=true;
+  try{
+   const out=await callAdminStaffFunction({mode:'reset_password',user_id:p.user_id,password:pw});
+   msg('Đã đổi mật khẩu cho '+esc(out.full_name||p.full_name)+'. Mật khẩu mới cần được cung cấp trực tiếp cho cán bộ.','success');
+  }catch(e){msg('Không đổi được mật khẩu: '+e.message,'error');}
+  b.disabled=false;
+ });
+
  $('staffSelect').innerHTML='<option value="">Chọn cán bộ</option>'+profiles.filter(p=>p.active&&p.role==='cadre').map(p=>'<option value="'+p.user_id+'">'+esc(p.full_name||p.user_id)+(p.unit_name?' — '+esc(p.unit_name):'')+'</option>').join('');
+ $('bulkStaff').innerHTML='<option value="">Chọn cán bộ</option>'+profiles.filter(p=>p.active&&p.role==='cadre').map(p=>'<option value="'+p.user_id+'">'+esc(p.full_name||p.user_id)+(p.unit_name?' — '+esc(p.unit_name):'')+'</option>').join('');
 }
+
+function renderNewStaffTerritories(){
+ const el=$('newStaffTerritories');
+ if(!el)return;
+ el.innerHTML=territories.map(t=>'<label style="display:flex;align-items:center;gap:7px;font-weight:600;padding:7px;border:1px solid #e2e8f0;border-radius:8px;background:white"><input type="checkbox" data-new-tdp value="'+t.id+'" style="width:auto">'+esc(t.name)+'</label>').join('');
+}
+
+async function callAdminStaffFunction(payload){
+ const {data,error}=await sb.auth.getSession();
+ if(error||!data.session)throw new Error('Phiên đăng nhập đã hết. Hãy đăng nhập lại.');
+ const res=await fetch(ADMIN_STAFF_FUNCTION,{
+  method:'POST',
+  headers:{'Authorization':'Bearer '+data.session.access_token,'apikey':SUPABASE_KEY,'Content-Type':'application/json'},
+  body:JSON.stringify(payload)
+ });
+ let out={}; try{out=await res.json();}catch(_){}
+ if(!res.ok||out.error)throw new Error(out.error||'Không thực hiện được thao tác.');
+ return out;
+}
+
+function selectedNewTerritories(){
+ return [...document.querySelectorAll('[data-new-tdp]:checked')].map(x=>Number(x.value));
+}
+
+$('createStaffBtn').onclick=async()=>{
+ clearMsg();
+ const full_name=$('newStaffName').value.trim(), email=$('newStaffEmail').value.trim(), password=$('newStaffPassword').value;
+ const unit_name=$('newStaffUnit').value.trim(), to_dan_pho_ids=selectedNewTerritories();
+ if(!full_name||!email||!password)return msg('Nhập họ tên, email và mật khẩu.','error');
+ if(password.length<8)return msg('Mật khẩu phải có ít nhất 8 ký tự.','error');
+ if(!to_dan_pho_ids.length)return msg('Hãy chọn ít nhất một Tổ dân phố.','error');
+ $('createStaffBtn').disabled=true;
+ try{
+  const out=await callAdminStaffFunction({mode:'create',full_name,email,password,unit_name,to_dan_pho_ids});
+  $('newStaffResult').innerHTML='<strong>Đã tạo tài khoản.</strong><br>Email: <code>'+esc(out.email)+'</code><br>Mật khẩu: <code>'+esc(password)+'</code><br>Tổ dân phố: '+esc(to_dan_pho_ids.map(id=>(territories.find(t=>t.id===id)||{}).name||('Tổ dân phố '+id)).join(', '));
+  $('newStaffResult').className='notice success';$('newStaffResult').classList.remove('hidden');
+  $('newStaffPassword').value='';
+  document.querySelectorAll('[data-new-tdp]').forEach(x=>x.checked=false);
+  $('newStaffName').value='';$('newStaffEmail').value='';$('newStaffUnit').value='';
+  await loadStaff();
+ }catch(e){msg('Không tạo được tài khoản: '+e.message,'error');}
+ $('createStaffBtn').disabled=false;
+};
+
+$('clearStaffFormBtn').onclick=()=>{
+ ['newStaffName','newStaffEmail','newStaffPassword','newStaffUnit'].forEach(id=>$(id).value='');
+ document.querySelectorAll('[data-new-tdp]').forEach(x=>x.checked=false);
+ $('newStaffResult').classList.add('hidden');
+ clearMsg();
+};
+
 async function loadRecords(){
  $('recordSelect').innerHTML='<option value="">Đang tải phiếu từ Google Sheets…</option>';
  try{
