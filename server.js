@@ -337,6 +337,102 @@ app.post('/api/save-sheet', async (req, res) => {
   }
 });
 
+// Admin-only record endpoint used by the assignment console.
+async function requireStaff(req, res, requiredRole = null) {
+  try {
+    const authorization = req.headers.authorization || '';
+    const token = authorization.replace(/^Bearer\\s+/i, '').trim();
+    if (!token) {
+      res.status(401).json({ ok: false, error: 'Thiếu phiên đăng nhập.' });
+      return null;
+    }
+
+    const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\\/+$/, '');
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    if (!supabaseUrl || !serviceRoleKey) {
+      res.status(500).json({ ok: false, error: 'Thiếu cấu hình xác thực máy chủ.' });
+      return null;
+    }
+
+    const userRes = await fetch(supabaseUrl + '/auth/v1/user', {
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: 'Bearer ' + token
+      }
+    });
+    if (!userRes.ok) {
+      res.status(401).json({ ok: false, error: 'Phiên đăng nhập không hợp lệ.' });
+      return null;
+    }
+    const user = await userRes.json();
+
+    const profileRes = await fetch(
+      supabaseUrl + '/rest/v1/staff_profiles?select=user_id,role,active&user_id=eq.' +
+      encodeURIComponent(user.id) + '&limit=1',
+      {
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: 'Bearer ' + serviceRoleKey
+        }
+      }
+    );
+    const profiles = profileRes.ok ? await profileRes.json() : [];
+    const profile = profiles[0];
+    if (!profile || !profile.active || (requiredRole && profile.role !== requiredRole)) {
+      res.status(403).json({ ok: false, error: 'Tài khoản không có quyền thực hiện thao tác này.' });
+      return null;
+    }
+    return { user, profile };
+  } catch (err) {
+    console.error('Admin auth error:', err);
+    res.status(500).json({ ok: false, error: 'Không xác thực được tài khoản.' });
+    return null;
+  }
+}
+
+app.get('/api/admin-records', async (req, res) => {
+  const staff = await requireStaff(req, res, 'admin');
+  if (!staff) return;
+
+  const q = (req.query.q || '').trim().toLowerCase();
+  const appsScriptUrl = (req.query.appsScriptUrl || '').trim();
+
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      let queryUrl = process.env.SUPABASE_URL.replace(/\\/+$/, '') +
+        '/rest/v1/m02_records?select=*&order=updated_at.desc&limit=100';
+      if (q) {
+        queryUrl += '&or=(martyr_name.ilike.*' + encodeURIComponent(q) +
+          '*,record_id.ilike.*' + encodeURIComponent(q) +
+          '*,rep_name.ilike.*' + encodeURIComponent(q) +
+          '*,file_id.ilike.*' + encodeURIComponent(q) + '*)';
+      }
+      const dbRes = await fetch(queryUrl, {
+        headers: {
+          apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY
+        }
+      });
+      if (dbRes.ok) {
+        return res.json({ ok: true, source: 'supabase', records: await dbRes.json() });
+      }
+    } catch (e) {
+      console.warn('Admin Supabase query error, fallback to sheets:', e.message);
+    }
+  }
+
+  if (appsScriptUrl && appsScriptUrl.startsWith('https://script.google.com/')) {
+    try {
+      const gRes = await fetch(appsScriptUrl + '?action=list&q=' + encodeURIComponent(q), { redirect: 'follow' });
+      if (gRes.ok) return res.json(await gRes.json());
+    } catch (e) {
+      console.warn('Admin Apps Script query error:', e.message);
+    }
+  }
+
+  return res.json({ ok: true, records: [] });
+});
+
 // Endpoint to search or list records
 app.get('/api/records', async (req, res) => {
   const q = (req.query.q || '').trim().toLowerCase();
