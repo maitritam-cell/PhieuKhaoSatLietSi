@@ -288,13 +288,20 @@ function renderRecords(){
   const q=($('recordSearch')?.value||'').trim().toLowerCase();
   const body=$('recordRows');if(!body)return;
   const list=getRecords();
-  const badge=$('recordCountBadge');
-  if(badge)badge.textContent=list.length+' phiếu';
 
-  const rows=list.filter(x=>!q||[x.record_id,x.martyr_name,x.file_id,x.rep_name,x.rep_phone,x.rep_id].join(' ').toLowerCase().includes(q));
+  const isTerritoryFiltered = currentStaffProfile && currentStaffProfile.role !== 'admin' && currentStaffTerritories && currentStaffTerritories.length > 0;
+  const filteredList = isTerritoryFiltered ? list.filter(x => territoryAllowed(x)) : list;
+
+  const badge=$('recordCountBadge');
+  if(badge)badge.textContent=filteredList.length+' phiếu';
+
+  const rows=filteredList.filter(x=>!q||[x.record_id,x.martyr_name,x.file_id,x.rep_name,x.rep_phone,x.rep_id].join(' ').toLowerCase().includes(q));
 
   if(!rows.length){
-    body.innerHTML='<tr><td colspan="8" class="empty" style="text-align:center;padding:16px;color:#64748b;">Chưa có phiếu phù hợp. Hãy nhập phiếu và bấm "Lưu vào Google Sheets".</td></tr>';
+    const emptyMsg = isTerritoryFiltered
+      ? `Không có phiếu nào thuộc địa bàn được phân công (${currentStaffTerritories.join(', ')}). Bấm "🔄 Tải từ Google Sheet" để đồng bộ dữ liệu.`
+      : 'Chưa có phiếu phù hợp. Hãy nhập phiếu và bấm "Lưu vào Google Sheets".';
+    body.innerHTML='<tr><td colspan="8" class="empty" style="text-align:center;padding:16px;color:#64748b;">'+escapeHtml(emptyMsg)+'</td></tr>';
     return;
   }
 
@@ -343,6 +350,10 @@ function openRecord(id){
     alert('Không tìm thấy thông tin phiếu trong danh sách lưu trên thiết bị.');
     return;
   }
+  if(currentStaffProfile && currentStaffProfile.role !== 'admin' && currentStaffTerritories && currentStaffTerritories.length && !territoryAllowed(item)){
+    alert(`Phiếu này không thuộc địa bàn ${currentStaffTerritories.join(', ')} được phân công cho tài khoản của bạn.`);
+    return;
+  }
   fill(item);
   currentSaved=true;
   localStorage.setItem('phieu_liet_si_saved','1');
@@ -369,9 +380,12 @@ async function fetchFromGoogleSheets(){
     const res=await fetch('/api/records?appsScriptUrl='+encodeURIComponent(scriptUrl),{headers:{'Authorization':'Bearer '+(currentStaffSession?.access_token||'')}});
     const data=await res.json().catch(()=>({}));
     if(res.ok && data.records && Array.isArray(data.records) && data.records.length>0){
-      const currentList=getRecords();
+      const isTerritoryFiltered = currentStaffProfile && currentStaffProfile.role !== 'admin' && currentStaffTerritories && currentStaffTerritories.length > 0;
+      const recordsToProcess = isTerritoryFiltered ? data.records.filter(r => territoryAllowed(r)) : data.records;
+
+      const currentList = isTerritoryFiltered ? [] : getRecords();
       let added=0;
-      data.records.forEach(r=>{
+      recordsToProcess.forEach(r=>{
         const exists=currentList.find(c=>(c.record_id&&c.record_id===r.record_id)||(c.file_id&&c.file_id===r.file_id));
         if(!exists){
           currentList.push({
@@ -392,8 +406,9 @@ async function fetchFromGoogleSheets(){
       });
       putRecords(currentList);
       renderRecords();
-      setStatus(`Đã đồng bộ xong ${data.records.length} phiếu từ Google Sheets (thêm mới ${added} phiếu).`);
-      alert(`Đã đồng bộ thành công ${data.records.length} phiếu từ Google Sheets!`);
+      const terrInfo = isTerritoryFiltered ? ` (lọc theo ${currentStaffTerritories.join(', ')})` : '';
+      setStatus(`Đã đồng bộ xong ${currentList.length} phiếu từ Google Sheets${terrInfo}.`);
+      showNotification('success','Đồng bộ Google Sheets',`Đã tải xong ${currentList.length} phiếu${terrInfo}.`);
     }else{
       setStatus('Không có bản ghi mới từ Google Sheets.');
       alert('Đã kết nối Google Sheets nhưng chưa tìm thấy thêm bản ghi nào.');
@@ -667,25 +682,22 @@ async function testScriptConnection(){
   statusEl.innerHTML='<span style="color:#0284c7;">Đang kiểm tra kết nối tới Google Apps Script...</span>';
 
   try{
-    const res=await fetch('/api/save-sheet',{
+    const res=await fetch('/api/test-connection',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        appsScriptUrl:url,
-        record_id:'TEST-PING',
-        hoTenLietSi:'KIỂM TRA KẾT NỐI',
-        ghiChu:'Test ping từ ứng dụng',
-        trangThai:'Kiểm tra'
-      })
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':'Bearer '+(currentStaffSession?.access_token||'')
+      },
+      body:JSON.stringify({ appsScriptUrl:url })
     });
     const data=await res.json().catch(()=>({}));
     if(res.ok && data.ok){
-      statusEl.innerHTML='<span style="color:#16a34a;font-weight:600;">✓ Kết nối thành công! Google Apps Script đã sẵn sàng ghi/sửa dữ liệu vào trang tính.</span>';
+      statusEl.innerHTML=`<span style="color:#16a34a;font-weight:600;">✓ Kết nối thành công!</span> <div style="color:#15803d;margin-top:4px;">${escapeHtml(data.message || 'Google Apps Script đã sẵn sàng ghi/sửa dữ liệu vào trang tính.')}</div>`;
     }else{
       statusEl.innerHTML=`<span style="color:#dc2626;font-weight:600;">⚠️ Kết nối thất bại:</span> <div style="color:#991b1b;margin-top:4px;">${escapeHtml(data.error||'Lỗi không xác định')}</div>`;
     }
   }catch(err){
-    statusEl.innerHTML=`<span style="color:#dc2626;font-weight:600;">⚠️ Lỗi:</span> <div style="color:#991b1b;margin-top:4px;">${escapeHtml(err.message)}</div>`;
+    statusEl.innerHTML=`<span style="color:#dc2626;font-weight:600;">⚠️ Lỗi kết nối:</span> <div style="color:#991b1b;margin-top:4px;">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -5218,14 +5230,61 @@ async function getStaffUser(token){
  if(!r.ok)throw new Error('Phiên đăng nhập đã hết.');
  return await r.json();
 }
-function territoryAllowed(address){
- const s=String(address||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
- return currentStaffTerritories.some(name=>{
-  const n=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-  const num=(n.match(/\d+/)||[])[0];
-  if(!num)return false;
-  return new RegExp('\\bto\\s*dan\\s*pho\\s*'+num+'\\b').test(s);
- });
+function territoryAllowed(recordOrAddress){
+ if(currentStaffProfile?.role==='admin') return true;
+ if(!currentStaffTerritories||!currentStaffTerritories.length) return false;
+
+ const addresses=[];
+ if(typeof recordOrAddress==='string'){
+  addresses.push(recordOrAddress);
+ }else if(recordOrAddress && typeof recordOrAddress==='object'){
+  const d=recordOrAddress.data && typeof recordOrAddress.data==='object' ? recordOrAddress.data : {};
+  [
+   d.rep_address, d.noiThuongTruNDD, d['Nơi thường trú NĐD'], d['Nơi thường trú người đại diện'], d['Nơi thường trú'],
+   recordOrAddress.rep_address, recordOrAddress.noiThuongTruNDD, recordOrAddress['Nơi thường trú NĐD'],
+   recordOrAddress['Nơi thường trú người đại diện'], recordOrAddress['Nơi thường trú'], recordOrAddress.address
+  ].forEach(a=>{if(a)addresses.push(a);});
+
+  const rels=d.relatives||recordOrAddress.relatives;
+  if(Array.isArray(rels)){
+   rels.forEach(rel=>{
+    if(rel && typeof rel==='object'){
+     if(rel.address) addresses.push(rel.address);
+     if(rel.noiThuongTru) addresses.push(rel.noiThuongTru);
+     if(rel['Nơi thường trú']) addresses.push(rel['Nơi thường trú']);
+    }
+   });
+  }
+ }
+
+ const norm=v=>String(v||'')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g,'')
+  .replace(/đ/g,'d')
+  .toLowerCase()
+  .replace(/[.,;:/_-]+/g,' ')
+  .replace(/\s+/g,' ')
+  .trim();
+
+ const combined=addresses.map(norm).join(' ');
+ if(!combined) return false;
+
+ const assignedNums=currentStaffTerritories.map(t=>{
+  const m=String(t||'').match(/\d+/);
+  return m ? m[0] : '';
+ }).filter(Boolean);
+
+ for(const num of assignedNums){
+  const pattern=new RegExp('(?:^|\\s)(?:to\\s*dan\\s*pho|tdp|to|khom)(?:\\s*so)?\\s*'+num+'(?:\\s|$|[.,])');
+  if(pattern.test(combined)) return true;
+ }
+
+ for(const t of currentStaffTerritories){
+  const normT=norm(t);
+  if(normT && combined.includes(normT)) return true;
+ }
+
+ return false;
 }
 function showStaffGate(allowed){
  const login=$('staffLogin'),top=$('staffTopbar'),app=$('staffApp');
@@ -5233,8 +5292,10 @@ function showStaffGate(allowed){
  if(top)top.style.display=allowed?'block':'none';
  if(app)app.style.display=allowed?'block':'none';
  if(allowed){
-  $('staffIdentity').textContent=(currentStaffProfile?.full_name||currentStaffSession?.user?.email||'Cán bộ')+
-   (currentStaffProfile?.role==='admin'?' — Quản trị viên':' — Phụ trách '+currentStaffTerritories.join(', '));
+  const roleText = currentStaffProfile?.role === 'admin'
+    ? ' — Quản trị viên'
+    : (currentStaffTerritories.length ? ' — Phụ trách ' + currentStaffTerritories.join(', ') : ' — Lập phiếu tự do');
+  $('staffIdentity').textContent = (currentStaffProfile?.full_name || currentStaffSession?.user?.email || 'Người dùng') + roleText;
   const adminLink=document.querySelector('a[href="/assignments.html"]');
   if(adminLink)adminLink.style.display=currentStaffProfile?.role==='admin'?'inline-flex':'none';
  }
@@ -5246,11 +5307,35 @@ async function loadStaffProfile(session){
  const rows=await pRes.json(),data=rows[0];
  if(!data||!data.active)throw new Error('Tài khoản chưa được kích hoạt hoặc đã bị khóa.');
  currentStaffProfile=data;
+
+ if(data.role==='admin'){
+  currentStaffTerritories=['Toàn phường (Quản trị viên)'];
+  return;
+ }
+
  const tRes=await fetch(STAFF_SUPABASE_URL+'/rest/v1/staff_to_dan_pho?select=to_dan_pho_id,to_dan_pho(name)&staff_id=eq.'+encodeURIComponent(session.user.id),{headers:staffAuthHeaders(token)});
- if(!tRes.ok)throw new Error('Không đọc được Tổ dân phố được phân công.');
- const links=await tRes.json();
- currentStaffTerritories=(links||[]).map(x=>x.to_dan_pho?.name).filter(Boolean);
- if(data.role!=='admin'&&!currentStaffTerritories.length)throw new Error('Tài khoản chưa được phân công Tổ dân phố.');
+ let links=[];
+ if(tRes.ok){
+  links=await tRes.json();
+ }
+ let names=(links||[]).map(x=>x.to_dan_pho?.name).filter(Boolean);
+ if(!names.length && links.length){
+  const ids=links.map(x=>x.to_dan_pho_id).filter(Boolean);
+  if(ids.length){
+   try{
+    const tdpRes=await fetch(STAFF_SUPABASE_URL+'/rest/v1/to_dan_pho?select=id,name&id=in.('+ids.join(',')+')',{headers:staffAuthHeaders(token)});
+    if(tdpRes.ok){
+     const tdpList=await tdpRes.json();
+     names=tdpList.map(t=>t.name).filter(Boolean);
+    }
+   }catch(_){}
+   if(!names.length){
+    names=ids.map(id=>'Tổ dân phố '+id);
+   }
+  }
+ }
+ currentStaffTerritories=names;
+ if(!currentStaffTerritories.length)throw new Error('Tài khoản chưa được phân công Tổ dân phố.');
 }
 async function startStaffApp(session){
  try{
@@ -5268,7 +5353,15 @@ async function startStaffApp(session){
 }
 function initStaffAuthentication(){
  const saved=localStorage.getItem(STAFF_SESSION_KEY);
- $('staffLoginBtn').addEventListener('click',async()=>{
+ $('skipLoginBtn')?.addEventListener('click',()=>{
+  currentStaffSession=null;
+  currentStaffProfile={role:'guest',full_name:'Người dùng',active:true};
+  currentStaffTerritories=[];
+  showStaffGate(true);
+  renderRecords();
+  if(typeof fetchFromGoogleSheets==='function')fetchFromGoogleSheets();
+ });
+ $('staffLoginBtn')?.addEventListener('click',async()=>{
   const email=$('staffLoginEmail').value.trim(),password=$('staffLoginPassword').value;
   if(!email||!password){$('staffLoginMessage').textContent='Nhập email và mật khẩu.';return;}
   $('staffLoginBtn').disabled=true;$('staffLoginMessage').textContent='Đang đăng nhập…';
@@ -5283,8 +5376,8 @@ function initStaffAuthentication(){
   }catch(e){$('staffLoginMessage').textContent='Đăng nhập thất bại: '+e.message;}
   $('staffLoginBtn').disabled=false;
  });
- $('staffLoginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')$('staffLoginBtn').click();});
- $('staffLogoutBtn').addEventListener('click',async()=>{clearStaffSession();localStorage.removeItem('phieu_liet_si_records');showStaffGate(false);});
+ $('staffLoginPassword')?.addEventListener('keydown',e=>{if(e.key==='Enter')$('staffLoginBtn')?.click();});
+ $('staffLogoutBtn')?.addEventListener('click',async()=>{clearStaffSession();localStorage.removeItem('phieu_liet_si_records');showStaffGate(false);});
  if(saved){
   try{
    const s=JSON.parse(saved);
