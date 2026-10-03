@@ -10,7 +10,12 @@ function msg(text,type=''){const el=$('message');el.textContent=text;el.classNam
 function clearMsg(){$('message').classList.add('hidden');}
 function statusText(s){return ({assigned:'Chưa thực hiện',in_progress:'Đang rà soát',submitted:'Đã gửi kết quả',needs_revision:'Cần bổ sung',completed:'Đã hoàn thành'})[s]||s;}
 function pill(s){const cls=s==='completed'?'green':s==='needs_revision'?'red':s==='in_progress'||s==='submitted'?'amber':'';return '<span class="pill '+cls+'">'+esc(statusText(s))+'</span>';}
-function showTab(tab){document.querySelectorAll('[id^="panel-"]').forEach(e=>e.classList.add('hidden'));$('panel-'+tab).classList.remove('hidden');document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('active',e.dataset.tab===tab));}
+function showTab(tab){
+ if(tab!=='assignments' && (!profile || profile.role!=='admin')){tab='assignments';}
+ document.querySelectorAll('[id^="panel-"]').forEach(e=>e.classList.add('hidden'));
+ $('panel-'+tab).classList.remove('hidden');
+ document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('active',e.dataset.tab===tab));
+}
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
 async function getProfile(user){
  const {data,error}=await sb.from('staff_profiles').select('*').eq('user_id',user.id).maybeSingle();
@@ -165,14 +170,18 @@ $('clearStaffFormBtn').onclick=()=>{
 };
 
 async function loadRecords(){
- $('recordSelect').innerHTML='<option value="">Đang tải phiếu từ Google Sheets…</option>';
+ $('recordSelect').innerHTML='<option value="">Đang tải danh sách hồ sơ…</option>';
  try{
-  const res=await fetch('/api/records?appsScriptUrl='+encodeURIComponent(APPS_SCRIPT_URL));
+  const {data:sessionData,error:sessionError}=await sb.auth.getSession();
+  if(sessionError||!sessionData.session)throw new Error('Phiên đăng nhập đã hết. Hãy đăng nhập lại.');
+  const res=await fetch('/api/admin-records?appsScriptUrl='+encodeURIComponent(APPS_SCRIPT_URL),{
+   headers:{'Authorization':'Bearer '+sessionData.session.access_token}
+  });
   const data=await res.json();
-  if(!res.ok||!Array.isArray(data.records))throw new Error(data.error||'Không đọc được danh sách phiếu');
+  if(!res.ok||!Array.isArray(data.records))throw new Error(data.error||'Không đọc được danh sách hồ sơ');
   records=data.records;
   $('recordSelect').innerHTML='<option value="">Chọn phiếu cần giao</option>'+records.map((r,i)=>'<option value="'+i+'">'+esc(r.martyr_name||'Chưa có tên')+' • '+esc(r.file_id||r.record_id||'Chưa có mã')+'</option>').join('');
- }catch(e){$('recordSelect').innerHTML='<option value="">Không tải được danh sách</option>';msg('Không tải được phiếu từ Google Sheets: '+e.message,'error');}
+ }catch(e){$('recordSelect').innerHTML='<option value="">Không tải được danh sách</option>';msg('Không tải được danh sách hồ sơ: '+e.message,'error');}
 }
 $('createAssignmentBtn').onclick=async()=>{
  clearMsg();const ix=$('recordSelect').value,assigned_to=$('staffSelect').value;
