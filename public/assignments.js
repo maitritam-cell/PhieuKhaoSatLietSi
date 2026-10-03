@@ -2,7 +2,7 @@ const SUPABASE_URL='https://zyvckivbwwlhmpkbonze.supabase.co';
 const SUPABASE_KEY='sb_publishable_1ojllrmwxQSMPZWtO6VBqw_5oygalyC';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbwXHveyxf6Z1Hi-P-Ex9RtELyGszNRGhHsGMv6vVEsb43HcFyg3sbTa2XKvtJfkiT0orw/exec';
-let me=null, profile=null, profiles=[], records=[], allAssignments=[];
+let me=null, profile=null, profiles=[], records=[], allAssignments=[], authLoadToken=0;
 const $=id=>document.getElementById(id);
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function msg(text,type=''){const el=$('message');el.textContent=text;el.className='notice'+(type?' '+type:'');el.classList.remove('hidden');}
@@ -18,17 +18,18 @@ async function getProfile(user){
  return data;
 }
 async function authChanged(user){
+ const token=++authLoadToken;
  me=user;
- if(!user){$('authCard').classList.remove('hidden');$('appArea').classList.add('hidden');return;}
+ if(!user){profile=null;$('authCard').classList.remove('hidden');$('appArea').classList.add('hidden');return;}
  try{
   profile=await getProfile(user);
+  if(token!==authLoadToken)return;
   $('authCard').classList.add('hidden');$('appArea').classList.remove('hidden');
   $('who').textContent=profile.full_name||user.email;
   $('roleLabel').textContent=(profile.role==='admin'?'Quản trị viên':'Cán bộ')+(profile.unit_name?' • '+profile.unit_name:'');
   $('assignTab').classList.toggle('hidden',profile.role!=='admin');$('bulkTab').classList.toggle('hidden',profile.role!=='admin');
   $('staffTab').classList.toggle('hidden',profile.role!=='admin');
-  await loadAssignments();
-  if(profile.role==='admin'){await loadStaff();await loadRecords();await loadBulkOptions();}
+  await Promise.all([loadAssignments(), profile.role==='admin' ? loadStaff().then(async()=>{await loadRecords();await loadBulkOptions();}) : Promise.resolve()]);
  }catch(e){msg(e.message,'error');}
 }
 $('loginBtn').onclick=async()=>{
