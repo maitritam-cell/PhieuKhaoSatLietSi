@@ -13,6 +13,23 @@
 <div id="panel-assignments" class="card"><div class="topline"><h2>Danh sách hồ sơ & tiến độ</h2><button class="btn secondary" id="refreshBtn">Tải lại</button></div><div id="dashboard" class="grid" style="margin:12px 0;"></div><div id="assignmentsList" class="muted">Đang tải…</div></div>
 <div id="panel-newAssignment" class="card hidden"><h2>Giao hồ sơ cần rà soát</h2><p class="muted">Chọn phiếu đã có trên Google Sheets. Hệ thống lưu bản chụp thông tin hiện có để cán bộ biết phần nào cần bổ sung.</p><div class="grid"><div><label>Phiếu / liệt sĩ</label><select id="recordSelect"><option value="">Đang tải danh sách…</option></select></div><div><label>Giao cho cán bộ</label><select id="staffSelect"><option value="">Chọn cán bộ</option></select></div><div><label>Địa bàn / đơn vị</label><input id="assignUnit" placeholder="Địa bàn cần rà soát"></div><div><label>Hạn hoàn thành</label><input id="dueDate" type="date"></div><div class="full"><label>Nội dung cần xác minh / bổ sung</label><textarea id="taskNote" placeholder="Ví dụ: xác minh thân nhân bên ngoại, bổ sung ngày sinh, nơi an táng ban đầu…"></textarea></div></div><button class="btn" id="createAssignmentBtn" style="margin-top:12px">Giao hồ sơ</button></div>
 <div id="panel-bulk" class="card hidden"><h2>Phân loại hàng loạt theo nơi thường trú</h2><p class="muted">Chọn nơi thường trú của người đại diện để hệ thống gom các hồ sơ cùng địa bàn, sau đó giao toàn bộ nhóm cho một cán bộ. Hồ sơ đã có phân công sẽ được bỏ qua để tránh tạo trùng.</p><div class="grid"><div><label>Nơi thường trú</label><select id="bulkAddress"><option value="">Đang tải địa bàn…</option></select></div><div><label>Cán bộ phụ trách</label><select id="bulkStaff"><option value="">Chọn cán bộ</option></select></div><div><label>Hạn hoàn thành</label><input id="bulkDueDate" type="date"></div><div><label>Địa bàn / ghi chú</label><input id="bulkUnit" placeholder="Ví dụ: Khu phố 1"></div><div class="full"><label>Nội dung giao chung</label><textarea id="bulkNote" placeholder="Rà soát, xác minh và bổ sung đầy đủ thông tin thân nhân / phần mộ…"></textarea></div></div><div id="bulkCount" class="notice" style="margin-top:10px;">Chọn một nơi thường trú để xem số hồ sơ.</div><button class="btn" id="bulkAssignBtn">Giao toàn bộ nhóm này</button></div>
-<div id="panel-staff" class="card hidden"><h2>Quản lý cán bộ và quyền truy cập</h2><p class="muted">Cán bộ cần tự tạo tài khoản bằng email. Tại đây quản trị viên có thể cập nhật họ tên, đơn vị, vai trò và trạng thái hoạt động.</p><div id="staffList">Đang tải…</div></div>
+<div id="panel-staff" class="card hidden">
+<h2>Quản lý cán bộ</h2>
+<p class="muted">Quản trị viên trực tiếp tạo tài khoản, đặt mật khẩu và gắn một hoặc nhiều trong 31 Tổ dân phố cho từng cán bộ. Cán bộ không tự đăng ký.</p>
+<div class="notice">Mật khẩu chỉ hiển thị cho quản trị viên ngay sau khi tạo hoặc đặt lại. Hệ thống không hiển thị lại mật khẩu cũ.</div>
+<div class="card" style="margin:0 0 14px;padding:15px;background:#f8fafc">
+<h3 style="margin:0 0 12px">＋ Tạo tài khoản cán bộ</h3>
+<div class="grid">
+<div><label>Họ và tên</label><input id="newStaffName" placeholder="Nguyễn Văn A"></div>
+<div><label>Email đăng nhập</label><input id="newStaffEmail" type="email" placeholder="canbo@donvi.gov.vn"></div>
+<div><label>Mật khẩu</label><input id="newStaffPassword" type="password" minlength="8" placeholder="Ít nhất 8 ký tự"></div>
+<div><label>Đơn vị / ghi chú</label><input id="newStaffUnit" placeholder="Công an phường / khu vực..."></div>
+</div>
+<div style="margin-top:12px"><label>Tổ dân phố phụ trách <span class="muted">(có thể chọn nhiều)</span></label><div id="newStaffTerritories" class="grid"></div></div>
+<div class="row" style="margin-top:12px"><button class="btn" id="createStaffBtn">Tạo tài khoản</button><button class="btn secondary" id="clearStaffFormBtn" type="button">Xóa nhập</button></div>
+<div id="newStaffResult" class="notice hidden" style="margin-top:12px"></div>
+</div>
+<div class="tablewrap"><table><thead><tr><th>Họ tên</th><th>Email</th><th>Tổ dân phố phụ trách</th><th>Trạng thái</th><th>Mật khẩu</th><th>Lưu</th></tr></thead><tbody id="staffTableBody"><tr><td colspan="6">Đang tải…</td></tr></tbody></table></div>
+</div>
 </section>
 </main><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/assignments.js"></script></body></html>
