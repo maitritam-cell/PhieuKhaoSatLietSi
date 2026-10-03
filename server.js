@@ -510,17 +510,41 @@ app.get('/api/records', async (req, res) => {
   records = Array.from(merged.values());
 
   if (staff.profile.role !== 'admin') {
-    const linksRes = await fetch(
-      supabaseUrl + '/rest/v1/staff_to_dan_pho?select=to_dan_pho_id,to_dan_pho(name)&staff_id=' + encodeURIComponent(staff.user.id),
-      { headers: { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey } }
+    // Lấy phân công bằng ID trước, sau đó truy vấn danh mục tổ riêng
+    // để tránh trường hợp PostgREST không trả về quan hệ nhúng to_dan_pho(name).
+    const headers = { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey };
+    const linksUrl = supabaseUrl + '/rest/v1/staff_to_dan_pho?select=to_dan_pho_id&staff_id=eq.' +
+      encodeURIComponent(staff.user.id);
+    const linksRes = await fetch(linksUrl, { headers });
+    if (!linksRes.ok) {
+      console.warn('Could not load staff territory assignments:', linksRes.status);
+      return res.status(500).json({ ok: false, error: 'Không đọc được phân công tổ dân phố của cán bộ.' });
+    }
+    const links = await linksRes.json();
+    const ids = [...new Set(links.map(x => String(x.to_dan_pho_id || '').trim()).filter(Boolean))];
+
+    // Không bỏ lọc khi tài khoản chưa có phân công; giữ nguyên nguyên tắc giới hạn địa bàn.
+    if (!ids.length) {
+      return res.json({ ok: true, records: [], message: 'Tài khoản chưa được gán tổ dân phố.' });
+    }
+
+    const idFilter = ids.map(id => '"' + id.replace(/"/g, '') + '"').join(',');
+    const territoryRes = await fetch(
+      supabaseUrl + '/rest/v1/to_dan_pho?select=id,name&id=in.(' + encodeURIComponent(idFilter) + ')',
+      { headers }
     );
-    const links = linksRes.ok ? await linksRes.json() : [];
-    const names = links.map(x => x.to_dan_pho && x.to_dan_pho.name).filter(Boolean);
+    if (!territoryRes.ok) {
+      console.warn('Could not load territory names:', territoryRes.status);
+      return res.status(500).json({ ok: false, error: 'Không đọc được danh mục tổ dân phố.' });
+    }
+    const territories = await territoryRes.json();
+    const names = territories.map(x => x.name).filter(Boolean);
     const normalize = v => String(v || '')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/đ/g, 'd')
       .toLowerCase()
+      .replace(/[.,;:/_-]+/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
     const nums = names.map(n => (String(n).match(/\d+/) || [])[0]).filter(Boolean);
@@ -529,14 +553,13 @@ app.get('/api/records', async (req, res) => {
       const d = r.data && typeof r.data === 'object' ? r.data : {};
       const address = normalize(
         d.rep_address || d.noiThuongTruNDD || d['Nơi thường trú NĐD'] ||
-        d['Nơi thường trú người đại diện'] ||
+        d['Nơi thường trú người đại diện'] || d['Nơi thường trú'] ||
         r.rep_address || r.noiThuongTruNDD || r['Nơi thường trú NĐD'] ||
-        r['Nơi thường trú người đại diện'] || r.address || ''
+        r['Nơi thường trú người đại diện'] || r['Nơi thường trú'] || r.address || ''
       );
       return nums.some(n => {
-        // Địa chỉ chuẩn trong bảng tính: "Tổ dân phố 30", "Tổ dân phố 31".
-        const escaped = String(n);
-        return new RegExp('(?:\\bto\\s*dan\\s*pho\\s*|\\btdp\\s*|\\bto\\s*)(?:so\\s*)?' + escaped + '\\b').test(address);
+        // Match "Tổ dân phố 30", "TDP 30", "Tổ 30" and spacing/punctuation variants.
+        return new RegExp('(?:^|\\s)(?:to\\s*dan\\s*pho|tdp|to)(?:\\s*so)?\\s*' + String(n) + '(?:\\s|$)').test(address);
       });
     });
   }
