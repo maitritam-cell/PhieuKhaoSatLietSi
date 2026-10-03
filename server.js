@@ -235,7 +235,7 @@ app.post('/api/save-sheet', async (req, res) => {
       if (!allowed) return res.status(403).json({ ok: false, error: 'Chỉ được lưu phiếu có nơi thường trú thuộc Tổ dân phố được phân công.' });
     }
     const appsScriptUrl = (payload.appsScriptUrl || '').trim() ||
-      'https://script.google.com/macros/s/AKfycbwXHveyxf6Z1Hi-P-Ex9RtELyGszNRGhHsGMv6vVEsb43HcFyg3sbTa2XKvtJfkiT0orw/exec';
+      'https://script.google.com/macros/s/AKfycbxDJfEZo5tYBS4emSeQfAL8XbS8OSE4a26P8FEUnVRd9af4LKhFZlhI1a4gyyygcAE/exec';
 
     if (!appsScriptUrl.startsWith('https://script.google.com/')) {
       return res.status(400).json({
