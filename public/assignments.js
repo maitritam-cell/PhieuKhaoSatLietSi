@@ -122,5 +122,5 @@ async function loadUpdates(id){
  const names={};profiles.forEach(p=>names[p.user_id]=p.full_name);
  el.innerHTML='<strong>Lịch sử cập nhật</strong>'+data.map(u=>'<div class="item"><div class="muted">'+esc(names[u.author_id]||'Cán bộ')+' • '+new Date(u.created_at).toLocaleString('vi-VN')+'</div><div>'+esc(u.note||'Không có ghi chú')+'</div>'+(Object.keys(u.added_data||{}).length?'<pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(JSON.stringify(u.added_data,null,2))+'</pre>':'')+'</div>').join('');
 }
-sb.auth.onAuthStateChange((_event,session)=>{if(session?.user)authChanged(session.user);else authChanged(null);});
+sb.auth.onAuthStateChange((_event,session)=>{queueMicrotask(()=>{if(session?.user)authChanged(session.user);else authChanged(null);});});
 (async()=>{const {data}=await sb.auth.getSession();if(data.session)await authChanged(data.session.user);})();
