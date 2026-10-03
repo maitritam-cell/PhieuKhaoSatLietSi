@@ -496,7 +496,7 @@ async function saveToSheets(){
 
     const proxyRes=await fetch('/api/save-sheet',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+(currentStaffSession?.access_token||'')},
       body:JSON.stringify({
         ...payload,
         appsScriptUrl: scriptUrl
