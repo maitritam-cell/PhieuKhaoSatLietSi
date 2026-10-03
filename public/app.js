@@ -5294,6 +5294,7 @@ function initStaffAuthentication(){
 }
 
 function initApp(){
+  initStaffAuthentication();
   initRelations();
   ['has_relatives_yes','has_relatives_no'].forEach(id=>{
     const el=$(id);
