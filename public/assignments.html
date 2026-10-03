@@ -8,9 +8,55 @@
 <section id="authCard" class="card"><h2>Đăng nhập hệ thống</h2><div class="grid"><div><label>Email tài khoản</label><input id="email" type="email" autocomplete="username" placeholder="email@donvi.gov.vn"></div><div><label>Mật khẩu</label><input id="password" type="password" autocomplete="current-password"></div></div><div class="row" style="margin-top:12px"><button class="btn" id="loginBtn">Đăng nhập</button></div><p class="muted">Tài khoản cán bộ do quản trị viên tạo và cấp mật khẩu. Cán bộ không tự đăng ký tài khoản.</p></section>
 <section id="appArea" class="hidden">
 <div class="card"><div class="topline"><div><strong id="who"></strong><div class="muted" id="roleLabel"></div></div><button class="btn secondary" id="logoutBtn">Đăng xuất</button></div>
-<div class="tabs"><button class="btn tab active" data-tab="assignments">Hồ sơ được giao</button><button class="btn tab hidden" id="assignTab" data-tab="newAssignment">＋ Giao hồ sơ</button><button class="btn tab hidden" id="bulkTab" data-tab="bulk">⇢ Phân loại theo thường trú</button><button class="btn tab hidden" id="staffTab" data-tab="staff">Quản lý cán bộ</button></div>
+<div class="tabs"><button class="btn tab active" data-tab="assignments">Hồ sơ được giao</button><button class="btn tab hidden" id="assignTab" data-tab="newAssignment">＋ Giao hồ sơ</button><button class="btn tab hidden" id="bulkTab" data-tab="bulk">⇢ Phân loại theo thường trú</button><button class="btn tab hidden" id="staffTab" data-tab="staff">Quản lý cán bộ</button><button class="btn tab hidden" id="tdpTab" data-tab="tdp">⚙️ Cấu hình Tổ dân phố</button></div>
 </div>
-<div id="panel-assignments" class="card"><div class="topline"><h2>Danh sách hồ sơ & tiến độ</h2><button class="btn secondary" id="refreshBtn">Tải lại</button></div><div id="dashboard" class="grid" style="margin:12px 0;"></div><div id="assignmentsList" class="muted">Đang tải…</div></div>
+<div id="panel-assignments" class="card">
+  <div class="topline">
+    <h2>Danh sách hồ sơ & tiến độ</h2>
+    <div class="row">
+      <button class="btn secondary" id="refreshBtn">🔄 Tải lại</button>
+    </div>
+  </div>
+  <div id="dashboard" class="grid" style="margin:12px 0;"></div>
+
+  <!-- Theo dõi tiến độ từng cán bộ -->
+  <div id="staffProgressContainer" class="card hidden" style="margin:16px 0;background:#f8fafc;padding:16px;border:1px solid #cbd5e1;">
+    <div class="topline" style="margin-bottom:10px;">
+      <div>
+        <h3 style="margin:0 0 4px;font-size:16px;color:#0f172a;">👥 Bảng theo dõi tiến độ từng cán bộ</h3>
+        <div class="muted">Thống kê số lượng hồ sơ được giao, trạng thái rà soát và tỷ lệ hoàn thành theo từng cán bộ phụ trách địa bàn.</div>
+      </div>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Cán bộ</th>
+            <th>Tổ dân phố phụ trách</th>
+            <th style="text-align:center;">Tổng giao</th>
+            <th style="text-align:center;">Chưa làm</th>
+            <th style="text-align:center;">Đang rà soát</th>
+            <th style="text-align:center;">Đã gửi</th>
+            <th style="text-align:center;">Hoàn thành</th>
+            <th style="min-width:140px;">Tiến độ</th>
+            <th style="text-align:center;">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody id="staffProgressBody">
+          <tr><td colspan="9" class="muted">Đang tính toán tiến độ cán bộ…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Banner thông báo lọc theo cán bộ -->
+  <div id="activeStaffFilterBanner" class="notice hidden" style="display:none;justify-content:space-between;align-items:center;margin:12px 0;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;">
+    <div><strong>🔍 Đang xem hồ sơ của cán bộ:</strong> <span id="activeStaffFilterName" style="font-weight:700;"></span></div>
+    <button type="button" class="btn secondary" style="padding:4px 10px;font-size:12px;" onclick="clearStaffFilter()">✖ Xem tất cả cán bộ</button>
+  </div>
+
+  <div id="assignmentsList" class="muted">Đang tải…</div>
+</div>
 <div id="panel-newAssignment" class="card hidden"><h2>Giao hồ sơ cần rà soát</h2><p class="muted">Chọn phiếu đã có trên Google Sheets. Hệ thống lưu bản chụp thông tin hiện có để cán bộ biết phần nào cần bổ sung.</p><div class="grid"><div><label>Phiếu / liệt sĩ</label><select id="recordSelect"><option value="">Đang tải danh sách…</option></select></div><div><label>Giao cho cán bộ</label><select id="staffSelect"><option value="">Chọn cán bộ</option></select></div><div><label>Địa bàn / đơn vị</label><input id="assignUnit" placeholder="Địa bàn cần rà soát"></div><div><label>Hạn hoàn thành</label><input id="dueDate" type="date"></div><div class="full"><label>Nội dung cần xác minh / bổ sung</label><textarea id="taskNote" placeholder="Ví dụ: xác minh thân nhân bên ngoại, bổ sung ngày sinh, nơi an táng ban đầu…"></textarea></div></div><button class="btn" id="createAssignmentBtn" style="margin-top:12px">Giao hồ sơ</button></div>
 <div id="panel-bulk" class="card hidden"><h2>Phân loại hàng loạt theo nơi thường trú</h2><p class="muted">Chọn nơi thường trú của người đại diện để hệ thống gom các hồ sơ cùng địa bàn, sau đó giao toàn bộ nhóm cho một cán bộ. Hồ sơ đã có phân công sẽ được bỏ qua để tránh tạo trùng.</p><div class="grid"><div><label>Nơi thường trú</label><select id="bulkAddress"><option value="">Đang tải địa bàn…</option></select></div><div><label>Cán bộ phụ trách</label><select id="bulkStaff"><option value="">Chọn cán bộ</option></select></div><div><label>Hạn hoàn thành</label><input id="bulkDueDate" type="date"></div><div><label>Địa bàn / ghi chú</label><input id="bulkUnit" placeholder="Ví dụ: Khu phố 1"></div><div class="full"><label>Nội dung giao chung</label><textarea id="bulkNote" placeholder="Rà soát, xác minh và bổ sung đầy đủ thông tin thân nhân / phần mộ…"></textarea></div></div><div id="bulkCount" class="notice" style="margin-top:10px;">Chọn một nơi thường trú để xem số hồ sơ.</div><button class="btn" id="bulkAssignBtn">Giao toàn bộ nhóm này</button></div>
 <div id="panel-staff" class="card hidden">
@@ -31,5 +77,24 @@
 </div>
 <div class="tablewrap"><table><thead><tr><th>Họ tên</th><th>Email</th><th>Tổ dân phố phụ trách</th><th>Trạng thái</th><th>Mật khẩu</th><th>Lưu</th></tr></thead><tbody id="staffTableBody"><tr><td colspan="6">Đang tải…</td></tr></tbody></table></div>
 </div>
+<div id="panel-tdp" class="card hidden">
+<div class="topline">
+  <div>
+    <h2>Cấu hình & Sửa tên Tổ dân phố</h2>
+    <div class="muted">Quản trị viên có thể trực tiếp sửa đổi tên từng Tổ dân phố (ví dụ: đổi "Tổ dân phố 1" thành "Tổ dân phố 01", 02, 03...) hoặc bấm chuẩn hóa hàng loạt 2 chữ số tự động.</div>
+  </div>
+  <div class="row">
+    <button type="button" class="btn" id="formatTwoDigitsBtn" style="background:#0284c7;">⚡ Chuẩn hóa 2 chữ số (01, 02, 03... 09)</button>
+    <button type="button" class="btn secondary" id="refreshTdpBtn">🔄 Tải lại</button>
+  </div>
+</div>
+<div id="tdpNotice" class="notice hidden" style="margin:12px 0;"></div>
+<div class="tablewrap" style="margin-top:12px;">
+<table>
+<thead><tr><th style="width:70px;">Mã (ID)</th><th>Tên Tổ dân phố (cho phép sửa trực tiếp)</th><th style="width:130px;">Trạng thái</th><th style="width:120px;text-align:center;">Thao tác</th></tr></thead>
+<tbody id="tdpTableBody"><tr><td colspan="4" class="muted">Đang tải danh sách tổ dân phố…</td></tr></tbody>
+</table>
+</div>
+</div>
 </section>
-</main><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/assignments.js?v=20261003-4"></script></body></html>
+</main><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/assignments.js?v=20261003-5"></script></body></html>

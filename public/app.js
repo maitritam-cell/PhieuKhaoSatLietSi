@@ -132,20 +132,78 @@ function collect(){
   return d;
 }
 
+function cleanDateDisplay(val){
+  if (!val && val !== 0) return '';
+  const s = String(val).trim();
+  if (!s) return '';
+
+  // Already dd/mm/yyyy or d/m/yyyy
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+    const parts = s.split('/');
+    return parts[0].padStart(2, '0') + '/' + parts[1].padStart(2, '0') + '/' + parts[2];
+  }
+
+  // 4-digit year like 1968
+  if (/^\d{4}$/.test(s)) return s;
+
+  // ISO formats like yyyy-mm-dd or yyyy/mm/dd
+  const isoMatch = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (isoMatch) {
+    const [_, y, m, d] = isoMatch;
+    return d.padStart(2, '0') + '/' + m.padStart(2, '0') + '/' + y;
+  }
+
+  // Parse Date string (e.g. from Google Apps Script Date objects "Wed Jan 17 1979...")
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const year = d.getFullYear();
+    if (year >= 1800 && year <= 2100) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      return `${day}/${month}/${year}`;
+    }
+  }
+
+  // Fallback: extract 4-digit year if present
+  const yMatch = s.match(/\b(18\d{2}|19\d{2}|20\d{2})\b/);
+  if (yMatch) return yMatch[1];
+
+  return s;
+}
+
 function fill(d){
   if(!d)return;
   currentRecordId=d.record_id||makeRecordId();
   isEditingExisting=true;
 
+  const dateKeys = [
+    'rep_dob', 'martyr_dob', 'martyr_death_date', 'decision_date',
+    'ngayCapCCCD', 'ngayNhapNgu', 'ngayXuatNgu', 'ngayHySinh',
+    'ngayBaoTu', 'ngayQuyTap', 'ngayLapPhieu'
+  ];
+
   Object.keys(d).forEach(k=>{
-    const e=$(k);if(e&&k!=='relatives')e.value=d[k]??'';
+    const e=$(k);
+    if(e && k!=='relatives'){
+      let val = d[k] ?? '';
+      if(dateKeys.includes(k) || k.toLowerCase().includes('dob') || k.toLowerCase().includes('date') || k.toLowerCase().includes('ngay')){
+        val = cleanDateDisplay(val);
+      }
+      e.value=val;
+    }
   });
 
   setRelativesChoice(d.has_relatives || ((d.relatives||[]).some(r=>r && (r.name||r.id))?'Có':'')); 
   (d.relatives||[]).slice(0,6).forEach((r,i)=>{
     REL_COLS.forEach(c=>{
       const e=document.querySelector('[data-rel="'+i+'"][data-col="'+c+'"]');
-      if(e)e.value=r[c]||'';
+      if(e){
+        let val = r[c] || '';
+        if(c==='dob' || c.toLowerCase().includes('dob') || c.toLowerCase().includes('date') || c.toLowerCase().includes('ngay')){
+          val = cleanDateDisplay(val);
+        }
+        e.value=val;
+      }
     });
   });
 
@@ -177,8 +235,8 @@ function validateForm(){
   const repDob=($('rep_dob')?.value||'').trim();
   if(!repDob){
     addError('rep_dob','Ngày tháng năm sinh người đại diện');
-  }else if(!/^\d{2}\/\d{2}\/\d{4}$/.test(repDob)){
-    addError('rep_dob','Ngày sinh người đại diện phải đủ ngày/tháng/năm (dd/mm/yyyy)');
+  }else if(!/^\d{4}$|^\d{1,2}\/\d{1,2}\/\d{4}$/.test(repDob)){
+    addError('rep_dob','Ngày sinh người đại diện nhập năm YYYY hoặc ngày/tháng/năm (dd/mm/yyyy)');
   }
 
   const repGender=($('rep_gender')?.value||'').trim();
@@ -218,7 +276,7 @@ function validateForm(){
 
   const martyrDob=($('martyr_dob')?.value||'').trim();
   if(!martyrDob)addError('martyr_dob','Ngày tháng năm sinh liệt sĩ');
-  else if(!/^\d{4}$|^\d{2}\/\d{2}\/\d{4}$/.test(martyrDob))
+  else if(!/^\d{4}$|^\d{1,2}\/\d{1,2}\/\d{4}$/.test(martyrDob))
     addError('martyr_dob','Nhập năm YYYY hoặc đầy đủ ngày/tháng/năm dd/mm/yyyy');
 
   const martyrGender=($('martyr_gender')?.value||'').trim();
@@ -235,7 +293,7 @@ function validateForm(){
 
   const martyrDeathDate=($('martyr_death_date')?.value||'').trim();
   if(!martyrDeathDate)addError('martyr_death_date','Ngày tháng năm hy sinh');
-  else if(!/^\d{4}$|^\d{2}\/\d{2}\/\d{4}$/.test(martyrDeathDate))
+  else if(!/^\d{4}$|^\d{1,2}\/\d{1,2}\/\d{4}$/.test(martyrDeathDate))
     addError('martyr_death_date','Nhập năm YYYY hoặc đầy đủ ngày/tháng/năm dd/mm/yyyy');
 
   const certNo=($('certificate_no')?.value||'').trim();
@@ -308,7 +366,7 @@ function renderRecords(){
   body.innerHTML=rows.map((x,idx)=>'<tr>'+
     '<td style="text-align:center;">'+(idx+1)+'</td>'+
     '<td><strong>'+escapeHtml(x.record_id||x.file_id||'')+'</strong></td>'+
-    '<td><strong style="color:#0f172a;">'+escapeHtml(x.martyr_name||'')+'</strong>'+(x.martyr_dob?`<br><small style="color:#64748b;">Sinh: ${escapeHtml(x.martyr_dob)}</small>`:'')+'</td>'+
+    '<td><strong style="color:#0f172a;">'+escapeHtml(x.martyr_name||'')+'</strong>'+(x.martyr_dob?`<br><small style="color:#64748b;">Sinh: ${escapeHtml(cleanDateDisplay(x.martyr_dob))}</small>`:'')+'</td>'+
     '<td>'+escapeHtml(x.file_id||'--')+'</td>'+
     '<td>'+escapeHtml(x.rep_name||'')+(x.rep_phone?`<br><small style="color:#0369a1;">📞 ${escapeHtml(x.rep_phone)}</small>`:'')+'</td>'+
     '<td style="font-size:12px;">'+escapeHtml(x.saved_at?new Date(x.saved_at).toLocaleString('vi-VN'):'')+'</td>'+
@@ -373,50 +431,69 @@ function deleteRecord(id){
   setStatus('Đã xóa phiếu khỏi danh sách trên thiết bị.');
 }
 
-async function fetchFromGoogleSheets(){
-  setStatus('Đang tra cứu danh sách từ Google Sheets...');
-  const scriptUrl=getAppsScriptUrl();
+async function fetchFromGoogleSheets(isSilent = false){
+  if (!isSilent) setStatus('Đang tra cứu danh sách từ Google Sheets...');
+  const scriptUrl = getAppsScriptUrl();
   try{
-    const res=await fetch('/api/records?appsScriptUrl='+encodeURIComponent(scriptUrl),{headers:{'Authorization':'Bearer '+(currentStaffSession?.access_token||'')}});
-    const data=await res.json().catch(()=>({}));
-    if(res.ok && data.records && Array.isArray(data.records) && data.records.length>0){
+    const terrParam = (currentStaffTerritories && currentStaffTerritories.length)
+      ? '&territories=' + encodeURIComponent(currentStaffTerritories.join(','))
+      : '';
+    const res = await fetch('/api/records?appsScriptUrl=' + encodeURIComponent(scriptUrl) + terrParam, {
+      headers: { 'Authorization': 'Bearer ' + (currentStaffSession?.access_token || '') }
+    });
+    const data = await res.json().catch(() => ({}));
+    if(res.ok && data.records && Array.isArray(data.records)){
       const isTerritoryFiltered = currentStaffProfile && currentStaffProfile.role !== 'admin' && currentStaffTerritories && currentStaffTerritories.length > 0;
       const recordsToProcess = isTerritoryFiltered ? data.records.filter(r => territoryAllowed(r)) : data.records;
 
-      const currentList = isTerritoryFiltered ? [] : getRecords();
-      let added=0;
-      recordsToProcess.forEach(r=>{
-        const exists=currentList.find(c=>(c.record_id&&c.record_id===r.record_id)||(c.file_id&&c.file_id===r.file_id));
+      const currentList = [];
+      recordsToProcess.forEach(r => {
+        const exists = currentList.find(c => (c.record_id && c.record_id === r.record_id) || (c.file_id && c.file_id === r.file_id));
         if(!exists){
+          const recData = { ...(r.data || {}) };
+          if(recData.martyr_dob) recData.martyr_dob = cleanDateDisplay(recData.martyr_dob);
+          if(recData.martyr_death_date) recData.martyr_death_date = cleanDateDisplay(recData.martyr_death_date);
+          if(recData.rep_dob) recData.rep_dob = cleanDateDisplay(recData.rep_dob);
+          if(recData.decision_date) recData.decision_date = cleanDateDisplay(recData.decision_date);
+          if(Array.isArray(recData.relatives)){
+            recData.relatives.forEach(rel => {
+              if(rel && rel.dob) rel.dob = cleanDateDisplay(rel.dob);
+            });
+          }
+
           currentList.push({
             record_id: r.record_id,
             martyr_name: r.martyr_name,
-            martyr_dob: r.martyr_dob,
-            martyr_death_date: r.martyr_death_date,
+            martyr_dob: cleanDateDisplay(r.martyr_dob || recData.martyr_dob),
+            martyr_death_date: cleanDateDisplay(r.martyr_death_date || recData.martyr_death_date),
             martyr_hometown: r.martyr_hometown,
             file_id: r.file_id,
             rep_name: r.rep_name,
             rep_phone: r.rep_phone,
             saved_at: r.saved_at,
-            trangThai: r.status||'Mới',
-            ...(r.data||{})
+            trangThai: r.status || 'Mới',
+            ...recData
           });
-          added++;
         }
       });
       putRecords(currentList);
       renderRecords();
-      const terrInfo = isTerritoryFiltered ? ` (lọc theo ${currentStaffTerritories.join(', ')})` : '';
-      setStatus(`Đã đồng bộ xong ${currentList.length} phiếu từ Google Sheets${terrInfo}.`);
-      showNotification('success','Đồng bộ Google Sheets',`Đã tải xong ${currentList.length} phiếu${terrInfo}.`);
+      const terrInfo = isTerritoryFiltered ? ` (${currentStaffTerritories.join(', ')})` : '';
+      const msg = `Đã tự động tải ${currentList.length} phiếu khảo sát${terrInfo}.`;
+      setStatus(msg);
+      if(!isSilent){
+        showNotification('success', 'Đồng bộ Google Sheets', msg);
+      }
     }else{
-      setStatus('Không có bản ghi mới từ Google Sheets.');
-      alert('Đã kết nối Google Sheets nhưng chưa tìm thấy thêm bản ghi nào.');
+      if(!isSilent){
+        setStatus('Không tìm thấy bản ghi nào từ Google Sheets.');
+      }
     }
   }catch(err){
     console.error(err);
-    setStatus('Lỗi khi tra cứu từ Google Sheets: '+err.message);
-    alert('Không thể kết nối lấy dữ liệu từ Google Sheets: '+err.message);
+    if(!isSilent){
+      setStatus('Lỗi khi tra cứu từ Google Sheets: ' + err.message);
+    }
   }
 }
 
@@ -5275,7 +5352,8 @@ function territoryAllowed(recordOrAddress){
  }).filter(Boolean);
 
  for(const num of assignedNums){
-  const pattern=new RegExp('(?:^|\\s)(?:to\\s*dan\\s*pho|tdp|to|khom)(?:\\s*so)?\\s*'+num+'(?:\\s|$|[.,])');
+  const intVal=parseInt(num,10);
+  const pattern=new RegExp('(?:^|\\s)(?:to\\s*dan\\s*pho|tdp|to|khom)(?:\\s*so)?\\s*0?'+intVal+'(?:\\s|$|[.,])');
   if(pattern.test(combined)) return true;
  }
 
@@ -5342,9 +5420,8 @@ async function startStaffApp(session){
   saveStaffSession(session);
   await loadStaffProfile(session);
   showStaffGate(true);
-  localStorage.removeItem('phieu_liet_si_records');
-  renderRecords();
-  if(typeof fetchFromGoogleSheets==='function')await fetchFromGoogleSheets();
+  setStatus('Đang tự động tải danh sách phiếu khảo sát...');
+  if(typeof fetchFromGoogleSheets==='function')await fetchFromGoogleSheets(true);
  }catch(e){
   clearStaffSession();
   showStaffGate(false);
@@ -5353,13 +5430,12 @@ async function startStaffApp(session){
 }
 function initStaffAuthentication(){
  const saved=localStorage.getItem(STAFF_SESSION_KEY);
- $('skipLoginBtn')?.addEventListener('click',()=>{
+ $('skipLoginBtn')?.addEventListener('click',async ()=>{
   currentStaffSession=null;
   currentStaffProfile={role:'guest',full_name:'Người dùng',active:true};
   currentStaffTerritories=[];
   showStaffGate(true);
-  renderRecords();
-  if(typeof fetchFromGoogleSheets==='function')fetchFromGoogleSheets();
+  if(typeof fetchFromGoogleSheets==='function')await fetchFromGoogleSheets(true);
  });
  $('staffLoginBtn')?.addEventListener('click',async()=>{
   const email=$('staffLoginEmail').value.trim(),password=$('staffLoginPassword').value;

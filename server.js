@@ -549,6 +549,106 @@ app.get('/api/admin-records', async (req, res) => {
   return res.json({ ok: true, records: [] });
 });
 
+// Admin endpoints to view and manage to_dan_pho
+app.get('/api/admin/to-dan-pho', async (req, res) => {
+  const staff = await requireStaff(req, res, 'admin');
+  if (!staff) return;
+
+  const supabaseUrl = (process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL).replace(/\/+$/, '');
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || req.headers.authorization?.replace(/^Bearer\s+/i, '') || DEFAULT_SUPABASE_KEY;
+
+  try {
+    const listRes = await fetch(supabaseUrl + '/rest/v1/to_dan_pho?select=*&order=id', {
+      headers: { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey }
+    });
+    if (!listRes.ok) {
+      return res.status(500).json({ ok: false, error: 'Không đọc được danh sách tổ dân phố.' });
+    }
+    const data = await listRes.json();
+    return res.json({ ok: true, data });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.post('/api/admin/to-dan-pho/update', async (req, res) => {
+  const staff = await requireStaff(req, res, 'admin');
+  if (!staff) return;
+
+  const { id, name } = req.body || {};
+  if (!id || !name || !String(name).trim()) {
+    return res.status(400).json({ ok: false, error: 'Thiếu mã (ID) hoặc tên tổ dân phố.' });
+  }
+
+  const cleanName = String(name).trim();
+  const supabaseUrl = (process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL).replace(/\/+$/, '');
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || req.headers.authorization?.replace(/^Bearer\s+/i, '') || DEFAULT_SUPABASE_KEY;
+
+  try {
+    const updateRes = await fetch(supabaseUrl + '/rest/v1/to_dan_pho?id=eq.' + encodeURIComponent(id), {
+      method: 'PATCH',
+      headers: {
+        'apikey': serviceKey,
+        'Authorization': 'Bearer ' + serviceKey,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify({ name: cleanName, updated_at: new Date().toISOString() })
+    });
+    if (!updateRes.ok) {
+      const err = await updateRes.text();
+      return res.status(updateRes.status).json({ ok: false, error: err || 'Không thể cập nhật tổ dân phố.' });
+    }
+    const data = await updateRes.json();
+    return res.json({ ok: true, data });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.post('/api/admin/to-dan-pho/format-two-digits', async (req, res) => {
+  const staff = await requireStaff(req, res, 'admin');
+  if (!staff) return;
+
+  const supabaseUrl = (process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL).replace(/\/+$/, '');
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || req.headers.authorization?.replace(/^Bearer\s+/i, '') || DEFAULT_SUPABASE_KEY;
+
+  try {
+    const listRes = await fetch(supabaseUrl + '/rest/v1/to_dan_pho?select=id,name&order=id', {
+      headers: { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey }
+    });
+    if (!listRes.ok) {
+      return res.status(500).json({ ok: false, error: 'Không đọc được danh sách tổ dân phố.' });
+    }
+    const list = await listRes.json();
+    let updatedCount = 0;
+    for (const item of list) {
+      const numMatch = String(item.name || '').match(/\d+/);
+      if (numMatch && numMatch[0].length === 1) {
+        const newNum = '0' + numMatch[0];
+        const newName = item.name.replace(numMatch[0], newNum);
+        await fetch(supabaseUrl + '/rest/v1/to_dan_pho?id=eq.' + encodeURIComponent(item.id), {
+          method: 'PATCH',
+          headers: {
+            'apikey': serviceKey,
+            'Authorization': 'Bearer ' + serviceKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ name: newName, updated_at: new Date().toISOString() })
+        });
+        updatedCount++;
+      }
+    }
+    return res.json({
+      ok: true,
+      updatedCount,
+      message: `Đã chuẩn hóa ${updatedCount} tổ dân phố sang định dạng 2 chữ số (01-09).`
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // Endpoint to search or list records
 app.get('/api/records', async (req, res) => {
   const authorization = req.headers.authorization || '';
@@ -613,40 +713,50 @@ app.get('/api/records', async (req, res) => {
   }
   records = Array.from(merged.values());
 
-  if (staff && staff.profile && staff.profile.role !== 'admin') {
-    const headers = { apikey: serviceKey, Authorization: 'Bearer ' + (process.env.SUPABASE_SERVICE_ROLE_KEY || token) };
-    const linksUrl = supabaseUrl + '/rest/v1/staff_to_dan_pho?select=to_dan_pho_id&staff_id=eq.' +
-      encodeURIComponent(staff.user.id);
+  const qTerritories = (req.query.territories || '').split(',').map(s => s.trim()).filter(Boolean);
+  const isTerritoryRestricted = (staff && staff.profile && staff.profile.role !== 'admin') || qTerritories.length > 0;
+
+  if (isTerritoryRestricted) {
     let ids = [];
-    try {
-      const linksRes = await fetch(linksUrl, { headers });
-      if (linksRes.ok) {
-        const links = await linksRes.json();
-        ids = [...new Set((links || []).map(x => String(x.to_dan_pho_id || '').trim()).filter(Boolean))];
+    if (staff && staff.user && staff.user.id) {
+      const headers = { apikey: serviceKey, Authorization: 'Bearer ' + (process.env.SUPABASE_SERVICE_ROLE_KEY || token) };
+      const linksUrl = supabaseUrl + '/rest/v1/staff_to_dan_pho?select=to_dan_pho_id&staff_id=eq.' +
+        encodeURIComponent(staff.user.id);
+      try {
+        const linksRes = await fetch(linksUrl, { headers });
+        if (linksRes.ok) {
+          const links = await linksRes.json();
+          ids = [...new Set((links || []).map(x => String(x.to_dan_pho_id || '').trim()).filter(Boolean))];
+        }
+      } catch (e) {
+        console.warn('Error loading staff territory assignments:', e.message);
       }
-    } catch (e) {
-      console.warn('Error loading staff territory assignments:', e.message);
     }
 
-    if (!ids.length) {
+    if (!ids.length && !qTerritories.length) {
       return res.json({ ok: true, records: [], message: 'Tài khoản chưa được gán tổ dân phố.' });
     }
 
     let names = [];
-    const idFilter = ids.map(id => '"' + id.replace(/"/g, '') + '"').join(',');
-    try {
-      const territoryRes = await fetch(
-        supabaseUrl + '/rest/v1/to_dan_pho?select=id,name&id=in.(' + encodeURIComponent(idFilter) + ')',
-        { headers }
-      );
-      if (territoryRes.ok) {
-        const territories = await territoryRes.json();
-        names = (territories || []).map(x => x.name).filter(Boolean);
-      }
-    } catch (_) {}
+    if (ids.length) {
+      const idFilter = ids.map(id => '"' + id.replace(/"/g, '') + '"').join(',');
+      try {
+        const territoryRes = await fetch(
+          supabaseUrl + '/rest/v1/to_dan_pho?select=id,name&id=in.(' + encodeURIComponent(idFilter) + ')',
+          { headers }
+        );
+        if (territoryRes.ok) {
+          const territories = await territoryRes.json();
+          names = (territories || []).map(x => x.name).filter(Boolean);
+        }
+      } catch (_) {}
 
-    if (!names.length) {
-      names = ids.map(id => 'Tổ dân phố ' + id);
+      if (!names.length) {
+        names = ids.map(id => 'Tổ dân phố ' + id);
+      }
+    }
+    if (qTerritories.length) {
+      names = [...new Set([...names, ...qTerritories])];
     }
 
     const normalize = v => String(v || '')
@@ -681,7 +791,8 @@ app.get('/api/records', async (req, res) => {
       if (!combined) return false;
 
       const numMatch = nums.some(n => {
-        return new RegExp('(?:^|\\s)(?:to\\s*dan\\s*pho|tdp|to|khom)(?:\\s*so)?\\s*' + String(n) + '(?:\\s|$|[,.])').test(combined);
+        const intVal = parseInt(n, 10);
+        return new RegExp('(?:^|\\s)(?:to\\s*dan\\s*pho|tdp|to|khom)(?:\\s*so)?\\s*0?' + intVal + '(?:\\s|$|[,.])').test(combined);
       });
       if (numMatch) return true;
 

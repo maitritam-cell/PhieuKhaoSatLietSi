@@ -35,7 +35,11 @@ async function authChanged(user){
   $('roleLabel').textContent=(profile.role==='admin'?'Quản trị viên':'Cán bộ')+(profile.unit_name?' • '+profile.unit_name:'');
   $('assignTab').classList.toggle('hidden',profile.role!=='admin');$('bulkTab').classList.toggle('hidden',profile.role!=='admin');
   $('staffTab').classList.toggle('hidden',profile.role!=='admin');
-  await Promise.all([loadAssignments(), profile.role==='admin' ? loadStaff().then(async()=>{await loadRecords();await loadBulkOptions();}) : Promise.resolve()]);
+  $('tdpTab')?.classList.toggle('hidden',profile.role!=='admin');
+  await Promise.all([
+    loadAssignments(),
+    profile.role==='admin' ? loadStaff().then(async()=>{await loadRecords();await loadBulkOptions();await loadTerritoriesManager();}) : Promise.resolve()
+  ]);
  }catch(e){msg(e.message,'error');}
 }
 $('loginBtn').onclick=async()=>{
@@ -195,12 +199,125 @@ $('createAssignmentBtn').onclick=async()=>{
  msg('Đã giao hồ sơ cho cán bộ.','success');$('taskNote').value='';$('dueDate').value='';await loadAssignments();showTab('assignments');
 };
 
+let selectedStaffFilterId = null;
+
 function renderDashboard(data){
- const total=data.length, completed=data.filter(a=>a.status==='completed').length, submitted=data.filter(a=>a.status==='submitted').length, active=data.filter(a=>a.status==='in_progress').length, pending=data.filter(a=>a.status==='assigned').length;
- $('dashboard').innerHTML=[
-  ['Tổng hồ sơ đã giao',total],['Đang rà soát',active],['Đã gửi kết quả',submitted],['Đã bổ sung đầy đủ',completed],['Chưa thực hiện',pending]
- ].map(x=>'<div class="card" style="margin:0;padding:13px;"><div class="muted">'+x[0]+'</div><div style="font-size:25px;font-weight:800;margin-top:4px;">'+x[1]+'</div></div>').join('');
+ if(profile?.role==='admin'){
+  const total=data.length, completed=data.filter(a=>a.status==='completed').length, submitted=data.filter(a=>a.status==='submitted').length, active=data.filter(a=>a.status==='in_progress').length, pending=data.filter(a=>a.status==='assigned').length;
+  $('dashboard').innerHTML=[
+   ['Tổng hồ sơ đã giao',total],['Đang rà soát',active],['Đã gửi kết quả',submitted],['Đã hoàn thành',completed],['Chưa thực hiện',pending]
+  ].map(x=>'<div class="card" style="margin:0;padding:13px;"><div class="muted">'+x[0]+'</div><div style="font-size:25px;font-weight:800;margin-top:4px;">'+x[1]+'</div></div>').join('');
+  renderStaffProgress(data);
+ } else {
+  const myTotal = data.length;
+  const myCompleted = data.filter(a => a.status === 'completed').length;
+  const myInProg = data.filter(a => a.status === 'in_progress').length;
+  const mySubmitted = data.filter(a => a.status === 'submitted').length;
+  const myPercent = myTotal > 0 ? Math.round((myCompleted / myTotal) * 100) : 0;
+  $('dashboard').innerHTML = `
+    <div class="card" style="margin:0;padding:14px;grid-column:span 2;background:#eff6ff;border:1px solid #bfdbfe;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div><strong style="color:#1e40af;font-size:16px;">Tiến độ rà soát cá nhân:</strong> ${myCompleted}/${myTotal} hồ sơ hoàn thành (${myPercent}%)</div>
+        <span class="pill ${myPercent === 100 ? 'green' : 'amber'}">${myPercent === 100 ? 'Đã hoàn thành' : 'Đang thực hiện'}</span>
+      </div>
+      <div style="background:#dbeafe;height:10px;border-radius:5px;overflow:hidden;margin-bottom:8px;">
+        <div style="width:${myPercent}%;background:#2563eb;height:100%;transition:width 0.4s;"></div>
+      </div>
+      <div style="display:flex;gap:12px;font-size:12px;color:#1e40af;">
+        <span>Đang rà soát: <strong>${myInProg}</strong></span>
+        <span>Đã gửi kết quả: <strong>${mySubmitted}</strong></span>
+        <span>Đã hoàn thành: <strong>${myCompleted}</strong></span>
+      </div>
+    </div>
+  `;
+  const container = $('staffProgressContainer');
+  if(container) container.classList.add('hidden');
+ }
 }
+
+function renderStaffProgress(assignmentsData){
+ const container = $('staffProgressContainer');
+ if(!container) return;
+ if(profile?.role !== 'admin'){
+  container.classList.add('hidden');
+  return;
+ }
+ container.classList.remove('hidden');
+
+ const tbody = $('staffProgressBody');
+ if(!tbody) return;
+
+ const cadres = profiles.filter(p => p.role !== 'admin' || profiles.length === 1);
+ if(!cadres.length){
+  tbody.innerHTML = '<tr><td colspan="9" class="muted">Chưa có cán bộ nào trong hệ thống.</td></tr>';
+  return;
+ }
+
+ tbody.innerHTML = cadres.map(cadre => {
+  const cadreAssignments = (assignmentsData || []).filter(a => a.assigned_to === cadre.user_id);
+  const total = cadreAssignments.length;
+  const pending = cadreAssignments.filter(a => a.status === 'assigned').length;
+  const inProgress = cadreAssignments.filter(a => a.status === 'in_progress').length;
+  const submitted = cadreAssignments.filter(a => a.status === 'submitted').length;
+  const completed = cadreAssignments.filter(a => a.status === 'completed').length;
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  const tdpNames = (staffTerritories[cadre.user_id] || []).map(id => {
+   const match = territories.find(t => t.id === id);
+   return match ? match.name : ('Tổ ' + id);
+  }).join(', ') || 'Chưa phân công';
+
+  const isSelected = selectedStaffFilterId === cadre.user_id;
+
+  return '<tr style="' + (isSelected ? 'background:#f0fdf4;' : '') + '">' +
+   '<td><strong>' + esc(cadre.full_name || cadre.email) + '</strong>' + (cadre.unit_name ? `<br><small class="muted">${esc(cadre.unit_name)}</small>` : '') + '</td>' +
+   '<td><span class="pill" style="font-size:11.5px;max-width:220px;white-space:normal;display:inline-block;">' + esc(tdpNames) + '</span></td>' +
+   '<td style="text-align:center;font-weight:700;">' + total + '</td>' +
+   '<td style="text-align:center;"><span class="pill" style="font-size:11px;">' + pending + '</span></td>' +
+   '<td style="text-align:center;"><span class="pill amber" style="font-size:11px;">' + inProgress + '</span></td>' +
+   '<td style="text-align:center;"><span class="pill amber" style="font-size:11px;">' + submitted + '</span></td>' +
+   '<td style="text-align:center;"><span class="pill green" style="font-size:11px;">' + completed + '</span></td>' +
+   '<td>' +
+     '<div style="display:flex;align-items:center;gap:6px;">' +
+       '<div style="flex:1;background:#e2e8f0;height:8px;border-radius:4px;overflow:hidden;">' +
+         '<div style="width:' + percent + '%;background:' + (percent === 100 ? '#10b981' : percent > 0 ? '#0284c7' : '#94a3b8') + ';height:100%;transition:width 0.3s;"></div>' +
+       '</div>' +
+       '<strong style="font-size:11px;min-width:32px;">' + percent + '%</strong>' +
+     '</div>' +
+   '</td>' +
+   '<td style="text-align:center;">' +
+     (isSelected
+       ? '<button type="button" class="btn secondary" style="padding:4px 8px;font-size:11.5px;" onclick="clearStaffFilter()">Đang lọc</button>'
+       : '<button type="button" class="btn" style="padding:4px 8px;font-size:11.5px;background:#0284c7;" onclick="filterByStaff(\'' + esc(cadre.user_id) + '\', \'' + esc(cadre.full_name || cadre.email) + '\')">🔍 Xem hồ sơ</button>') +
+   '</td>' +
+  '</tr>';
+ }).join('');
+}
+
+window.filterByStaff = function(userId, staffName){
+ selectedStaffFilterId = userId;
+ const banner = $('activeStaffFilterBanner');
+ const nameEl = $('activeStaffFilterName');
+ if(banner && nameEl){
+  nameEl.textContent = staffName;
+  banner.style.display = 'flex';
+  banner.classList.remove('hidden');
+ }
+ renderAssignmentsList(allAssignments);
+ renderStaffProgress(allAssignments);
+};
+
+window.clearStaffFilter = function(){
+ selectedStaffFilterId = null;
+ const banner = $('activeStaffFilterBanner');
+ if(banner){
+  banner.style.display = 'none';
+  banner.classList.add('hidden');
+ }
+ renderAssignmentsList(allAssignments);
+ renderStaffProgress(allAssignments);
+};
+
 function addressOf(r){
  const d=r.data&&typeof r.data==='object'?r.data:r;
  return String(r.rep_address||r.address||d.rep_address||d.address||d['Nơi thường trú NĐD']||'Chưa xác định').trim()||'Chưa xác định';
@@ -236,6 +353,45 @@ $('bulkAssignBtn')?.addEventListener('click',async()=>{
  msg('Đã giao '+rows.length+' hồ sơ thuộc địa bàn "'+address+'" cho cán bộ.','success');await loadAssignments();updateBulkCount();
 });
 
+function renderAssignmentsList(data){
+ const el = $('assignmentsList');
+ if(!el) return;
+
+ const displayData = selectedStaffFilterId
+   ? (data || []).filter(a => a.assigned_to === selectedStaffFilterId)
+   : (data || []);
+
+ if(!displayData.length){
+  const emptyMsg = selectedStaffFilterId
+    ? 'Cán bộ này chưa có hồ sơ nào được giao.'
+    : 'Chưa có hồ sơ được giao.';
+  el.innerHTML = '<p class="muted">' + emptyMsg + '</p>';
+  return;
+ }
+
+ el.innerHTML = displayData.map(a => '<article class="item"><div class="topline"><h3>' + esc(a.martyr_name) + '</h3>' + pill(a.status) + '</div><p class="muted">Mã hồ sơ: ' + esc(a.file_id || a.source_record_id) + ' • Địa bàn: ' + esc(a.unit_name || 'Chưa ghi') + '</p><p><strong>Nội dung giao:</strong> ' + esc(a.task_note || 'Rà soát, bổ sung thông tin hồ sơ') + '</p><p class="muted">Hạn hoàn thành: ' + esc(a.due_date || 'Chưa đặt') + ' • Giao ngày: ' + new Date(a.created_at).toLocaleDateString('vi-VN') + '</p><details><summary>Xem thông tin đã có</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;background:#f8fafc;padding:10px;border-radius:8px">' + esc(JSON.stringify(a.record_snapshot, null, 2)) + '</pre></details><div class="grid" style="margin-top:10px"><div><label>Ghi nhận kết quả rà soát</label><textarea id="note-' + a.id + '" placeholder="Ghi nguồn xác minh, thông tin đã tìm được, nội dung còn thiếu…"></textarea></div><div><label>Thông tin bổ sung (JSON tùy chọn)</label><textarea id="data-' + a.id + '" placeholder="Có thể để trống; nhập dữ liệu dạng JSON nếu cần"></textarea></div></div><div class="row" style="margin-top:8px"><select id="status-' + a.id + '" style="max-width:220px"><option value="in_progress" ' + (a.status === 'in_progress' ? 'selected' : '') + '>Đang rà soát</option><option value="submitted" ' + (a.status === 'submitted' ? 'selected' : '') + '>Đã gửi kết quả</option><option value="needs_revision" ' + (a.status === 'needs_revision' ? 'selected' : '') + '>Cần bổ sung</option><option value="completed" ' + (a.status === 'completed' ? 'selected' : '') + '>Đã hoàn thành</option></select><button class="btn" data-submit="' + a.id + '">Lưu cập nhật</button></div><div id="updates-' + a.id + '" class="muted" style="margin-top:10px">Đang tải lịch sử…</div></article>').join('');
+
+ for(const a of displayData){
+  loadUpdates(a.id);
+  const b = document.querySelector('[data-submit="' + a.id + '"]');
+  if(b){
+   b.onclick = async () => {
+    clearMsg();
+    const note = $('note-' + a.id).value.trim(), raw = $('data-' + a.id).value.trim(), newStatus = $('status-' + a.id).value;
+    let added_data = {};
+    if(raw){ try{ added_data = JSON.parse(raw); }catch(e){ return msg('Thông tin bổ sung phải là JSON hợp lệ hoặc để trống.', 'error'); } }
+    if(!note && !raw) return msg('Nhập ghi nhận kết quả hoặc thông tin bổ sung trước khi lưu.', 'error');
+    const { error: upErr } = await sb.from('assignment_updates').insert({ assignment_id: a.id, author_id: me.id, note, added_data });
+    if(upErr) return msg('Không lưu được cập nhật: ' + upErr.message, 'error');
+    const { error: stErr } = await sb.rpc('update_assignment_status', { p_assignment_id: a.id, p_status: newStatus });
+    if(stErr) return msg('Đã lưu ghi nhận nhưng không cập nhật được trạng thái: ' + stErr.message, 'error');
+    msg('Đã lưu cập nhật hồ sơ.', 'success');
+    await loadAssignments();
+   };
+  }
+ }
+}
+
 async function loadAssignments(){
  if(!me||!profile)return;
  $('assignmentsList').textContent='Đang tải hồ sơ…';
@@ -243,24 +399,9 @@ async function loadAssignments(){
  if(profile.role!=='admin')q=q.eq('assigned_to',me.id);
  const {data,error}=await q;
  if(error){$('assignmentsList').textContent='Không tải được danh sách: '+error.message;return;}
- allAssignments=data||[]; if(profile.role==='admin') renderDashboard(data);
- if(!data||!data.length){$('assignmentsList').innerHTML='<p class="muted">Chưa có hồ sơ được giao.</p>';return;}
- $('assignmentsList').innerHTML=data.map(a=>'<article class="item"><div class="topline"><h3>'+esc(a.martyr_name)+'</h3>'+pill(a.status)+'</div><p class="muted">Mã hồ sơ: '+esc(a.file_id||a.source_record_id)+' • Địa bàn: '+esc(a.unit_name||'Chưa ghi')+'</p><p><strong>Nội dung giao:</strong> '+esc(a.task_note||'Rà soát, bổ sung thông tin hồ sơ')+'</p><p class="muted">Hạn hoàn thành: '+esc(a.due_date||'Chưa đặt')+' • Giao ngày: '+new Date(a.created_at).toLocaleDateString('vi-VN')+'</p><details><summary>Xem thông tin đã có</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;background:#f8fafc;padding:10px;border-radius:8px">'+esc(JSON.stringify(a.record_snapshot,null,2))+'</pre></details><div class="grid" style="margin-top:10px"><div><label>Ghi nhận kết quả rà soát</label><textarea id="note-'+a.id+'" placeholder="Ghi nguồn xác minh, thông tin đã tìm được, nội dung còn thiếu…"></textarea></div><div><label>Thông tin bổ sung (JSON tùy chọn)</label><textarea id="data-'+a.id+'" placeholder="Có thể để trống; nhập dữ liệu dạng JSON nếu cần"></textarea></div></div><div class="row" style="margin-top:8px"><select id="status-'+a.id+'" style="max-width:220px"><option value="in_progress" '+(a.status==='in_progress'?'selected':'')+'>Đang rà soát</option><option value="submitted" '+(a.status==='submitted'?'selected':'')+'>Đã gửi kết quả</option><option value="needs_revision" '+(a.status==='needs_revision'?'selected':'')+'>Cần bổ sung</option><option value="completed" '+(a.status==='completed'?'selected':'')+'>Đã hoàn thành</option></select><button class="btn" data-submit="'+a.id+'">Lưu cập nhật</button></div><div id="updates-'+a.id+'" class="muted" style="margin-top:10px">Đang tải lịch sử…</div></article>').join('');
- for(const a of data){
-  loadUpdates(a.id);
-  const b=document.querySelector('[data-submit="'+a.id+'"]');
-  b.onclick=async()=>{
-   clearMsg();const note=$('note-'+a.id).value.trim(),raw=$('data-'+a.id).value.trim(),newStatus=$('status-'+a.id).value;
-   let added_data={};
-   if(raw){try{added_data=JSON.parse(raw);}catch(e){return msg('Thông tin bổ sung phải là JSON hợp lệ hoặc để trống.','error');}}
-   if(!note&&!raw)return msg('Nhập ghi nhận kết quả hoặc thông tin bổ sung trước khi lưu.','error');
-   const {error:upErr}=await sb.from('assignment_updates').insert({assignment_id:a.id,author_id:me.id,note,added_data});
-   if(upErr)return msg('Không lưu được cập nhật: '+upErr.message,'error');
-   const {error:stErr}=await sb.rpc('update_assignment_status',{p_assignment_id:a.id,p_status:newStatus});
-   if(stErr)return msg('Đã lưu ghi nhận nhưng không cập nhật được trạng thái: '+stErr.message,'error');
-   msg('Đã lưu cập nhật hồ sơ.','success');await loadAssignments();
-  };
- }
+ allAssignments=data||[];
+ renderDashboard(allAssignments);
+ renderAssignmentsList(allAssignments);
 }
 async function loadUpdates(id){
  const {data,error}=await sb.from('assignment_updates').select('id,note,added_data,created_at,author_id').eq('assignment_id',id).order('created_at',{ascending:false});
@@ -270,5 +411,119 @@ async function loadUpdates(id){
  const names={};profiles.forEach(p=>names[p.user_id]=p.full_name);
  el.innerHTML='<strong>Lịch sử cập nhật</strong>'+data.map(u=>'<div class="item"><div class="muted">'+esc(names[u.author_id]||'Cán bộ')+' • '+new Date(u.created_at).toLocaleString('vi-VN')+'</div><div>'+esc(u.note||'Không có ghi chú')+'</div>'+(Object.keys(u.added_data||{}).length?'<pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(JSON.stringify(u.added_data,null,2))+'</pre>':'')+'</div>').join('');
 }
+async function loadTerritoriesManager(){
+ const tbody=$('tdpTableBody');
+ if(!tbody)return;
+ tbody.innerHTML='<tr><td colspan="4" class="muted">Đang tải danh sách tổ dân phố…</td></tr>';
+
+ let list=[];
+ const session=(await sb.auth.getSession())?.data?.session;
+ const token=session?.access_token||'';
+ try{
+  const res=await fetch('/api/admin/to-dan-pho',{headers:{'Authorization':'Bearer '+token}});
+  if(res.ok){
+   const d=await res.json();
+   if(Array.isArray(d.data))list=d.data;
+  }
+ }catch(_){}
+
+ if(!list.length){
+  const {data,error}=await sb.from('to_dan_pho').select('*').order('id');
+  if(!error&&Array.isArray(data))list=data;
+ }
+
+ territories=list;
+ if(!list.length){
+  tbody.innerHTML='<tr><td colspan="4" class="muted">Chưa có danh mục Tổ dân phố.</td></tr>';
+  return;
+ }
+
+ tbody.innerHTML=list.map(t=>'<tr>'+
+  '<td><strong>'+esc(t.id)+'</strong></td>'+
+  '<td><input id="tdp-name-'+t.id+'" value="'+esc(t.name)+'" style="font-weight:600;max-width:320px;" placeholder="Tên tổ dân phố"></td>'+
+  '<td><span class="pill '+(t.active!==false?'green':'')+'">'+(t.active!==false?'Hoạt động':'Tạm ngưng')+'</span></td>'+
+  '<td style="text-align:center;"><button type="button" class="btn" style="padding:6px 12px;font-size:12.5px;" onclick="saveTerritoryName('+t.id+')">💾 Lưu</button></td>'+
+ '</tr>').join('');
+}
+
+window.saveTerritoryName=async function(id){
+ const input=$('tdp-name-'+id);
+ if(!input)return;
+ const newName=input.value.trim();
+ if(!newName){alert('Tên tổ dân phố không được để trống.');return;}
+ input.disabled=true;
+ const notice=$('tdpNotice');
+ if(notice)notice.classList.add('hidden');
+
+ const token=(await sb.auth.getSession())?.data?.session?.access_token||'';
+ try{
+  const res=await fetch('/api/admin/to-dan-pho/update',{
+   method:'POST',
+   headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+   body:JSON.stringify({id,name:newName})
+  });
+  const d=await res.json().catch(()=>({}));
+  if(res.ok&&d.ok){
+   msg('Đã cập nhật thành công: '+newName,'success');
+   await loadStaff();
+   await loadTerritoriesManager();
+  }else{
+   const {error}=await sb.from('to_dan_pho').update({name:newName}).eq('id',id);
+   if(error){
+    msg('Lỗi cập nhật: '+(d.error||error.message),'error');
+   }else{
+    msg('Đã cập nhật thành công: '+newName,'success');
+    await loadStaff();
+    await loadTerritoriesManager();
+   }
+  }
+ }catch(err){
+  msg('Lỗi kết nối: '+err.message,'error');
+ }finally{
+  if(input)input.disabled=false;
+ }
+};
+
+$('refreshTdpBtn')?.addEventListener('click',loadTerritoriesManager);
+$('formatTwoDigitsBtn')?.addEventListener('click',async()=>{
+ if(!confirm('Bạn có chắc muốn tự động chuẩn hóa các Tổ dân phố 1-9 thành định dạng 2 chữ số (Tổ dân phố 01, 02... 09)?'))return;
+ const btn=$('formatTwoDigitsBtn');
+ btn.disabled=true;
+ btn.textContent='Đang chuẩn hóa…';
+ const token=(await sb.auth.getSession())?.data?.session?.access_token||'';
+ try{
+  const res=await fetch('/api/admin/to-dan-pho/format-two-digits',{
+   method:'POST',
+   headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}
+  });
+  const d=await res.json().catch(()=>({}));
+  if(res.ok&&d.ok){
+   msg(d.message||'Đã chuẩn hóa 2 chữ số thành công!','success');
+  }else{
+   const {data:list}=await sb.from('to_dan_pho').select('id,name');
+   let count=0;
+   if(Array.isArray(list)){
+    for(const item of list){
+     const numMatch=String(item.name||'').match(/\d+/);
+     if(numMatch&&numMatch[0].length===1){
+      const newNum='0'+numMatch[0];
+      const newName=item.name.replace(numMatch[0],newNum);
+      await sb.from('to_dan_pho').update({name:newName}).eq('id',item.id);
+      count++;
+     }
+    }
+   }
+   msg(`Đã chuẩn hóa ${count} tổ dân phố sang dạng 2 chữ số (01-09).`,'success');
+  }
+  await loadStaff();
+  await loadTerritoriesManager();
+ }catch(e){
+  msg('Lỗi: '+e.message,'error');
+ }finally{
+  btn.disabled=false;
+  btn.textContent='⚡ Chuẩn hóa 2 chữ số (01, 02, 03... 09)';
+ }
+});
+
 sb.auth.onAuthStateChange((_event,session)=>{queueMicrotask(()=>{if(session?.user)authChanged(session.user);else authChanged(null);});});
 (async()=>{const {data}=await sb.auth.getSession();if(data.session)await authChanged(data.session.user);})();
