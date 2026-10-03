@@ -43,7 +43,7 @@ input.input-error,select.input-error{border-color:#dc2626!important;outline:2px 
 .table-records tr:hover{background:#f8fafc}
 @media(max-width:720px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.status{width:100%;margin-left:0}}
 </style></head>
-<body><section id="staffLogin" class="wrap" style="max-width:520px;margin:8vh auto;display:none"><div class="card"><h1>Đăng nhập cán bộ</h1><p class="sub">Chỉ tài khoản do quản trị viên cấp mới được truy cập lập phiếu.</p><label>Email</label><input id="staffLoginEmail" type="email" autocomplete="username" placeholder="Email tài khoản"><label style="margin-top:12px">Mật khẩu</label><input id="staffLoginPassword" type="password" autocomplete="current-password" placeholder="Mật khẩu"><button id="staffLoginBtn" class="btn primary" style="margin-top:14px;width:100%;justify-content:center">Đăng nhập</button><div id="staffLoginMessage" class="note" style="margin-top:12px"></div></div></section><div id="staffTopbar" style="display:none;max-width:1100px;margin:12px auto;padding:0 16px;text-align:right"><span id="staffIdentity" style="margin-right:10px"></span><button id="staffLogoutBtn" class="btn secondary">Đăng xuất</button></div><div id="staffApp" style="display:none"><div id="toast" class="toast" style="display:none;"></div><div class="wrap"><div class="card">
+<body><section id="staffLogin" class="wrap" style="max-width:520px;margin:8vh auto;display:block"><div class="card"><h1>Đăng nhập cán bộ</h1><p class="sub">Chỉ tài khoản do quản trị viên cấp mới được truy cập lập phiếu.</p><label>Email</label><input id="staffLoginEmail" type="email" autocomplete="username" placeholder="Email tài khoản"><label style="margin-top:12px">Mật khẩu</label><input id="staffLoginPassword" type="password" autocomplete="current-password" placeholder="Mật khẩu"><button id="staffLoginBtn" class="btn primary" style="margin-top:14px;width:100%;justify-content:center">Đăng nhập</button><div id="staffLoginMessage" class="note" style="margin-top:12px"></div></div></section><div id="staffTopbar" style="display:none;max-width:1100px;margin:12px auto;padding:0 16px;text-align:right"><span id="staffIdentity" style="margin-right:10px"></span><button id="staffLogoutBtn" class="btn secondary">Đăng xuất</button></div><div id="staffApp" style="display:none"><div id="toast" class="toast" style="display:none;"></div><div class="wrap"><div class="card">
 <h1>Ứng dụng lập Phiếu khảo sát liệt sĩ</h1>
 <div class="sub">Nhập thông tin → Lưu Google Sheets → Tra cứu & Sửa phiếu → Xuất Mẫu 02 (Word/PDF).</div>
 <div style="margin:0 0 14px;"><a href="/assignments.html" style="display:inline-flex;align-items:center;gap:7px;padding:9px 12px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">👥 Quản lý rà soát / Giao hồ sơ cho cán bộ</a></div>
@@ -258,7 +258,6 @@ if (!window.PDFLib) {
   document.write('<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"><\/script>');
 }
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="/app.js?v=staff-login-1"></script>
+<script src="/app.js?v=staff-auth-native-2"></script>
 </div></body>
 </html>
