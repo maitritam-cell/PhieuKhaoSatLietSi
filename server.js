@@ -221,17 +221,17 @@ app.post('/api/save-sheet', async (req, res) => {
     if (!staff) return;
     const payload = req.body || {};
     if (staff.profile.role !== 'admin') {
-      const supabaseUrl = process.env.SUPABASE_URL.replace(/\\/+$/, '');
+      const supabaseUrl = process.env.SUPABASE_URL.replace(/\/+$/, '');
       const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
       const linksRes = await fetch(supabaseUrl + '/rest/v1/staff_to_dan_pho?select=to_dan_pho_id,to_dan_pho(name)&staff_id=eq.' + encodeURIComponent(staff.user.id), {
         headers: { apikey: key, Authorization: 'Bearer ' + key }
       });
       const links = linksRes.ok ? await linksRes.json() : [];
       const names = links.map(x => x.to_dan_pho && x.to_dan_pho.name).filter(Boolean);
-      const nums = names.map(n => (String(n).match(/\\d+/) || [])[0]).filter(Boolean);
-      const norm = v => String(v || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
+      const nums = names.map(n => (String(n).match(/\d+/) || [])[0]).filter(Boolean);
+      const norm = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
       const address = norm(payload.rep_address || payload.noiThuongTruNDD || '');
-      const allowed = nums.some(n => new RegExp('\\\\bto\\\\s*dan\\\\s*pho\\\\s*' + n + '\\\\b').test(address));
+      const allowed = nums.some(n => new RegExp('\\bto\\s*dan\\s*pho\\s*' + n + '\\b').test(address));
       if (!allowed) return res.status(403).json({ ok: false, error: 'Chỉ được lưu phiếu có nơi thường trú thuộc Tổ dân phố được phân công.' });
     }
     const appsScriptUrl = (payload.appsScriptUrl || '').trim() ||
@@ -357,13 +357,13 @@ app.post('/api/save-sheet', async (req, res) => {
 async function requireStaff(req, res, requiredRole = null) {
   try {
     const authorization = req.headers.authorization || '';
-    const token = authorization.replace(/^Bearer\\s+/i, '').trim();
+    const token = authorization.replace(/^Bearer\s+/i, '').trim();
     if (!token) {
       res.status(401).json({ ok: false, error: 'Thiếu phiên đăng nhập.' });
       return null;
     }
 
-    const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\\/+$/, '');
+    const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
     if (!supabaseUrl || !serviceRoleKey) {
       res.status(500).json({ ok: false, error: 'Thiếu cấu hình xác thực máy chủ.' });
@@ -415,7 +415,7 @@ app.get('/api/admin-records', async (req, res) => {
 
   if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
-      let queryUrl = process.env.SUPABASE_URL.replace(/\\/+$/, '') +
+      let queryUrl = process.env.SUPABASE_URL.replace(/\/+$/, '') +
         '/rest/v1/m02_records?select=*&order=updated_at.desc&limit=100';
       if (q) {
         queryUrl += '&or=(martyr_name.ilike.*' + encodeURIComponent(q) +
@@ -460,7 +460,7 @@ app.get('/api/records', async (req, res) => {
 
   if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
-      let queryUrl = `${process.env.SUPABASE_URL.replace(/\\/+$/, '')}/rest/v1/m02_records?select=*&order=updated_at.desc&limit=500`;
+      let queryUrl = `${process.env.SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/m02_records?select=*&order=updated_at.desc&limit=500`;
       if (q) queryUrl += `&or=(martyr_name.ilike.*${encodeURIComponent(q)}*,record_id.ilike.*${encodeURIComponent(q)}*,rep_name.ilike.*${encodeURIComponent(q)}*,file_id.ilike.*${encodeURIComponent(q)}*)`;
       const dbRes = await fetch(queryUrl, { headers: {
         apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -481,19 +481,19 @@ app.get('/api/records', async (req, res) => {
   }
 
   if (staff.profile.role !== 'admin') {
-    const supabaseUrl = process.env.SUPABASE_URL.replace(/\\/+$/, '');
+    const supabaseUrl = process.env.SUPABASE_URL.replace(/\/+$/, '');
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const linksRes = await fetch(supabaseUrl + '/rest/v1/staff_to_dan_pho?select=to_dan_pho_id,to_dan_pho(name)&staff_id=eq.' + encodeURIComponent(staff.user.id), {
       headers: { apikey: key, Authorization: 'Bearer ' + key }
     });
     const links = linksRes.ok ? await linksRes.json() : [];
     const names = links.map(x => x.to_dan_pho && x.to_dan_pho.name).filter(Boolean);
-    const normalize = v => String(v || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
-    const nums = names.map(n => (String(n).match(/\\d+/) || [])[0]).filter(Boolean);
+    const normalize = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const nums = names.map(n => (String(n).match(/\d+/) || [])[0]).filter(Boolean);
     records = records.filter(r => {
       const d = r.data || r;
       const address = normalize(d.rep_address || d.noiThuongTruNDD || d['Nơi thường trú NĐD'] || d['Nơi thường trú người đại diện'] || '');
-      return nums.some(n => new RegExp('\\\\bto\\\\s*dan\\\\s*pho\\\\s*' + n + '\\\\b').test(address));
+      return nums.some(n => new RegExp('\\bto\\s*dan\\s*pho\\s*' + n + '\\b').test(address));
     });
   }
   return res.json({ ok: true, records });
