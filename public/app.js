@@ -69,9 +69,41 @@ function attachDateMask(){
   document.querySelectorAll('input.date, #rep_dob, #rep_issue_date, #decision_date, #martyr_dob, #martyr_death_date').forEach(el=>{
     el.addEventListener('input',()=>{
       const raw=el.value.replace(/\D/g,'').slice(0,8);
-      el.value=raw.length>4?raw.slice(0,2)+'/'+raw.slice(2,4)+'/'+raw.slice(4):raw.length>2?raw.slice(0,2)+'/'+raw.slice(2):raw;
+      // Cho phép nhập riêng năm 4 chữ số (ví dụ 1945) và giữ nguyên, không tự thêm ngày/tháng.
+      if(raw.length<=4){
+        el.value=raw;
+      }else{
+        el.value=raw.slice(0,2)+'/'+raw.slice(2,4)+'/'+raw.slice(4);
+      }
     });
   });
+}
+
+function updateRelativesVisibility(){
+  const yes=$('has_relatives_yes');
+  const no=$('has_relatives_no');
+  const section=$('relativesTableWrap');
+  const hasYes=!!yes?.checked;
+  const hasNo=!!no?.checked;
+  if(section) section.style.display=hasYes?'block':'none';
+  document.querySelectorAll('#relbody input,#relbody select').forEach(el=>{
+    el.disabled=!hasYes;
+  });
+  if(no && hasNo){
+    document.querySelectorAll('#relbody input,#relbody select').forEach(el=>{el.value='';});
+  }
+}
+function setRelativesChoice(value){
+  const yes=$('has_relatives_yes');
+  const no=$('has_relatives_no');
+  if(value==='Có'){
+    if(yes) yes.checked=true;
+    if(no) no.checked=false;
+  }else if(value==='Không'){
+    if(yes) yes.checked=false;
+    if(no) no.checked=true;
+  }
+  updateRelativesVisibility();
 }
 
 function collect(){
@@ -88,6 +120,7 @@ function collect(){
     if(e) d[id]=(e.value||'').trim();
   });
 
+  d.has_relatives=$('has_relatives_yes')?.checked?'Có':($('has_relatives_no')?.checked?'Không':'');
   d.relatives=RELATIONSHIPS.map((relationship,i)=>{
     const r={priority:i+1,relationship};
     REL_COLS.forEach(c=>{
@@ -108,6 +141,7 @@ function fill(d){
     const e=$(k);if(e&&k!=='relatives')e.value=d[k]??'';
   });
 
+  setRelativesChoice(d.has_relatives || ((d.relatives||[]).some(r=>r && (r.name||r.id))?'Có':'')); 
   (d.relatives||[]).slice(0,6).forEach((r,i)=>{
     REL_COLS.forEach(c=>{
       const e=document.querySelector('[data-rel="'+i+'"][data-col="'+c+'"]');
@@ -171,12 +205,21 @@ function validateForm(){
     addError('rep_phone','Số điện thoại người đại diện không hợp lệ (cần ít nhất 9-11 chữ số)');
   }
 
+  const relativeChoice=($('has_relatives_yes')?.checked?'Có':($('has_relatives_no')?.checked?'Không':'')); 
+  if(!relativeChoice){
+    const choice=$('has_relatives_yes')||$('has_relatives_no');
+    if(choice){choice.classList.add('input-error');}
+    errors.push({id:'has_relatives_yes',el:choice||$('martyr_name'),msg:'Chọn Có thân nhân hoặc Không có thân nhân'});
+  }
+
   // 2. Thông tin về liệt sĩ
   const martyrName=($('martyr_name')?.value||'').trim();
   if(!martyrName)addError('martyr_name','Họ và tên liệt sĩ');
 
   const martyrDob=($('martyr_dob')?.value||'').trim();
   if(!martyrDob)addError('martyr_dob','Ngày tháng năm sinh liệt sĩ');
+  else if(!/^\d{4}$|^\d{2}\/\d{2}\/\d{4}$/.test(martyrDob))
+    addError('martyr_dob','Nhập năm YYYY hoặc đầy đủ ngày/tháng/năm dd/mm/yyyy');
 
   const martyrGender=($('martyr_gender')?.value||'').trim();
   if(!martyrGender)addError('martyr_gender','Giới tính liệt sĩ');
@@ -192,6 +235,8 @@ function validateForm(){
 
   const martyrDeathDate=($('martyr_death_date')?.value||'').trim();
   if(!martyrDeathDate)addError('martyr_death_date','Ngày tháng năm hy sinh');
+  else if(!/^\d{4}$|^\d{2}\/\d{2}\/\d{4}$/.test(martyrDeathDate))
+    addError('martyr_death_date','Nhập năm YYYY hoặc đầy đủ ngày/tháng/năm dd/mm/yyyy');
 
   const certNo=($('certificate_no')?.value||'').trim();
   if(!certNo)addError('certificate_no','Bằng Tổ quốc ghi công số');
@@ -276,6 +321,7 @@ function escapeAttr(v){return String(v??'').replace(/\\/g,'\\\\').replace(/'/g,"
 function newRecord(){
   document.querySelectorAll('input,select').forEach(e=>{if(!e.dataset.rel)e.value='';});
   initRelations();
+  setRelativesChoice('');
   currentRecordId=makeRecordId();
   isEditingExisting=false;
   currentSaved=false;
@@ -427,6 +473,8 @@ async function saveToSheets(){
     trangThai: statusLabel,
     ghiChu: d.martyr_death_place || '',
     relatives: d.relatives,
+    has_relatives: d.has_relatives || '',
+    tinhTrangThanNhan: d.has_relatives || '',
     duLieuDayDu: JSON.stringify(d)
   };
 
@@ -5150,6 +5198,14 @@ L1hSZWZTdG0gMTg0MjY5Pj4NCnN0YXJ0eHJlZg0KMTk2MzMwDQolJUVPRg==
 
 function initApp(){
   initRelations();
+  ['has_relatives_yes','has_relatives_no'].forEach(id=>{
+    const el=$(id);
+    if(el) el.addEventListener('change',()=>{
+      if(el.checked) setRelativesChoice(id==='has_relatives_yes'?'Có':'Không');
+      el.classList.remove('input-error');
+    });
+  });
+  updateRelativesVisibility();
   localStorage.removeItem('phieu_liet_si_saved');
   setExportEnabled(false);
 
