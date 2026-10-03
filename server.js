@@ -491,9 +491,21 @@ app.get('/api/records', async (req, res) => {
     const normalize = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     const nums = names.map(n => (String(n).match(/\d+/) || [])[0]).filter(Boolean);
     records = records.filter(r => {
+      const d = r.data && typeof r.data === 'object' ? r.data : {};
+      const address = normalize(
+        d.rep_address || d.noiThuongTruNDD || d['Nơi thường trú NĐD'] ||
+        d['Nơi thường trú người đại diện'] ||
+        r.rep_address || r.noiThuongTruNDD || r['Nơi thường trú NĐD'] ||
+        r['Nơi thường trú người đại diện'] || r.address || ''
+      );
+      return nums.some(n => {
+        const escaped = String(n).replace(/[.*+?^${}()|[\]\\]/g, '\\    records = records.filter(r => {
       const d = r.data || r;
       const address = normalize(d.rep_address || d.noiThuongTruNDD || d['Nơi thường trú NĐD'] || d['Nơi thường trú người đại diện'] || '');
       return nums.some(n => new RegExp('\\bto\\s*dan\\s*pho\\s*' + n + '\\b').test(address));
+    });');
+        return new RegExp('(?:\\bto\\s*dan\\s*pho\\s*(?:so\\s*)?|\\btdp\\s*|\\bto\\s*)(?:so\\s*)?' + escaped + '\\b').test(address);
+      });
     });
   }
   return res.json({ ok: true, records });
