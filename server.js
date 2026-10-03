@@ -457,18 +457,21 @@ app.get('/api/records', async (req, res) => {
   const q = (req.query.q || '').trim().toLowerCase();
   const appsScriptUrl = (req.query.appsScriptUrl || '').trim();
   let records = [];
-  const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\\/+$/, '');
+  const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
   // Đọc dữ liệu từ Supabase nếu được cấu hình.
   if (supabaseUrl && serviceKey) {
     try {
-      let queryUrl = `${supabaseUrl}/rest/v1/m02_records?select=*&order=updated_at.desc&limit=500`;
+      let queryUrl = supabaseUrl + '/rest/v1/m02_records?select=*&order=updated_at.desc&limit=500';
       if (q) {
-        queryUrl += `&or=(martyr_name.ilike.*${encodeURIComponent(q)}*,record_id.ilike.*${encodeURIComponent(q)}*,rep_name.ilike.*${encodeURIComponent(q)}*,file_id.ilike.*${encodeURIComponent(q)}*)`;
+        queryUrl += '&or=(martyr_name.ilike.*' + encodeURIComponent(q) +
+          '*,record_id.ilike.*' + encodeURIComponent(q) +
+          '*,rep_name.ilike.*' + encodeURIComponent(q) +
+          '*,file_id.ilike.*' + encodeURIComponent(q) + '*)';
       }
       const dbRes = await fetch(queryUrl, {
-        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+        headers: { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey }
       });
       if (dbRes.ok) records = await dbRes.json();
     } catch (e) {
@@ -476,11 +479,11 @@ app.get('/api/records', async (req, res) => {
     }
   }
 
-  // Luôn đọc thêm Google Sheets để không bỏ sót phiếu chưa đồng bộ sang Supabase.
+  // Đọc thêm Google Sheets để không bỏ sót phiếu chưa đồng bộ sang Supabase.
   let sheetRecords = [];
   if (appsScriptUrl && appsScriptUrl.startsWith('https://script.google.com/')) {
     try {
-      const gRes = await fetch(`${appsScriptUrl}?action=list&q=${encodeURIComponent(q)}`, { redirect: 'follow' });
+      const gRes = await fetch(appsScriptUrl + '?action=list&q=' + encodeURIComponent(q), { redirect: 'follow' });
       if (gRes.ok) {
         const data = await gRes.json();
         if (Array.isArray(data.records)) sheetRecords = data.records;
@@ -490,7 +493,7 @@ app.get('/api/records', async (req, res) => {
     }
   }
 
-  // Hợp nhất theo mã phiếu; giữ dữ liệu chi tiết từ cả hai nguồn.
+  // Hợp nhất hai nguồn theo mã phiếu, tránh bỏ sót bản ghi chỉ có trên Google Sheets.
   const merged = new Map();
   for (const r of sheetRecords) {
     const key = String(r.record_id || r.file_id || r.maPhieu || '').trim();
@@ -504,7 +507,7 @@ app.get('/api/records', async (req, res) => {
     const currentData = r.data && typeof r.data === 'object' ? r.data : {};
     merged.set(key, { ...previous, ...r, data: { ...previousData, ...currentData } });
   }
-  records = [...merged.values()];
+  records = Array.from(merged.values());
 
   if (staff.profile.role !== 'admin') {
     const linksRes = await fetch(
@@ -515,12 +518,12 @@ app.get('/api/records', async (req, res) => {
     const names = links.map(x => x.to_dan_pho && x.to_dan_pho.name).filter(Boolean);
     const normalize = v => String(v || '')
       .normalize('NFD')
-      .replace(/[\\u0300-\\u036f]/g, '')
-      .toLowerCase()
+      .replace(/[\u0300-\u036f]/g, '')
       .replace(/đ/g, 'd')
-      .replace(/\\s+/g, ' ')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
       .trim();
-    const nums = names.map(n => (String(n).match(/\\d+/) || [])[0]).filter(Boolean);
+    const nums = names.map(n => (String(n).match(/\d+/) || [])[0]).filter(Boolean);
 
     records = records.filter(r => {
       const d = r.data && typeof r.data === 'object' ? r.data : {};
@@ -531,8 +534,9 @@ app.get('/api/records', async (req, res) => {
         r['Nơi thường trú người đại diện'] || r.address || ''
       );
       return nums.some(n => {
-        const escaped = String(n).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
-        return new RegExp('(?:\\\\bto\\\\s*dan\\\\s*pho\\\\s*(?:so\\\\s*)?|\\\\btdp\\\\s*|\\\\bto\\\\s*)(?:so\\\\s*)?' + escaped + '\\\\b').test(address);
+        // Địa chỉ chuẩn trong bảng tính: "Tổ dân phố 30", "Tổ dân phố 31".
+        const escaped = String(n);
+        return new RegExp('(?:\\bto\\s*dan\\s*pho\\s*|\\btdp\\s*|\\bto\\s*)(?:so\\s*)?' + escaped + '\\b').test(address);
       });
     });
   }
