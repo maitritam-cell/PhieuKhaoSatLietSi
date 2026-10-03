@@ -242,6 +242,7 @@ function parsePayload_(e) {
 
 function getOrCreateSheet_(ss, name, headers) {
   let sheet = ss.getSheetByName(name);
+
   if (!sheet) {
     sheet = ss.insertSheet(name);
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -249,10 +250,27 @@ function getOrCreateSheet_(ss, name, headers) {
     return sheet;
   }
 
-  if (sheet.getLastRow() === 0) {
+  // Luôn kiểm tra hàng đầu tiên. Nếu thiếu tiêu đề, chèn hàng mới ở đầu
+  // để giữ nguyên toàn bộ dữ liệu đang có bên dưới.
+  const lastRow = sheet.getLastRow();
+  if (lastRow === 0) {
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     styleHeader_(sheet, headers.length);
+    return sheet;
   }
+
+  const firstRow = sheet.getRange(1, 1, 1, headers.length).getDisplayValues()[0]
+    .map(function(v) { return clean_(v); });
+  const hasExpectedHeader = firstRow.length === headers.length &&
+    headers.every(function(h, i) { return firstRow[i] === h; });
+
+  if (!hasExpectedHeader) {
+    // Nếu hàng đầu tiên đã có nội dung, không ghi đè; đẩy hàng đó xuống.
+    sheet.insertRowBefore(1);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+
+  styleHeader_(sheet, headers.length);
   return sheet;
 }
 
