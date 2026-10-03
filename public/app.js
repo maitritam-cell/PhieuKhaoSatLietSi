@@ -320,6 +320,7 @@ function escapeAttr(v){return String(v??'').replace(/\\/g,'\\\\').replace(/'/g,"
 
 function newRecord(){
   document.querySelectorAll('input,select').forEach(e=>{if(!e.dataset.rel)e.value='';});
+  initStaffAuthentication();
   initRelations();
   setRelativesChoice('');
   currentRecordId=makeRecordId();
@@ -365,7 +366,7 @@ async function fetchFromGoogleSheets(){
   setStatus('Đang tra cứu danh sách từ Google Sheets...');
   const scriptUrl=getAppsScriptUrl();
   try{
-    const res=await fetch('/api/records?appsScriptUrl='+encodeURIComponent(scriptUrl));
+    const res=await fetch('/api/records?appsScriptUrl='+encodeURIComponent(scriptUrl),{headers:{'Authorization':'Bearer '+(currentStaffSession?.access_token||'')}});
     const data=await res.json().catch(()=>({}));
     if(res.ok && data.records && Array.isArray(data.records) && data.records.length>0){
       const currentList=getRecords();
@@ -5195,6 +5196,83 @@ L1hSZWZTdG0gMTg0MjY5Pj4NCnN0YXJ0eHJlZg0KMTk2MzMwDQolJUVPRg==
 }
 
 
+
+const STAFF_SUPABASE_URL='https://zyvckivbwwlhmpkbonze.supabase.co';
+const STAFF_SUPABASE_KEY='sb_publishable_1ojllrmwxQSMPZWtO6VBqw_5oygalyC';
+const staffAuth=window.supabase.createClient(STAFF_SUPABASE_URL,STAFF_SUPABASE_KEY);
+let currentStaffSession=null,currentStaffProfile=null,currentStaffTerritories=[];
+
+function staffAddressAllowed(address){
+ if(!currentStaffProfile || currentStaffProfile.role==='admin') return true;
+ const s=String(address||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ return currentStaffTerritories.some(name=>{
+  const n=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const num=(n.match(/\d+/)||[])[0];
+  return num && new RegExp('\\bto\\s*dan\\s*pho\\s*'+num+'\\b').test(s);
+ });
+}
+function showStaffGate(allowed){
+ $('staffLogin').style.display=allowed?'none':'block';
+ $('staffTopbar').style.display=allowed?'block':'none';
+ $('staffApp').style.display=allowed?'block':'none';
+ if(allowed){
+  $('staffIdentity').textContent=(currentStaffProfile?.full_name||currentStaffSession?.user?.email||'Cán bộ')+
+   (currentStaffProfile?.role==='admin'?' — Quản trị viên':' — Phụ trách '+currentStaffTerritories.join(', '));
+  const adminLink=document.querySelector('a[href="/assignments.html"]');
+  if(adminLink)adminLink.style.display=currentStaffProfile?.role==='admin'?'inline-flex':'none';
+ }else{
+  $('staffLoginMessage').textContent='';
+ }
+}
+async function loadStaffProfile(session){
+ const {data,error}=await staffAuth.from('staff_profiles').select('user_id,email,full_name,role,active').eq('user_id',session.user.id).maybeSingle();
+ if(error)throw error;
+ if(!data||!data.active)throw new Error('Tài khoản chưa được kích hoạt hoặc không có quyền truy cập.');
+ currentStaffProfile=data;
+ const {data:links,error:linkError}=await staffAuth.from('staff_to_dan_pho').select('to_dan_pho_id,to_dan_pho(name)').eq('staff_id',session.user.id);
+ if(linkError)throw linkError;
+ currentStaffTerritories=(links||[]).map(x=>x.to_dan_pho?.name).filter(Boolean);
+ if(data.role!=='admin'&&!currentStaffTerritories.length)throw new Error('Tài khoản chưa được phân công Tổ dân phố. Vui lòng liên hệ quản trị viên.');
+}
+async function startStaffApp(session){
+ try{
+  currentStaffSession=session;
+  await loadStaffProfile(session);
+  showStaffGate(true);
+  // Xóa danh sách lưu cục bộ từ phiên/tài khoản trước, tránh lộ hồ sơ khác địa bàn.
+  localStorage.removeItem('phieu_liet_si_records');
+  renderRecords();
+  if(typeof fetchFromGoogleSheets==='function') await fetchFromGoogleSheets();
+ }catch(e){
+  currentStaffSession=null;currentStaffProfile=null;currentStaffTerritories=[];
+  showStaffGate(false);
+  $('staffLoginMessage').textContent=e.message||'Không thể xác thực tài khoản.';
+ }
+}
+function initStaffAuthentication(){
+ $('staffLoginBtn').addEventListener('click',async()=>{
+  const email=$('staffLoginEmail').value.trim(),password=$('staffLoginPassword').value;
+  if(!email||!password){$('staffLoginMessage').textContent='Nhập email và mật khẩu.';return;}
+  $('staffLoginBtn').disabled=true;$('staffLoginMessage').textContent='Đang đăng nhập…';
+  const {data,error}=await staffAuth.auth.signInWithPassword({email,password});
+  $('staffLoginBtn').disabled=false;
+  if(error){$('staffLoginMessage').textContent='Đăng nhập thất bại: '+error.message;return;}
+  await startStaffApp(data.session);
+ });
+ $('staffLoginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')$('staffLoginBtn').click();});
+ $('staffLogoutBtn').addEventListener('click',async()=>{
+  await staffAuth.auth.signOut();
+  currentStaffSession=null;currentStaffProfile=null;currentStaffTerritories=[];
+  localStorage.removeItem('phieu_liet_si_records');
+  showStaffGate(false);
+ });
+ staffAuth.auth.getSession().then(({data})=>{
+  if(data.session)startStaffApp(data.session);else showStaffGate(false);
+ });
+ staffAuth.auth.onAuthStateChange((event,session)=>{
+  if(event==='SIGNED_IN'&&session)queueMicrotask(()=>startStaffApp(session));
+ });
+}
 
 function initApp(){
   initRelations();
