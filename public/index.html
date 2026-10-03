@@ -103,27 +103,37 @@ input.input-error,select.input-error{border-color:#dc2626!important;outline:2px 
 <div class="section"><h2>2. Thông tin về liệt sĩ</h2><div class="grid">
 <div><label>Mã số hồ sơ liệt sĩ</label><input id="file_id"></div><div><label>Mã hồ sơ Bộ quản lý</label><input id="ministry_file"></div>
 <div><label>Mã hồ sơ tỉnh quản lý</label><input id="province_file"></div><div><label>Họ và tên liệt sĩ <span class="req">*</span></label><input id="martyr_name"></div>
-<div><label>Bí danh</label><input id="martyr_alias"></div><div><label>Ngày tháng năm sinh <span class="req">*</span> <small style="font-weight:normal;color:#64748b;">(năm hoặc dd/mm/yyyy)</small></label><input id="martyr_dob" placeholder="dd/mm/yyyy hoặc năm sinh"></div>
+<div><label>Bí danh</label><input id="martyr_alias"></div><div><label>Ngày tháng năm sinh <span class="req">*</span> <small style="font-weight:normal;color:#64748b;">(năm hoặc dd/mm/yyyy)</small></label><input id="martyr_dob" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY hoặc dd/mm/yyyy"></div>
 <div><label>Giới tính <span class="req">*</span></label><select id="martyr_gender"><option value="">-- Chọn --</option><option>Nam</option><option>Nữ</option></select></div>
 <div class="full"><label>Quê quán <span class="req">*</span></label><input id="martyr_hometown"></div>
 <div class="full"><label>Cấp bậc, chức vụ khi hy sinh <span class="req">*</span></label><input id="martyr_rank"></div>
 <div class="full"><label>Cơ quan, đơn vị khi hy sinh <span class="req">*</span></label><input id="martyr_unit"></div>
-<div><label>Ngày tháng năm hy sinh <span class="req">*</span></label><input id="martyr_death_date" placeholder="dd/mm/yyyy hoặc năm hy sinh"></div><div><label>Nơi hy sinh (nếu có)</label><input id="martyr_death_place"></div>
+<div><label>Ngày tháng năm hy sinh <span class="req">*</span></label><input id="martyr_death_date" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY hoặc dd/mm/yyyy"></div><div><label>Nơi hy sinh (nếu có)</label><input id="martyr_death_place"></div>
 <div class="full"><label>Nơi an táng ban đầu</label><input id="burial_place"></div>
 <div><label>Bằng Tổ quốc ghi công số <span class="req">*</span></label><input id="certificate_no"></div><div><label>Quyết định số <span class="req">*</span></label><input id="decision_no"></div>
 <div><label>Ngày quyết định <span class="req">*</span></label><input id="decision_date" placeholder="dd/mm/yyyy"></div>
 <div><label>Con ông</label><input id="father"></div><div><label>Con bà</label><input id="mother"></div><div><label>Vợ</label><input id="wife"></div>
 </div></div>
 
-<div class="section"><h2>3. Phụ lục 1 - Thông tin thân nhân theo họ ngoại</h2>
-<div class="note">Mẫu gốc có 6 dòng ưu tiên. Ứng dụng giữ nguyên 6 dòng này để khi xuất PDF không phát sinh dòng thừa hoặc lệch bố cục.</div>
+<div class="section"><h2>3. Thông tin thân nhân</h2>
+<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:14px 16px;margin-bottom:12px;">
+  <strong>Liệt sĩ có thân nhân:</strong>
+  <label style="display:flex;align-items:center;gap:7px;margin:0;font-weight:600;cursor:pointer;">
+    <input id="has_relatives_yes" type="checkbox" style="width:18px;height:18px;" onchange="setRelativesChoice('Có')"> Có thân nhân
+  </label>
+  <label style="display:flex;align-items:center;gap:7px;margin:0;font-weight:600;cursor:pointer;">
+    <input id="has_relatives_no" type="checkbox" style="width:18px;height:18px;" onchange="setRelativesChoice('Không')"> Không có thân nhân
+  </label>
+</div>
+<div id="relativesTableWrap" style="display:none;">
+<div class="note">Chỉ hiển thị bảng khi chọn “Có thân nhân”. Mẫu gốc có 6 dòng ưu tiên.</div>
 <div class="rel"><table><thead><tr><th>STT</th><th>Đối tượng</th><th>ĐDCN/CCCD/CMND</th><th>Họ và tên</th><th>Ngày sinh</th><th>Giới tính</th><th>Họ tên bố</th><th>Họ tên mẹ</th><th>Nơi thường trú</th><th>Trạng thái</th><th>Chữ ký và ghi rõ họ tên</th></tr></thead><tbody id="relbody"></tbody></table></div>
+</div>
 </div>
 
 <div class="actions">
 <button class="btn danger" onclick="clearAll()">Xóa biểu mẫu</button>
 <button id="btnSaveSheets" class="btn primary" style="background:#0f766e;" onclick="saveToSheets()">Lưu vào Google Sheets</button>
-<button type="button" class="btn btn-outline" onclick="openScriptConfigModal()" title="Cài đặt URL Google Apps Script">⚙️ Cấu hình Sheet</button>
 <button id="btnWord" class="btn primary" onclick="generateWord()" disabled>Xuất Word</button>
 <button id="btnPdf" class="btn pdfbtn" onclick="generatePdf()" disabled>Xuất PDF đúng Mẫu 02</button>
 <span id="status" class="status"></span>
