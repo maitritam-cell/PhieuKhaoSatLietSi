@@ -5199,79 +5199,98 @@ L1hSZWZTdG0gMTg0MjY5Pj4NCnN0YXJ0eHJlZg0KMTk2MzMwDQolJUVPRg==
 
 const STAFF_SUPABASE_URL='https://zyvckivbwwlhmpkbonze.supabase.co';
 const STAFF_SUPABASE_KEY='sb_publishable_1ojllrmwxQSMPZWtO6VBqw_5oygalyC';
-const staffAuth=window.supabase.createClient(STAFF_SUPABASE_URL,STAFF_SUPABASE_KEY);
+const STAFF_SESSION_KEY='phieu_liet_si_staff_session';
 let currentStaffSession=null,currentStaffProfile=null,currentStaffTerritories=[];
 
-function staffAddressAllowed(address){
- if(!currentStaffProfile || currentStaffProfile.role==='admin') return true;
+function staffAuthHeaders(token){
+ return {apikey:STAFF_SUPABASE_KEY,Authorization:'Bearer '+token,'Content-Type':'application/json'};
+}
+function saveStaffSession(session){
+ currentStaffSession=session;
+ localStorage.setItem(STAFF_SESSION_KEY,JSON.stringify({access_token:session.access_token,user:session.user}));
+}
+function clearStaffSession(){
+ currentStaffSession=null;currentStaffProfile=null;currentStaffTerritories=[];
+ localStorage.removeItem(STAFF_SESSION_KEY);
+}
+async function getStaffUser(token){
+ const r=await fetch(STAFF_SUPABASE_URL+'/auth/v1/user',{headers:staffAuthHeaders(token)});
+ if(!r.ok)throw new Error('Phiên đăng nhập đã hết.');
+ return await r.json();
+}
+function territoryAllowed(address){
  const s=String(address||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  return currentStaffTerritories.some(name=>{
   const n=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   const num=(n.match(/\d+/)||[])[0];
-  return num && new RegExp('\\bto\\s*dan\\s*pho\\s*'+num+'\\b').test(s);
+  if(!num)return false;
+  return new RegExp('\\bto\\s*dan\\s*pho\\s*'+num+'\\b').test(s);
  });
 }
 function showStaffGate(allowed){
- $('staffLogin').style.display=allowed?'none':'block';
- $('staffTopbar').style.display=allowed?'block':'none';
- $('staffApp').style.display=allowed?'block':'none';
+ const login=$('staffLogin'),top=$('staffTopbar'),app=$('staffApp');
+ if(login)login.style.display=allowed?'none':'block';
+ if(top)top.style.display=allowed?'block':'none';
+ if(app)app.style.display=allowed?'block':'none';
  if(allowed){
   $('staffIdentity').textContent=(currentStaffProfile?.full_name||currentStaffSession?.user?.email||'Cán bộ')+
    (currentStaffProfile?.role==='admin'?' — Quản trị viên':' — Phụ trách '+currentStaffTerritories.join(', '));
   const adminLink=document.querySelector('a[href="/assignments.html"]');
   if(adminLink)adminLink.style.display=currentStaffProfile?.role==='admin'?'inline-flex':'none';
- }else{
-  $('staffLoginMessage').textContent='';
  }
 }
 async function loadStaffProfile(session){
- const {data,error}=await staffAuth.from('staff_profiles').select('user_id,email,full_name,role,active').eq('user_id',session.user.id).maybeSingle();
- if(error)throw error;
- if(!data||!data.active)throw new Error('Tài khoản chưa được kích hoạt hoặc không có quyền truy cập.');
+ const token=session.access_token;
+ const pRes=await fetch(STAFF_SUPABASE_URL+'/rest/v1/staff_profiles?select=user_id,email,full_name,role,active&user_id=eq.'+encodeURIComponent(session.user.id)+'&limit=1',{headers:staffAuthHeaders(token)});
+ if(!pRes.ok)throw new Error('Không đọc được thông tin tài khoản.');
+ const rows=await pRes.json(),data=rows[0];
+ if(!data||!data.active)throw new Error('Tài khoản chưa được kích hoạt hoặc đã bị khóa.');
  currentStaffProfile=data;
- const {data:links,error:linkError}=await staffAuth.from('staff_to_dan_pho').select('to_dan_pho_id,to_dan_pho(name)').eq('staff_id',session.user.id);
- if(linkError)throw linkError;
+ const tRes=await fetch(STAFF_SUPABASE_URL+'/rest/v1/staff_to_dan_pho?select=to_dan_pho_id,to_dan_pho(name)&staff_id=eq.'+encodeURIComponent(session.user.id),{headers:staffAuthHeaders(token)});
+ if(!tRes.ok)throw new Error('Không đọc được Tổ dân phố được phân công.');
+ const links=await tRes.json();
  currentStaffTerritories=(links||[]).map(x=>x.to_dan_pho?.name).filter(Boolean);
- if(data.role!=='admin'&&!currentStaffTerritories.length)throw new Error('Tài khoản chưa được phân công Tổ dân phố. Vui lòng liên hệ quản trị viên.');
+ if(data.role!=='admin'&&!currentStaffTerritories.length)throw new Error('Tài khoản chưa được phân công Tổ dân phố.');
 }
 async function startStaffApp(session){
  try{
-  currentStaffSession=session;
+  saveStaffSession(session);
   await loadStaffProfile(session);
   showStaffGate(true);
-  // Xóa danh sách lưu cục bộ từ phiên/tài khoản trước, tránh lộ hồ sơ khác địa bàn.
   localStorage.removeItem('phieu_liet_si_records');
   renderRecords();
-  if(typeof fetchFromGoogleSheets==='function') await fetchFromGoogleSheets();
+  if(typeof fetchFromGoogleSheets==='function')await fetchFromGoogleSheets();
  }catch(e){
-  currentStaffSession=null;currentStaffProfile=null;currentStaffTerritories=[];
+  clearStaffSession();
   showStaffGate(false);
   $('staffLoginMessage').textContent=e.message||'Không thể xác thực tài khoản.';
  }
 }
 function initStaffAuthentication(){
+ const saved=localStorage.getItem(STAFF_SESSION_KEY);
  $('staffLoginBtn').addEventListener('click',async()=>{
   const email=$('staffLoginEmail').value.trim(),password=$('staffLoginPassword').value;
   if(!email||!password){$('staffLoginMessage').textContent='Nhập email và mật khẩu.';return;}
   $('staffLoginBtn').disabled=true;$('staffLoginMessage').textContent='Đang đăng nhập…';
-  const {data,error}=await staffAuth.auth.signInWithPassword({email,password});
+  try{
+   const res=await fetch(STAFF_SUPABASE_URL+'/auth/v1/token?grant_type=password',{
+    method:'POST',headers:{apikey:STAFF_SUPABASE_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({email,password})
+   });
+   const data=await res.json().catch(()=>({}));
+   if(!res.ok||!data.access_token)throw new Error(data.error_description||data.msg||'Email hoặc mật khẩu không đúng.');
+   await startStaffApp({access_token:data.access_token,user:data.user});
+  }catch(e){$('staffLoginMessage').textContent='Đăng nhập thất bại: '+e.message;}
   $('staffLoginBtn').disabled=false;
-  if(error){$('staffLoginMessage').textContent='Đăng nhập thất bại: '+error.message;return;}
-  await startStaffApp(data.session);
  });
  $('staffLoginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')$('staffLoginBtn').click();});
- $('staffLogoutBtn').addEventListener('click',async()=>{
-  await staffAuth.auth.signOut();
-  currentStaffSession=null;currentStaffProfile=null;currentStaffTerritories=[];
-  localStorage.removeItem('phieu_liet_si_records');
-  showStaffGate(false);
- });
- staffAuth.auth.getSession().then(({data})=>{
-  if(data.session)startStaffApp(data.session);else showStaffGate(false);
- });
- staffAuth.auth.onAuthStateChange((event,session)=>{
-  if(event==='SIGNED_IN'&&session)queueMicrotask(()=>startStaffApp(session));
- });
+ $('staffLogoutBtn').addEventListener('click',async()=>{clearStaffSession();localStorage.removeItem('phieu_liet_si_records');showStaffGate(false);});
+ if(saved){
+  try{
+   const s=JSON.parse(saved);
+   if(s?.access_token&&s?.user)startStaffApp(s);else{clearStaffSession();showStaffGate(false);}
+  }catch(_){clearStaffSession();showStaffGate(false);}
+ }else showStaffGate(false);
 }
 
 function initApp(){
