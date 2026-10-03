@@ -457,39 +457,71 @@ app.get('/api/records', async (req, res) => {
   const q = (req.query.q || '').trim().toLowerCase();
   const appsScriptUrl = (req.query.appsScriptUrl || '').trim();
   let records = [];
+  const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\\/+$/, '');
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  // Đọc dữ liệu từ Supabase nếu được cấu hình.
+  if (supabaseUrl && serviceKey) {
     try {
-      let queryUrl = `${process.env.SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/m02_records?select=*&order=updated_at.desc&limit=500`;
-      if (q) queryUrl += `&or=(martyr_name.ilike.*${encodeURIComponent(q)}*,record_id.ilike.*${encodeURIComponent(q)}*,rep_name.ilike.*${encodeURIComponent(q)}*,file_id.ilike.*${encodeURIComponent(q)}*)`;
-      const dbRes = await fetch(queryUrl, { headers: {
-        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-      }});
+      let queryUrl = `${supabaseUrl}/rest/v1/m02_records?select=*&order=updated_at.desc&limit=500`;
+      if (q) {
+        queryUrl += `&or=(martyr_name.ilike.*${encodeURIComponent(q)}*,record_id.ilike.*${encodeURIComponent(q)}*,rep_name.ilike.*${encodeURIComponent(q)}*,file_id.ilike.*${encodeURIComponent(q)}*)`;
+      }
+      const dbRes = await fetch(queryUrl, {
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+      });
       if (dbRes.ok) records = await dbRes.json();
-    } catch (e) { console.warn('Supabase query error:', e.message); }
+    } catch (e) {
+      console.warn('Supabase query error:', e.message);
+    }
   }
 
-  if (!records.length && appsScriptUrl && appsScriptUrl.startsWith('https://script.google.com/')) {
+  // Luôn đọc thêm Google Sheets để không bỏ sót phiếu chưa đồng bộ sang Supabase.
+  let sheetRecords = [];
+  if (appsScriptUrl && appsScriptUrl.startsWith('https://script.google.com/')) {
     try {
       const gRes = await fetch(`${appsScriptUrl}?action=list&q=${encodeURIComponent(q)}`, { redirect: 'follow' });
       if (gRes.ok) {
         const data = await gRes.json();
-        records = Array.isArray(data.records) ? data.records : [];
+        if (Array.isArray(data.records)) sheetRecords = data.records;
       }
-    } catch (e) { console.warn('Apps Script query error:', e.message); }
+    } catch (e) {
+      console.warn('Apps Script query error:', e.message);
+    }
   }
 
+  // Hợp nhất theo mã phiếu; giữ dữ liệu chi tiết từ cả hai nguồn.
+  const merged = new Map();
+  for (const r of sheetRecords) {
+    const key = String(r.record_id || r.file_id || r.maPhieu || '').trim();
+    if (key) merged.set(key, { ...r, data: r.data && typeof r.data === 'object' ? { ...r.data } : r.data });
+  }
+  for (const r of records) {
+    const key = String(r.record_id || r.file_id || r.maPhieu || '').trim();
+    if (!key) continue;
+    const previous = merged.get(key) || {};
+    const previousData = previous.data && typeof previous.data === 'object' ? previous.data : {};
+    const currentData = r.data && typeof r.data === 'object' ? r.data : {};
+    merged.set(key, { ...previous, ...r, data: { ...previousData, ...currentData } });
+  }
+  records = [...merged.values()];
+
   if (staff.profile.role !== 'admin') {
-    const supabaseUrl = process.env.SUPABASE_URL.replace(/\/+$/, '');
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const linksRes = await fetch(supabaseUrl + '/rest/v1/staff_to_dan_pho?select=to_dan_pho_id,to_dan_pho(name)&staff_id=eq.' + encodeURIComponent(staff.user.id), {
-      headers: { apikey: key, Authorization: 'Bearer ' + key }
-    });
+    const linksRes = await fetch(
+      supabaseUrl + '/rest/v1/staff_to_dan_pho?select=to_dan_pho_id,to_dan_pho(name)&staff_id=' + encodeURIComponent(staff.user.id),
+      { headers: { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey } }
+    );
     const links = linksRes.ok ? await linksRes.json() : [];
     const names = links.map(x => x.to_dan_pho && x.to_dan_pho.name).filter(Boolean);
-    const normalize = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    const nums = names.map(n => (String(n).match(/\d+/) || [])[0]).filter(Boolean);
+    const normalize = v => String(v || '')
+      .normalize('NFD')
+      .replace(/[\\u0300-\\u036f]/g, '')
+      .toLowerCase()
+      .replace(/đ/g, 'd')
+      .replace(/\\s+/g, ' ')
+      .trim();
+    const nums = names.map(n => (String(n).match(/\\d+/) || [])[0]).filter(Boolean);
+
     records = records.filter(r => {
       const d = r.data && typeof r.data === 'object' ? r.data : {};
       const address = normalize(
@@ -499,12 +531,8 @@ app.get('/api/records', async (req, res) => {
         r['Nơi thường trú người đại diện'] || r.address || ''
       );
       return nums.some(n => {
-        const escaped = String(n).replace(/[.*+?^${}()|[\]\\]/g, '\\    records = records.filter(r => {
-      const d = r.data || r;
-      const address = normalize(d.rep_address || d.noiThuongTruNDD || d['Nơi thường trú NĐD'] || d['Nơi thường trú người đại diện'] || '');
-      return nums.some(n => new RegExp('\\bto\\s*dan\\s*pho\\s*' + n + '\\b').test(address));
-    });');
-        return new RegExp('(?:\\bto\\s*dan\\s*pho\\s*(?:so\\s*)?|\\btdp\\s*|\\bto\\s*)(?:so\\s*)?' + escaped + '\\b').test(address);
+        const escaped = String(n).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+        return new RegExp('(?:\\\\bto\\\\s*dan\\\\s*pho\\\\s*(?:so\\\\s*)?|\\\\btdp\\\\s*|\\\\bto\\\\s*)(?:so\\\\s*)?' + escaped + '\\\\b').test(address);
       });
     });
   }
