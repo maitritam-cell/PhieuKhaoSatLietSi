@@ -48,28 +48,161 @@ function today(){
   const d=new Date();return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
 }
 
-function initRelations(){
-  const body=$('relbody');if(!body)return;
-  body.innerHTML=RELATIONSHIPS.map((name,i)=>{
-    return '<tr><td class="stt">'+(i+1)+'</td><td class="relation">'+escapeHtml(name)+'</td>'+
-      REL_COLS.map(c=>{
-        const date=c==='dob'?' class="date" placeholder="dd/mm/yyyy"':'';
-        const select=c==='gender'
-          ? '<select data-rel="'+i+'" data-col="gender"><option value="">-- Chọn --</option><option>Nam</option><option>Nữ</option></select>'
-          : c==='status'
-          ? '<select data-rel="'+i+'" data-col="status"><option value="">-- Chọn --</option><option>Còn sống</option><option>Đã chết</option></select>'
-          : '<input data-rel="'+i+'" data-col="'+c+'"'+date+'>';
-        return '<td>'+select+'</td>';
-      }).join('')+'</tr>';
+let relativesList = [];
+
+function renderRelativesUI(){
+  const container = $('relativesCategoriesList');
+  if(!container) return;
+
+  container.innerHTML = RELATIONSHIPS.map((catName, catIndex) => {
+    const catPersons = relativesList.map((p, gIdx) => ({ p, gIdx })).filter(item => item.p.relationship === catName);
+    const count = catPersons.length;
+    const isOpen = count > 0;
+
+    let personsHtml = '';
+    if(isOpen){
+      personsHtml = catPersons.map(({ p, gIdx }, pIdx) => {
+        const titleText = count > 1 ? `Người ${pIdx + 1}` : 'Thông tin người thu mẫu';
+        return `
+          <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;padding:12px;margin-top:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <strong style="color:#0f766e;font-size:13px;">👤 ${titleText}</strong>
+              <button type="button" class="btn danger" style="padding:3px 8px;font-size:11.5px;cursor:pointer;" onclick="removePerson(${gIdx})" title="Xóa người này">🗑️ Xóa người này</button>
+            </div>
+            <div class="grid" style="gap:10px;">
+              <div>
+                <label style="font-size:12px;font-weight:600;">Số ĐDCN / CCCD / CMND</label>
+                <input style="font-size:13px;padding:7px 10px;" value="${escapeHtml(p.id || '')}" placeholder="12 số Căn cước" oninput="updatePersonField(${gIdx}, 'id', this.value.replace(/\\D/g, '').slice(0, 12))">
+              </div>
+              <div>
+                <label style="font-size:12px;font-weight:600;">Họ và tên</label>
+                <input style="font-size:13px;padding:7px 10px;" value="${escapeHtml(p.name || '')}" placeholder="Họ và tên thân nhân" oninput="updatePersonField(${gIdx}, 'name', this.value)">
+              </div>
+              <div>
+                <label style="font-size:12px;font-weight:600;">Ngày sinh</label>
+                <input style="font-size:13px;padding:7px 10px;" class="date" value="${escapeHtml(p.dob || '')}" placeholder="dd/mm/yyyy hoặc năm yyyy" oninput="updatePersonField(${gIdx}, 'dob', this.value)">
+              </div>
+              <div>
+                <label style="font-size:12px;font-weight:600;">Giới tính</label>
+                <select style="font-size:13px;padding:7px 10px;" onchange="updatePersonField(${gIdx}, 'gender', this.value)">
+                  <option value="">-- Chọn --</option>
+                  <option value="Nam" ${p.gender === 'Nam' ? 'selected' : ''}>Nam</option>
+                  <option value="Nữ" ${p.gender === 'Nữ' ? 'selected' : ''}>Nữ</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:12px;font-weight:600;">Họ tên bố</label>
+                <input style="font-size:13px;padding:7px 10px;" value="${escapeHtml(p.father || '')}" placeholder="Họ tên bố" oninput="updatePersonField(${gIdx}, 'father', this.value)">
+              </div>
+              <div>
+                <label style="font-size:12px;font-weight:600;">Họ tên mẹ</label>
+                <input style="font-size:13px;padding:7px 10px;" value="${escapeHtml(p.mother || '')}" placeholder="Họ tên mẹ" oninput="updatePersonField(${gIdx}, 'mother', this.value)">
+              </div>
+              <div class="full">
+                <label style="font-size:12px;font-weight:600;">Nơi thường trú</label>
+                <input style="font-size:13px;padding:7px 10px;" value="${escapeHtml(p.address || '')}" placeholder="Nơi thường trú hiện tại" oninput="updatePersonField(${gIdx}, 'address', this.value)">
+              </div>
+              <div>
+                <label style="font-size:12px;font-weight:600;">Trạng thái</label>
+                <select style="font-size:13px;padding:7px 10px;" onchange="updatePersonField(${gIdx}, 'status', this.value)">
+                  <option value="Còn sống" ${p.status !== 'Đã chết' ? 'selected' : ''}>Còn sống</option>
+                  <option value="Đã chết" ${p.status === 'Đã chết' ? 'selected' : ''}>Đã chết</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:12px;font-weight:600;">Chữ ký / Ghi chú</label>
+                <input style="font-size:13px;padding:7px 10px;" value="${escapeHtml(p.signature || '')}" placeholder="Chữ ký hoặc ghi chú" oninput="updatePersonField(${gIdx}, 'signature', this.value)">
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    return `
+      <div style="border:1px solid ${isOpen ? '#93c5fd' : '#e2e8f0'};border-radius:10px;background:${isOpen ? '#f8fafc' : '#ffffff'};overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:${isOpen ? '#eff6ff' : '#f8fafc'};border-bottom:${isOpen ? '1px solid #bfdbfe' : 'none'};gap:10px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1;" onclick="toggleCategory(${catIndex})">
+            <input type="checkbox" style="width:18px;height:18px;cursor:pointer;" ${isOpen ? 'checked' : ''} onclick="event.stopPropagation();toggleCategory(${catIndex})">
+            <strong style="font-size:13.5px;color:${isOpen ? '#1d4ed8' : '#334155'};">${catIndex + 1}. ${escapeHtml(catName)}</strong>
+            ${count > 0 ? `<span style="background:#dbeafe;color:#1e40af;font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:999px;">${count} người</span>` : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button type="button" class="btn" style="padding:5px 12px;font-size:12.5px;font-weight:700;background:#059669;color:white;border-radius:6px;display:inline-flex;align-items:center;gap:4px;" onclick="addPersonToCategory(${catIndex})" title="Thêm người thuộc diện ${escapeHtml(catName)}">
+              ＋ Thêm người
+            </button>
+          </div>
+        </div>
+        ${isOpen ? `<div style="padding:10px 14px;">${personsHtml}</div>` : ''}
+      </div>
+    `;
   }).join('');
+
   attachDateMask();
+}
+
+window.toggleCategory = function(catIndex){
+  const catName = RELATIONSHIPS[catIndex];
+  const existing = relativesList.filter(p => p.relationship === catName);
+  if(existing.length > 0){
+    const hasData = existing.some(p => (p.name || '').trim() || (p.id || '').trim());
+    if(hasData && !confirm(`Bạn có chắc muốn đóng và xóa thông tin của diện "${catName}"?`)) return;
+    relativesList = relativesList.filter(p => p.relationship !== catName);
+  } else {
+    relativesList.push({
+      relationship: catName,
+      id: '',
+      name: '',
+      dob: '',
+      gender: (catIndex === 0 || catIndex === 1) ? 'Nữ' : '',
+      father: '',
+      mother: '',
+      address: '',
+      status: 'Còn sống',
+      signature: ''
+    });
+  }
+  renderRelativesUI();
+};
+
+window.addPersonToCategory = function(catIndex){
+  const catName = RELATIONSHIPS[catIndex];
+  relativesList.push({
+    relationship: catName,
+    id: '',
+    name: '',
+    dob: '',
+    gender: (catIndex === 0 || catIndex === 1) ? 'Nữ' : '',
+    father: '',
+    mother: '',
+    address: '',
+    status: 'Còn sống',
+    signature: ''
+  });
+  renderRelativesUI();
+};
+
+window.removePerson = function(globalIndex){
+  if(globalIndex >= 0 && globalIndex < relativesList.length){
+    relativesList.splice(globalIndex, 1);
+    renderRelativesUI();
+  }
+};
+
+window.updatePersonField = function(globalIndex, field, value){
+  if(relativesList[globalIndex]){
+    relativesList[globalIndex][field] = value;
+  }
+};
+
+function initRelations(){
+  renderRelativesUI();
 }
 
 function attachDateMask(){
   document.querySelectorAll('input.date, #rep_dob, #rep_issue_date, #decision_date, #martyr_dob, #martyr_death_date').forEach(el=>{
     el.addEventListener('input',()=>{
       const raw=el.value.replace(/\D/g,'').slice(0,8);
-      // Cho phép nhập riêng năm 4 chữ số (ví dụ 1945) và giữ nguyên, không tự thêm ngày/tháng.
       if(raw.length<=4){
         el.value=raw;
       }else{
@@ -84,15 +217,13 @@ function updateRelativesVisibility(){
   const no=$('has_relatives_no');
   const section=$('relativesTableWrap');
   const hasYes=!!yes?.checked;
-  const hasNo=!!no?.checked;
   if(section) section.style.display=hasYes?'block':'none';
-  document.querySelectorAll('#relbody input,#relbody select').forEach(el=>{
-    el.disabled=!hasYes;
-  });
-  if(no && hasNo){
-    document.querySelectorAll('#relbody input,#relbody select').forEach(el=>{el.value='';});
+  if(!hasYes && no?.checked){
+    relativesList=[];
   }
+  renderRelativesUI();
 }
+
 function setRelativesChoice(value){
   const yes=$('has_relatives_yes');
   const no=$('has_relatives_no');
@@ -102,6 +233,10 @@ function setRelativesChoice(value){
   }else if(value==='Không'){
     if(yes) yes.checked=false;
     if(no) no.checked=true;
+    relativesList=[];
+  }else{
+    if(yes) yes.checked=false;
+    if(no) no.checked=false;
   }
   updateRelativesVisibility();
 }
@@ -121,13 +256,20 @@ function collect(){
   });
 
   d.has_relatives=$('has_relatives_yes')?.checked?'Có':($('has_relatives_no')?.checked?'Không':'');
-  d.relatives=RELATIONSHIPS.map((relationship,i)=>{
-    const r={priority:i+1,relationship};
-    REL_COLS.forEach(c=>{
-      const e=document.querySelector('[data-rel="'+i+'"][data-col="'+c+'"]');
-      r[c]=e?(e.value||'').trim():'';
-    });
-    return r;
+  d.relatives=relativesList.filter(p=>p && ((p.name||'').trim() || (p.id||'').trim() || (p.dob||'').trim() || (p.address||'').trim())).map((r,i)=>{
+    return {
+      priority: RELATIONSHIPS.indexOf(r.relationship)>=0 ? RELATIONSHIPS.indexOf(r.relationship)+1 : (i+1),
+      relationship: r.relationship||'',
+      id: (r.id||'').trim(),
+      name: (r.name||'').trim(),
+      dob: cleanDateDisplay(r.dob||''),
+      gender: r.gender||'',
+      father: (r.father||'').trim(),
+      mother: (r.mother||'').trim(),
+      address: (r.address||'').trim(),
+      status: r.status||'Còn sống',
+      signature: (r.signature||'').trim()
+    };
   });
   return d;
 }
@@ -193,19 +335,25 @@ function fill(d){
     }
   });
 
-  setRelativesChoice(d.has_relatives || ((d.relatives||[]).some(r=>r && (r.name||r.id))?'Có':'')); 
-  (d.relatives||[]).slice(0,6).forEach((r,i)=>{
-    REL_COLS.forEach(c=>{
-      const e=document.querySelector('[data-rel="'+i+'"][data-col="'+c+'"]');
-      if(e){
-        let val = r[c] || '';
-        if(c==='dob' || c.toLowerCase().includes('dob') || c.toLowerCase().includes('date') || c.toLowerCase().includes('ngay')){
-          val = cleanDateDisplay(val);
-        }
-        e.value=val;
-      }
-    });
-  });
+  if(d.has_relatives === 'Có' || (Array.isArray(d.relatives) && d.relatives.some(r => r && (r.name || r.id)))){
+    relativesList = (d.relatives || []).filter(r => r && (r.name || r.id || r.relationship)).map(r => ({
+      relationship: r.relationship || 'Mẹ đẻ liệt sĩ',
+      id: r.id || '',
+      name: r.name || '',
+      dob: cleanDateDisplay(r.dob || ''),
+      gender: r.gender || '',
+      father: r.father || '',
+      mother: r.mother || '',
+      address: r.address || '',
+      status: r.status || 'Còn sống',
+      signature: r.signature || ''
+    }));
+    setRelativesChoice('Có');
+  } else {
+    relativesList = [];
+    setRelativesChoice(d.has_relatives === 'Không' ? 'Không' : '');
+  }
+  renderRelativesUI();
 
   // Hiển thị banner chỉnh sửa
   const banner=$('editingBanner');
@@ -267,7 +415,14 @@ function validateForm(){
   if(!relativeChoice){
     const choice=$('has_relatives_yes')||$('has_relatives_no');
     if(choice){choice.classList.add('input-error');}
-    errors.push({id:'has_relatives_yes',el:choice||$('martyr_name'),msg:'Chọn Có thân nhân hoặc Không có thân nhân'});
+    errors.push({id:'has_relatives_yes',el:choice||$('martyr_name'),msg:'Chọn Có thân nhân hoặc Không có thân nhân thuộc diện thu mẫu'});
+  } else if(relativeChoice==='Có'){
+    const hasAnyPerson=relativesList.some(p=>(p.name||'').trim()||(p.id||'').trim());
+    if(!hasAnyPerson){
+      const wrap=$('relativesTableWrap');
+      if(wrap){wrap.scrollIntoView({behavior:'smooth',block:'center'});}
+      errors.push({id:'has_relatives_yes',el:$('has_relatives_yes'),msg:'Đã chọn "Có thân nhân": Vui lòng bấm vào ít nhất 1 diện thu mẫu và nhập thông tin thân nhân'});
+    }
   }
 
   // 2. Thông tin về liệt sĩ
@@ -386,8 +541,9 @@ function escapeAttr(v){return String(v??'').replace(/\\/g,'\\\\').replace(/'/g,"
 function newRecord(){
   document.querySelectorAll('input,select').forEach(e=>{if(!e.dataset.rel)e.value='';});
   initStaffAuthentication();
-  initRelations();
+  relativesList=[];
   setRelativesChoice('');
+  renderRelativesUI();
   currentRecordId=makeRecordId();
   isEditingExisting=false;
   currentSaved=false;
@@ -5430,13 +5586,6 @@ async function startStaffApp(session){
 }
 function initStaffAuthentication(){
  const saved=localStorage.getItem(STAFF_SESSION_KEY);
- $('skipLoginBtn')?.addEventListener('click',async ()=>{
-  currentStaffSession=null;
-  currentStaffProfile={role:'guest',full_name:'Người dùng',active:true};
-  currentStaffTerritories=[];
-  showStaffGate(true);
-  if(typeof fetchFromGoogleSheets==='function')await fetchFromGoogleSheets(true);
- });
  $('staffLoginBtn')?.addEventListener('click',async()=>{
   const email=$('staffLoginEmail').value.trim(),password=$('staffLoginPassword').value;
   if(!email||!password){$('staffLoginMessage').textContent='Nhập email và mật khẩu.';return;}

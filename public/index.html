@@ -43,7 +43,7 @@ input.input-error,select.input-error{border-color:#dc2626!important;outline:2px 
 .table-records tr:hover{background:#f8fafc}
 @media(max-width:720px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.status{width:100%;margin-left:0}}
 </style></head>
-<body><section id="staffLogin" class="wrap" style="max-width:520px;margin:8vh auto;display:block"><div class="card"><h1>Đăng nhập cán bộ</h1><p class="sub">Tài khoản cán bộ phục vụ phân công rà soát theo địa bàn.</p><label>Email</label><input id="staffLoginEmail" type="email" autocomplete="username" placeholder="Email tài khoản"><label style="margin-top:12px">Mật khẩu</label><input id="staffLoginPassword" type="password" autocomplete="current-password" placeholder="Mật khẩu"><button id="staffLoginBtn" class="btn primary" style="margin-top:14px;width:100%;justify-content:center">Đăng nhập cán bộ</button><button type="button" id="skipLoginBtn" class="btn btn-outline" style="margin-top:10px;width:100%;justify-content:center">Tiếp tục lập phiếu (không cần đăng nhập)</button><div id="staffLoginMessage" class="note" style="margin-top:12px"></div></div></section><div id="staffTopbar" style="display:none;max-width:1100px;margin:12px auto;padding:0 16px;text-align:right"><span id="staffIdentity" style="margin-right:10px"></span><button id="staffLogoutBtn" class="btn secondary">Đăng xuất</button></div><div id="staffApp" style="display:none"><div id="toast" class="toast" style="display:none;"></div><div class="wrap"><div class="card">
+<body><section id="staffLogin" class="wrap" style="max-width:520px;margin:8vh auto;display:block"><div class="card"><h1>Đăng nhập cán bộ</h1><p class="sub">Tài khoản cán bộ phục vụ phân công rà soát theo địa bàn.</p><label>Email</label><input id="staffLoginEmail" type="email" autocomplete="username" placeholder="Email tài khoản"><label style="margin-top:12px">Mật khẩu</label><input id="staffLoginPassword" type="password" autocomplete="current-password" placeholder="Mật khẩu"><button id="staffLoginBtn" class="btn primary" style="margin-top:14px;width:100%;justify-content:center">Đăng nhập cán bộ</button><div id="staffLoginMessage" class="note" style="margin-top:12px"></div></div></section><div id="staffTopbar" style="display:none;max-width:1100px;margin:12px auto;padding:0 16px;text-align:right"><span id="staffIdentity" style="margin-right:10px"></span><button id="staffLogoutBtn" class="btn secondary">Đăng xuất</button></div><div id="staffApp" style="display:none"><div id="toast" class="toast" style="display:none;"></div><div class="wrap"><div class="card">
 <h1>Ứng dụng lập Phiếu khảo sát liệt sĩ</h1>
 <div class="sub">Nhập thông tin → Lưu Google Sheets → Tra cứu & Sửa phiếu → Xuất Mẫu 02 (Word/PDF).</div>
 <div style="margin:0 0 14px;"><a href="/assignments.html" style="display:inline-flex;align-items:center;gap:7px;padding:9px 12px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">👥 Quản lý rà soát / Giao hồ sơ cho cán bộ</a></div>
@@ -117,19 +117,21 @@ input.input-error,select.input-error{border-color:#dc2626!important;outline:2px 
 <div><label>Con ông</label><input id="father"></div><div><label>Con bà</label><input id="mother"></div><div><label>Vợ</label><input id="wife"></div>
 </div></div>
 
-<div class="section"><h2>3. Thông tin thân nhân</h2>
-<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:14px 16px;margin-bottom:12px;">
-  <strong>Liệt sĩ có thân nhân:</strong>
+<div class="section"><h2>3. Thông tin thân nhân (Diện thu mẫu ADN)</h2>
+<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+  <strong>Liệt sĩ có thân nhân thuộc diện thu mẫu ADN:</strong>
   <label style="display:flex;align-items:center;gap:7px;margin:0;font-weight:600;cursor:pointer;">
-    <input id="has_relatives_yes" type="checkbox" style="width:18px;height:18px;" onchange="setRelativesChoice('Có')"> Có thân nhân
+    <input id="has_relatives_yes" type="checkbox" style="width:18px;height:18px;" onchange="setRelativesChoice('Có')"> Có thân nhân thuộc diện thu mẫu
   </label>
   <label style="display:flex;align-items:center;gap:7px;margin:0;font-weight:600;cursor:pointer;">
-    <input id="has_relatives_no" type="checkbox" style="width:18px;height:18px;" onchange="setRelativesChoice('Không')"> Không có thân nhân
+    <input id="has_relatives_no" type="checkbox" style="width:18px;height:18px;" onchange="setRelativesChoice('Không')"> Không có thân nhân thuộc diện thu mẫu
   </label>
 </div>
 <div id="relativesTableWrap" style="display:none;">
-<div class="note">Chỉ hiển thị bảng khi chọn “Có thân nhân”. Mẫu gốc có 6 dòng ưu tiên.</div>
-<div class="rel"><table><thead><tr><th>STT</th><th>Đối tượng</th><th>ĐDCN/CCCD/CMND</th><th>Họ và tên</th><th>Ngày sinh</th><th>Giới tính</th><th>Họ tên bố</th><th>Họ tên mẹ</th><th>Nơi thường trú</th><th>Trạng thái</th><th>Chữ ký và ghi rõ họ tên</th></tr></thead><tbody id="relbody"></tbody></table></div>
+  <div style="background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;">
+    💡 <strong>Cách nhập:</strong> Bấm vào diện có thân nhân để mở ô nhập liệu. Nếu một diện có <strong>2 người trở lên</strong> (ví dụ 2 anh em), bấm nút dấu <strong>[ ＋ ]</strong> phía sau diện đó để hiện thêm người tiếp tục nhập.
+  </div>
+  <div id="relativesCategoriesList"></div>
 </div>
 </div>
 
