@@ -119,8 +119,7 @@ async function loadStaff(){
   b.disabled=false;
  });
 
- $('staffSelect').innerHTML='<option value="">Chọn cán bộ</option>'+profiles.filter(p=>p.active&&p.role==='cadre').map(p=>'<option value="'+p.user_id+'">'+esc(p.full_name||p.user_id)+(p.unit_name?' — '+esc(p.unit_name):'')+'</option>').join('');
- $('bulkStaff').innerHTML='<option value="">Chọn cán bộ</option>'+profiles.filter(p=>p.active&&p.role==='cadre').map(p=>'<option value="'+p.user_id+'">'+esc(p.full_name||p.user_id)+(p.unit_name?' — '+esc(p.unit_name):'')+'</option>').join('');
+ const assignableStaff=profiles.filter(p=>p.active); const staffOptions=assignableStaff.map(p=>'<option value="'+p.user_id+'">'+esc(p.full_name||p.user_id)+(p.role==='admin'?' — Quản trị viên':'')+(p.unit_name?' — '+esc(p.unit_name):'')+'</option>').join(''); $('staffSelect').innerHTML='<option value="">Chọn người nhận</option>'+staffOptions; $('bulkStaff').innerHTML='<option value="">Chọn người nhận</option>'+staffOptions;
 }
 
 function renderNewStaffTerritories(){
