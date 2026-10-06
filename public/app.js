@@ -313,10 +313,48 @@ function cleanDateDisplay(val){
   return s;
 }
 
+function normalizeRepId(value){
+  const digits=String(value??'').replace(/\D/g,'');
+  // CCCD/ĐDCN hợp lệ của người đại diện là 12 số.
+  // Nếu nguồn Google Sheets đã tự chuyển số thành Number và làm mất số 0 đầu,
+  // khôi phục lại đủ 12 chữ số khi tải phiếu.
+  return digits.length===11 ? digits.padStart(12,'0') : digits.slice(0,12);
+}
+
+function normalizeRelativesChoice(value){
+  const s=String(value??'').trim().toLowerCase();
+  if(!s) return '';
+  if(s==='có' || s.startsWith('có ') || s.includes('có thân nhân')) return 'Có';
+  if(s==='không' || s.startsWith('không ') || s.includes('không có thân nhân')) return 'Không';
+  return '';
+}
+
 function fill(d){
   if(!d)return;
   currentRecordId=d.record_id||makeRecordId();
   isEditingExisting=true;
+
+  // Một số bản ghi cũ có dữ liệu nằm ở các tên cột khác nhau.
+  const relativeChoice=normalizeRelativesChoice(
+    d.has_relatives ??
+    d.tinhTrangThanNhan ??
+    d['Tình trạng thân nhân'] ??
+    d['Tình trạng thân nhân thuộc diện thu mẫu'] ??
+    d['Thân nhân thuộc diện thu mẫu']
+  );
+
+  // Chuẩn hóa CCCD/ĐDCN trước khi đưa vào biểu mẫu.
+  const normalizedData={...d};
+  if(normalizedData.rep_id==null || String(normalizedData.rep_id).trim()===''){
+    normalizedData.rep_id =
+      normalizedData.soCCCD ??
+      normalizedData['Số ĐDCN/CCCD/CMND'] ??
+      normalizedData['Số ĐDCN'] ??
+      '';
+  }
+  normalizedData.rep_id=normalizeRepId(normalizedData.rep_id);
+
+  if(!normalizedData.has_relatives) normalizedData.has_relatives=relativeChoice;
 
   const dateKeys = [
     'rep_dob', 'martyr_dob', 'martyr_death_date', 'decision_date',
@@ -324,10 +362,13 @@ function fill(d){
     'ngayBaoTu', 'ngayQuyTap', 'ngayLapPhieu'
   ];
 
-  Object.keys(d).forEach(k=>{
+  Object.keys(normalizedData).forEach(k=>{
     const e=$(k);
     if(e && k!=='relatives'){
-      let val = d[k] ?? '';
+      let val = normalizedData[k] ?? '';
+      if(k==='rep_id' || k==='soCCCD' || k==='rep_id_number'){
+        val=normalizeRepId(val);
+      }
       if(dateKeys.includes(k) || k.toLowerCase().includes('dob') || k.toLowerCase().includes('date') || k.toLowerCase().includes('ngay')){
         val = cleanDateDisplay(val);
       }
@@ -335,10 +376,10 @@ function fill(d){
     }
   });
 
-  if(d.has_relatives === 'Có' || (Array.isArray(d.relatives) && d.relatives.some(r => r && (r.name || r.id)))){
-    relativesList = (d.relatives || []).filter(r => r && (r.name || r.id || r.relationship)).map(r => ({
+  if(relativeChoice==='Có' || (Array.isArray(normalizedData.relatives) && normalizedData.relatives.some(r => r && (r.name || r.id)))){
+    relativesList = (normalizedData.relatives || []).filter(r => r && (r.name || r.id || r.relationship)).map(r => ({
       relationship: r.relationship || 'Mẹ đẻ liệt sĩ',
-      id: r.id || '',
+      id: normalizeRepId(r.id || ''),
       name: r.name || '',
       dob: cleanDateDisplay(r.dob || ''),
       gender: r.gender || '',
@@ -349,9 +390,12 @@ function fill(d){
       signature: r.signature || ''
     }));
     setRelativesChoice('Có');
+  } else if(relativeChoice==='Không'){
+    relativesList = [];
+    setRelativesChoice('Không');
   } else {
     relativesList = [];
-    setRelativesChoice(d.has_relatives === 'Không' ? 'Không' : '');
+    setRelativesChoice('');
   }
   renderRelativesUI();
 
@@ -359,7 +403,7 @@ function fill(d){
   const banner=$('editingBanner');
   const txt=$('editingText');
   if(banner&&txt){
-    txt.textContent=(d.record_id||'Phiếu')+' – Liệt sĩ: '+(d.martyr_name||'Chưa có tên');
+    txt.textContent=(normalizedData.record_id||'Phiếu')+' – Liệt sĩ: '+(normalizedData.martyr_name||'Chưa có tên');
     banner.style.display='flex';
   }
 }
@@ -611,9 +655,23 @@ async function fetchFromGoogleSheets(isSilent = false){
           if(recData.martyr_death_date) recData.martyr_death_date = cleanDateDisplay(recData.martyr_death_date);
           if(recData.rep_dob) recData.rep_dob = cleanDateDisplay(recData.rep_dob);
           if(recData.decision_date) recData.decision_date = cleanDateDisplay(recData.decision_date);
+
+          // Google Sheets có thể tự chuyển CCCD thành Number và làm mất số 0 đầu.
+          const rawRepId = recData.rep_id ?? recData.soCCCD ?? r.rep_id ?? r.soCCCD ??
+            recData['Số ĐDCN/CCCD/CMND'] ?? r['Số ĐDCN/CCCD/CMND'] ?? '';
+          if(rawRepId!=='') recData.rep_id = normalizeRepId(rawRepId);
+          if(recData.soCCCD!=null) recData.soCCCD = normalizeRepId(recData.soCCCD);
+
+          const rawChoice = recData.has_relatives ?? recData.tinhTrangThanNhan ??
+            r.has_relatives ?? r.tinhTrangThanNhan ??
+            r['Tình trạng thân nhân'] ?? r['Tình trạng thân nhân thuộc diện thu mẫu'] ?? '';
+          const choice = normalizeRelativesChoice(rawChoice);
+          if(choice) recData.has_relatives=choice;
+
           if(Array.isArray(recData.relatives)){
             recData.relatives.forEach(rel => {
               if(rel && rel.dob) rel.dob = cleanDateDisplay(rel.dob);
+              if(rel && rel.id) rel.id = normalizeRepId(rel.id);
             });
           }
 
@@ -626,6 +684,9 @@ async function fetchFromGoogleSheets(isSilent = false){
             file_id: r.file_id,
             rep_name: r.rep_name,
             rep_phone: r.rep_phone,
+            rep_id: normalizeRepId(r.rep_id || recData.rep_id || r.soCCCD || recData.soCCCD || ''),
+            has_relatives: choice,
+            tinhTrangThanNhan: choice,
             saved_at: r.saved_at,
             trangThai: r.status || 'Mới',
             ...recData
@@ -5630,8 +5691,12 @@ function initApp(){
 
   const repIdEl=$('rep_id');
   if(repIdEl){
+    repIdEl.inputMode='numeric';
     repIdEl.addEventListener('input',function(){
       this.value=this.value.replace(/\D/g,'').slice(0,12);
+    });
+    repIdEl.addEventListener('blur',function(){
+      this.value=normalizeRepId(this.value);
     });
   }
 
