@@ -369,42 +369,150 @@ function renderAssignmentsList(data){
   return;
  }
 
- el.innerHTML = displayData.map(a => '<article class="item"><div class="topline"><h3>' + esc(a.martyr_name) + '</h3>' + pill(a.status) + '</div><p class="muted">Mã hồ sơ: ' + esc(a.file_id || a.source_record_id) + ' • Địa bàn: ' + esc(a.unit_name || 'Chưa ghi') + '</p><p><strong>Nội dung giao:</strong> ' + esc(a.task_note || 'Rà soát, bổ sung thông tin hồ sơ') + '</p><p class="muted">Hạn hoàn thành: ' + esc(a.due_date || 'Chưa đặt') + ' • Giao ngày: ' + new Date(a.created_at).toLocaleDateString('vi-VN') + '</p><details><summary>Xem thông tin đã có</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;background:#f8fafc;padding:10px;border-radius:8px">' + esc(JSON.stringify(a.record_snapshot, null, 2)) + '</pre></details><div class="grid" style="margin-top:10px"><div><label>Ghi nhận kết quả rà soát</label><textarea id="note-' + a.id + '" placeholder="Ghi nguồn xác minh, thông tin đã tìm được, nội dung còn thiếu…"></textarea></div><div><label>Thông tin bổ sung (JSON tùy chọn)</label><textarea id="data-' + a.id + '" placeholder="Có thể để trống; nhập dữ liệu dạng JSON nếu cần"></textarea></div></div><div class="row" style="margin-top:8px"><select id="status-' + a.id + '" style="max-width:220px"><option value="in_progress" ' + (a.status === 'in_progress' ? 'selected' : '') + '>Đang rà soát</option><option value="submitted" ' + (a.status === 'submitted' ? 'selected' : '') + '>Đã gửi kết quả</option><option value="needs_revision" ' + (a.status === 'needs_revision' ? 'selected' : '') + '>Cần bổ sung</option><option value="completed" ' + (a.status === 'completed' ? 'selected' : '') + '>Đã hoàn thành</option></select><button class="btn" data-submit="' + a.id + '">Lưu cập nhật</button></div><div id="updates-' + a.id + '" class="muted" style="margin-top:10px">Đang tải lịch sử…</div></article>').join('');
+ el.innerHTML = displayData.map(a => {
+  const updates = Array.isArray(a._updates) ? a._updates : [];
+  const latest = updates[0] || null;
+  const latestHtml = latest
+    ? '<div class="notice success" style="margin:10px 0;border:1px solid #a7f3d0;"><strong>✅ Kết quả rà soát mới nhất</strong><div class="muted" style="margin-top:4px;">' +
+      esc(new Date(latest.created_at).toLocaleString('vi-VN')) +
+      '</div><div style="margin-top:6px;">' + esc(latest.note || 'Đã cập nhật trạng thái hồ sơ.') + '</div>' +
+      (Object.keys(latest.added_data || {}).length
+        ? '<details style="margin-top:6px;"><summary>Thông tin bổ sung</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;background:#f8fafc;padding:10px;border-radius:8px;">' +
+          esc(JSON.stringify(latest.added_data, null, 2)) + '</pre></details>'
+        : '') +
+      '</div>'
+    : '<div class="notice" style="margin:10px 0;">Chưa có kết quả rà soát được lưu.</div>';
+
+  const historyHtml = updates.length
+    ? '<div style="margin-top:10px;"><strong>Lịch sử cập nhật (' + updates.length + ')</strong>' +
+      updates.map(u => '<div class="item" style="margin:8px 0;padding:10px;"><div class="muted">' +
+        esc(new Date(u.created_at).toLocaleString('vi-VN')) +
+        ' • ' + esc((profiles.find(p => p.user_id === u.author_id) || {}).full_name || 'Cán bộ') +
+        '</div><div style="margin-top:4px;">' + esc(u.note || 'Không có ghi chú') + '</div>' +
+        (Object.keys(u.added_data || {}).length
+          ? '<pre style="white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0 0;background:#f8fafc;padding:8px;border-radius:6px;">' +
+            esc(JSON.stringify(u.added_data, null, 2)) + '</pre>'
+          : '') +
+        '</div>').join('') + '</div>'
+    : '';
+
+  return '<article class="item"><div class="topline"><h3>' + esc(a.martyr_name) + '</h3>' + pill(a.status) + '</div>' +
+   '<p class="muted">Mã hồ sơ: ' + esc(a.file_id || a.source_record_id) + ' • Địa bàn: ' + esc(a.unit_name || 'Chưa ghi') + '</p>' +
+   '<p><strong>Nội dung giao:</strong> ' + esc(a.task_note || 'Rà soát, bổ sung thông tin hồ sơ') + '</p>' +
+   '<p class="muted">Hạn hoàn thành: ' + esc(a.due_date || 'Chưa đặt') + ' • Giao ngày: ' + new Date(a.created_at).toLocaleDateString('vi-VN') + '</p>' +
+   '<details><summary>Xem thông tin đã có</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;background:#f8fafc;padding:10px;border-radius:8px">' + esc(JSON.stringify(a.record_snapshot, null, 2)) + '</pre></details>' +
+   latestHtml +
+   '<div class="grid" style="margin-top:10px"><div><label>Ghi nhận kết quả rà soát</label><textarea id="note-' + a.id + '" placeholder="Ghi nguồn xác minh, thông tin đã tìm được, nội dung còn thiếu…"></textarea></div>' +
+   '<div><label>Thông tin bổ sung (JSON tùy chọn)</label><textarea id="data-' + a.id + '" placeholder="Có thể để trống; nhập dữ liệu dạng JSON nếu cần"></textarea></div></div>' +
+   '<div class="row" style="margin-top:8px"><select id="status-' + a.id + '" style="max-width:220px">' +
+   '<option value="assigned" ' + (a.status === 'assigned' ? 'selected' : '') + '>Chưa thực hiện</option>' +
+   '<option value="in_progress" ' + (a.status === 'in_progress' ? 'selected' : '') + '>Đang rà soát</option>' +
+   '<option value="submitted" ' + (a.status === 'submitted' ? 'selected' : '') + '>Đã gửi kết quả</option>' +
+   '<option value="needs_revision" ' + (a.status === 'needs_revision' ? 'selected' : '') + '>Cần bổ sung</option>' +
+   '<option value="completed" ' + (a.status === 'completed' ? 'selected' : '') + '>Đã hoàn thành</option></select>' +
+   '<button class="btn" data-submit="' + a.id + '">Lưu cập nhật</button></div>' +
+   '<div class="muted" style="margin-top:10px;">' + (historyHtml || 'Chưa có lịch sử cập nhật.') + '</div></article>';
+ }).join('');
 
  for(const a of displayData){
-  loadUpdates(a.id);
   const b = document.querySelector('[data-submit="' + a.id + '"]');
-  if(b){
-   b.onclick = async () => {
-    clearMsg();
-    const note = $('note-' + a.id).value.trim(), raw = $('data-' + a.id).value.trim(), newStatus = $('status-' + a.id).value;
-    let added_data = {};
-    if(raw){ try{ added_data = JSON.parse(raw); }catch(e){ return msg('Thông tin bổ sung phải là JSON hợp lệ hoặc để trống.', 'error'); } }
-    if(!note && !raw) return msg('Nhập ghi nhận kết quả hoặc thông tin bổ sung trước khi lưu.', 'error');
-    const { error: upErr } = await sb.from('assignment_updates').insert({ assignment_id: a.id, author_id: me.id, note, added_data });
-    if(upErr) return msg('Không lưu được cập nhật: ' + upErr.message, 'error');
-    const { error: stErr } = await sb.rpc('update_assignment_status', { p_assignment_id: a.id, p_status: newStatus });
-    if(stErr) return msg('Đã lưu ghi nhận nhưng không cập nhật được trạng thái: ' + stErr.message, 'error');
-    msg('Đã lưu cập nhật hồ sơ.', 'success');
+  if(!b) continue;
+
+  b.onclick = async () => {
+   clearMsg();
+   const sessionRes = await sb.auth.getSession();
+   const session = sessionRes?.data?.session;
+   if(sessionRes?.error || !session) return msg('Thiếu phiên đăng nhập. Hãy đăng nhập lại rồi lưu lại.','error');
+
+   const note = $('note-' + a.id).value.trim();
+   const raw = $('data-' + a.id).value.trim();
+   const newStatus = $('status-' + a.id).value;
+   let added_data = {};
+
+   if(raw){
+    try{
+     added_data = JSON.parse(raw);
+    }catch(e){
+     return msg('Thông tin bổ sung phải là JSON hợp lệ hoặc để trống.','error');
+    }
+   }
+
+   b.disabled = true;
+   b.textContent = 'Đang lưu…';
+
+   try{
+    if(note || raw){
+     const {error: upErr} = await sb.from('assignment_updates')
+       .insert({assignment_id:a.id, author_id:session.user.id, note, added_data})
+       .select('id,created_at')
+       .single();
+     if(upErr) throw new Error('Không lưu được kết quả rà soát: ' + upErr.message);
+    }
+
+    const {error: stErr} = await sb.rpc('update_assignment_status', {
+      p_assignment_id:a.id,
+      p_status:newStatus
+    });
+    if(stErr) throw new Error('Đã ghi kết quả nhưng không cập nhật được trạng thái: ' + stErr.message);
+
+    $('note-' + a.id).value = '';
+    $('data-' + a.id).value = '';
+    msg('Đã lưu cập nhật hồ sơ và tải lại kết quả mới nhất.','success');
     await loadAssignments();
-   };
-  }
+   }catch(err){
+    msg(err.message || 'Không lưu được cập nhật.','error');
+   }finally{
+    b.disabled = false;
+    b.textContent = 'Lưu cập nhật';
+   }
+  };
  }
 }
 
 async function loadAssignments(){
  if(!me||!profile)return;
+ const sessionRes = await sb.auth.getSession();
+ const session = sessionRes?.data?.session;
+ if(sessionRes?.error || !session){
+  $('assignmentsList').textContent='Phiên đăng nhập đã hết. Vui lòng đăng nhập lại.';
+  return;
+ }
+ me = session.user;
+
  $('assignmentsList').textContent='Đang tải hồ sơ…';
  let q=sb.from('case_assignments').select('*').order('created_at',{ascending:false});
- if(profile.role!=='admin')q=q.eq('assigned_to',me.id);
+ if(profile.role!=='admin')q=q.eq('assigned_to',session.user.id);
  const {data,error}=await q;
  if(error){$('assignmentsList').textContent='Không tải được danh sách: '+error.message;return;}
- allAssignments=data||[];
+
+ const assignments=data||[];
+ allAssignments=assignments;
+
+ // Nạp lịch sử cập nhật trước khi render để kết quả vừa lưu luôn hiển thị.
+ const ids=assignments.map(a=>a.id).filter(Boolean);
+ let updateMap={};
+ if(ids.length){
+  const {data:updates,error:updateError}=await sb.from('assignment_updates')
+    .select('id,assignment_id,note,added_data,created_at,author_id')
+    .in('assignment_id',ids)
+    .order('created_at',{ascending:false});
+  if(!updateError){
+   for(const u of (updates||[])) (updateMap[u.assignment_id]??=[]).push(u);
+  }else{
+   console.warn('Không tải được lịch sử cập nhật:', updateError.message);
+  }
+ }
+ for(const a of assignments) a._updates=updateMap[a.id]||[];
+
  renderDashboard(allAssignments);
  renderAssignmentsList(allAssignments);
 }
+
 async function loadUpdates(id){
- const {data,error}=await sb.from('assignment_updates').select('id,note,added_data,created_at,author_id').eq('assignment_id',id).order('created_at',{ascending:false});
+ const {data,error}=await sb.from('assignment_updates')
+  .select('id,note,added_data,created_at,author_id')
+  .eq('assignment_id',id)
+  .order('created_at',{ascending:false});
  const el=$('updates-'+id);if(!el)return;
  if(error){el.textContent='Không tải được lịch sử.';return;}
  if(!data.length){el.textContent='Chưa có cập nhật.';return;}
