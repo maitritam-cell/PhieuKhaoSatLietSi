@@ -246,7 +246,7 @@ function renderStaffProgress(assignmentsData){
  const tbody = $('staffProgressBody');
  if(!tbody) return;
 
- const cadres = profiles.filter(p => p.role !== 'admin' || profiles.length === 1);
+ const cadres = profiles.filter(p => p.active);
  if(!cadres.length){
   tbody.innerHTML = '<tr><td colspan="9" class="muted">Chưa có cán bộ nào trong hệ thống.</td></tr>';
   return;
@@ -326,7 +326,9 @@ async function loadBulkOptions(){
  const map={}; records.forEach((r,i)=>{const a=addressOf(r);if(!map[a])map[a]=[];map[a].push(i);});
  const opts=Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0],'vi')).map(([a,ix])=>'<option value="'+esc(a)+'">'+esc(a)+' ('+ix.length+' hồ sơ)</option>').join('');
  $('bulkAddress').innerHTML='<option value="">Chọn nơi thường trú</option>'+opts;
- $('bulkStaff').innerHTML='<option value="">Chọn cán bộ</option>'+profiles.filter(p=>p.active&&p.role==='cadre').map(p=>'<option value="'+p.user_id+'">'+esc(p.full_name||p.user_id)+(p.unit_name?' — '+esc(p.unit_name):'')+'</option>').join('');
+ const assignableStaff=profiles.filter(p=>p.active);
+ const bulkStaffOptions=assignableStaff.map(p=>'<option value="'+p.user_id+'">'+esc(p.full_name||p.user_id)+(p.role==='admin'?' — Quản trị viên':'')+(p.unit_name?' — '+esc(p.unit_name):'')+'</option>').join('');
+ $('bulkStaff').innerHTML='<option value="">Chọn người nhận</option>'+bulkStaffOptions;
  updateBulkCount();
 }
 function updateBulkCount(){
