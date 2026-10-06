@@ -387,7 +387,12 @@ app.post('/api/save-sheet', async (req, res) => {
       ngayQuyetDinh: payload.decision_date || payload.ngayQuyetDinh || '',
       soQuyetDinh: payload.decision_no || payload.soQuyetDinh || '',
       soBangTQGC: payload.certificate_no || payload.soBangTQGC || '',
-      soCCCD: payload.rep_id || payload.soCCCD || '',
+      // Ép CCCD về dạng văn bản khi gửi Google Sheets.
+      // Dấu nháy đơn đầu chuỗi là cách chuẩn để Sheets không tự đổi "0xxxxxxxxxxx" thành Number.
+      soCCCD: (() => {
+        const id = String(payload.rep_id || payload.soCCCD || '').replace(/\D/g, '');
+        return id.length === 12 && id.startsWith('0') ? "'" + id : id;
+      })(),
       gioiTinhLS: payload.martyr_gender || payload.gioiTinhLS || '',
       gioiTinhNDD: payload.rep_gender || payload.gioiTinhNDD || '',
       queQuanNDD: payload.rep_hometown || payload.queQuanNDD || '',
