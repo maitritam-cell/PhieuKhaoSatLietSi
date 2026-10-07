@@ -12,10 +12,15 @@ const app = express();
 const PORT = 3000;
 const HOST = '0.0.0.0';
 
-// Locate template file (check template/Mẫu 02.docx or Mẫu 02.docx at root)
+// Locate template files (Mẫu 02 and Mẫu 01)
 let templatePath = path.join(__dirname, 'template', 'Mẫu 02.docx');
 if (!fs.existsSync(templatePath)) {
   templatePath = path.join(__dirname, 'Mẫu 02.docx');
+}
+
+let templatePathM01 = path.join(__dirname, 'template', 'Mẫu 01.docx');
+if (!fs.existsSync(templatePathM01)) {
+  templatePathM01 = path.join(__dirname, 'Mẫu 01.docx');
 }
 
 app.use(express.json({ limit: '10mb' }));
@@ -197,85 +202,105 @@ async function fillDocument(data) {
   return await zip.generateAsync({ type: 'nodebuffer' });
 }
 
-function xmlEsc(v){
-  return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
-}
-function mau01Para(text='',opts={}){
-  const align=opts.align||'left',bold=!!opts.bold,size=opts.size||20,before=opts.before||0,after=opts.after??25;
-  return '<w:p><w:pPr><w:jc w:val="'+align+'"/><w:spacing w:before="'+before+'" w:after="'+after+'" w:line="276"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'+(bold?'<w:b/>':'')+'<w:sz w:val="'+size+'"/><w:szCs w:val="'+size+'"/></w:rPr><w:t xml:space="preserve">'+xmlEsc(text)+'</w:t></w:r></w:p>';
-}
-function mau01DocXml(d){
-  const x=v=>String(v??'').trim(), box=v=>v?'☑':'☐';
-  const p=[];
-  p.push(mau01Para('CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM',{align:'center',bold:true,size:25,after:0}));
-  p.push(mau01Para('Độc lập - Tự do - Hạnh phúc',{align:'center',bold:true,size:22,after:10}));
-  p.push(mau01Para('---------------',{align:'center',bold:true,size:20,after:55}));
-  p.push(mau01Para('MẪU 01',{align:'right',bold:true,size:21,after:20}));
-  p.push(mau01Para('PHIẾU KHẢO SÁT',{align:'center',bold:true,size:25,after:15}));
-  p.push(mau01Para('Thông tin liệt sĩ đã xác định thông tin phần mộ và người hưởng trợ cấp của liệt sĩ',{align:'center',bold:true,size:21,after:55}));
-  p.push(mau01Para('1. Thông tin người đại diện thân nhân hoặc hưởng trợ cấp thờ cúng liệt sĩ',{bold:true,size:21,after:22}));
-  p.push(mau01Para('Họ và tên: '+x(d.rep_name)));
-  p.push(mau01Para('Ngày tháng năm sinh: '+x(d.rep_dob)+';   Giới tính: '+x(d.rep_gender)));
-  p.push(mau01Para('Số ĐDCN: '+x(d.rep_id)+'   Ngày cấp: '+x(d.rep_issue_date)+'   Nơi cấp: '+x(d.rep_issue_place)));
-  p.push(mau01Para('Quê quán: '+x(d.rep_hometown)));
-  p.push(mau01Para('Nơi thường trú: '+x(d.rep_address)));
-  p.push(mau01Para('Số điện thoại: '+x(d.rep_phone),{after:28}));
-  p.push(mau01Para('2. Thông tin về liệt sĩ:',{bold:true,size:21,after:22}));
-  p.push(mau01Para('Mã số hồ sơ liệt sĩ: '+x(d.file_id)));
-  p.push(mau01Para('Mã hồ sơ Bộ quản lý: '+x(d.ministry_file)+'    Mã hồ sơ tỉnh quản lý: '+x(d.province_file)));
-  p.push(mau01Para('Họ và tên liệt sĩ: '+x(d.martyr_name)+'    Bí danh: '+x(d.martyr_alias)));
-  p.push(mau01Para('Ngày tháng năm sinh: '+x(d.martyr_dob)+';   Giới tính: '+x(d.martyr_gender)));
-  p.push(mau01Para('Quê quán: '+x(d.martyr_hometown)));
-  p.push(mau01Para('Cấp bậc, chức vụ khi hy sinh: '+x(d.martyr_rank)));
-  p.push(mau01Para('Cơ quan, đơn vị khi hy sinh: '+x(d.martyr_unit)));
-  p.push(mau01Para('Ngày tháng năm hy sinh: '+x(d.martyr_death_date)));
-  p.push(mau01Para('Nơi hy sinh (nếu có): '+x(d.martyr_death_place)));
-  p.push(mau01Para('Nơi an táng ban đầu: '+x(d.burial_place)));
-  p.push(mau01Para('Bằng Tổ quốc ghi công số '+x(d.certificate_no)+'  Quyết định số '+x(d.decision_no)+'  ngày '+x(d.decision_date)+' của Thủ tướng Chính phủ.'));
-  p.push(mau01Para('Con ông: '+x(d.father)));
-  p.push(mau01Para('Con bà: '+x(d.mother)));
-  p.push(mau01Para('Vợ/Chồng: '+x(d.wife),{after:22}));
-  p.push(mau01Para('Thông tin về phần mộ liệt sĩ: '+box(d.grave_has_body)+' Mộ có hài cốt liệt sĩ     '+box(d.grave_no_body)+' Mộ không có hài cốt liệt sĩ',{bold:true,size:20,after:20}));
-  p.push(mau01Para('Tên nghĩa trang: '+x(d.grave_cemetery_name)));
-  p.push(mau01Para(box(d.grave_veterans_cemetery)+' Nghĩa trang liệt sĩ     '+box(d.grave_other_cemetery)+' Ngoài nghĩa trang liệt sĩ'));
-  p.push(mau01Para('Nghĩa trang thuộc tỉnh/thành phố (ghi rõ địa chỉ chi tiết, xã, huyện, tỉnh): '+x(d.grave_cemetery_address)));
-  p.push(mau01Para('Địa điểm quy tập hoặc an táng hài cốt trước khi tiếp nhận: '+x(d.grave_previous_burial_place)));
-  p.push(mau01Para('Đơn vị quy tập hoặc an táng hài cốt trước khi tiếp nhận: '+x(d.grave_recovery_unit)));
-  p.push(mau01Para('Thời gian đưa vào an táng trong nghĩa trang liệt sĩ: '+x(d.grave_interment_date)));
-  p.push(mau01Para('Vị trí mộ trong nghĩa trang liệt sĩ: Số mộ '+x(d.grave_number)+', hàng '+x(d.grave_row)+', lô '+x(d.grave_lot)+', khu '+x(d.grave_area),{after:45}));
-  p.push(mau01Para('...., ngày... tháng... năm...',{align:'center',size:18,after:10}));
-  p.push(mau01Para('Xác nhận của UBND cấp xã về nội dung khai trên bản khai là đúng.',{align:'center',size:18,after:0}));
-  p.push(mau01Para('QUYỀN HẠN, CHỨC VỤ CỦA NGƯỜI KÝ',{align:'center',bold:true,size:18,after:0}));
-  p.push(mau01Para('(Chữ ký, dấu)',{align:'center',size:18,after:0}));
-  p.push(mau01Para('Họ và tên',{align:'center',bold:true,size:18,after:12}));
-  p.push(mau01Para('........, ngày ... tháng ... năm ......',{align:'center',size:18,after:10}));
-  p.push(mau01Para('Xác nhận của Công an cấp xã về nội dung thông tin dữ liệu dân cư của các cá nhân trên bản khai là đúng.',{align:'center',size:18,after:0}));
-  p.push(mau01Para('QUYỀN HẠN, CHỨC VỤ CỦA NGƯỜI KÝ',{align:'center',bold:true,size:18,after:0}));
-  p.push(mau01Para('(Chữ ký, dấu)',{align:'center',size:18,after:0}));
-  p.push(mau01Para('Họ và tên',{align:'center',bold:true,size:18,after:12}));
-  p.push(mau01Para('...., ngày... tháng... năm...',{align:'center',size:18,after:10}));
-  p.push(mau01Para('Xác nhận của Sở Nội vụ nội dung khai trên bản khai là đúng.',{align:'center',size:18,after:0}));
-  p.push(mau01Para('QUYỀN HẠN, CHỨC VỤ CỦA NGƯỜI KÝ',{align:'center',bold:true,size:18,after:0}));
-  p.push(mau01Para('(Chữ ký, dấu)',{align:'center',size:18,after:0}));
-  p.push(mau01Para('Họ và tên',{align:'center',bold:true,size:18,after:10}));
-  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'+p.join('')+'<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="700" w:right="900" w:bottom="500" w:left="900" w:header="400" w:footer="400"/></w:sectPr></w:body></w:document>';
-}
-async function fillMau01Document(data){
- const zip=new JSZip();
- const ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>';
- const rels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>';
- const styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:lang w:val="vi-VN"/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>';
- zip.file('[Content_Types].xml',ct);zip.folder('_rels').file('.rels',rels);zip.folder('word').file('document.xml',mau01DocXml(data));zip.folder('word').file('styles.xml',styles);
- return await zip.generateAsync({type:'nodebuffer'});
+async function fillDocumentM01(data) {
+  const buf = fs.readFileSync(templatePathM01);
+  const zip = await JSZip.loadAsync(buf);
+  const xmlStr = await zip.file('word/document.xml').async('text');
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlStr, 'application/xml');
+  const body = doc.getElementsByTagName('w:body')[0];
+
+  const paragraphs = [];
+  const tables = [];
+  for (let i = 0; i < body.childNodes.length; i++) {
+    const node = body.childNodes[i];
+    if (node.nodeName === 'w:p') paragraphs.push(node);
+    if (node.nodeName === 'w:tbl') tables.push(node);
+  }
+
+  const mapping = {
+    4: [['Họ và tên:', data.rep_name]],
+    5: [['Ngày tháng năm sinh:', data.rep_dob], ['Giới tính:', data.rep_gender]],
+    6: [['Số ĐDCN', data.rep_id], ['Ngày cấp', data.rep_issue_date], ['Nơi cấp:', data.rep_issue_place]],
+    7: [['Quê quán:', data.rep_hometown]],
+    8: [['Nơi thường trú:', data.rep_address]],
+    9: [['Số điện thoại:', data.rep_phone], ['Quan hệ với liệt sĩ:', data.rep_relationship]],
+    10: [['Chế độ trợ cấp đang hưởng:', data.rep_subsidy_type]],
+    12: [['Mã hồ sơ Bộ quản lý:', data.ministry_file], ['Mã hồ sơ tỉnh quản lý:', data.province_file]],
+    13: [['Họ và tên liệt sĩ:', data.martyr_name], ['Bí danh:', data.martyr_alias]],
+    14: [['Ngày tháng năm sinh:', data.martyr_dob], ['Giới tính:', data.martyr_gender]],
+    15: [['Quê quán:', data.martyr_hometown]],
+    16: [['Cấp bậc, chức vụ khi hy sinh:', data.martyr_rank]],
+    17: [['Cơ quan, đơn vị khi hy sinh:', data.martyr_unit]],
+    18: [['Ngày tháng năm hy sinh:', data.martyr_death_date]],
+    19: [['Nơi hy sinh (nếu có):', data.martyr_death_place]],
+    20: [['Nơi an táng ban đầu:', data.burial_place]],
+    21: [['Bằng Tổ quốc ghi công số', data.certificate_no], ['Quyết định số', data.decision_no], ['ngày', data.decision_date]],
+    22: [['Con ông:', data.father]],
+    23: [['Con bà:', data.mother]],
+    24: [['Vợ:', data.wife]]
+  };
+
+  for (const [idxStr, items] of Object.entries(mapping)) {
+    const idx = parseInt(idxStr, 10);
+    if (idx < paragraphs.length) {
+      const p = paragraphs[idx];
+      for (const [label, value] of items) {
+        if (value) replaceFirst(doc, p, label, value);
+      }
+    }
+  }
+
+  if (tables.length >= 3) {
+    const table = tables[2];
+    const rows = [];
+    for (let i = 0; i < table.childNodes.length; i++) {
+      if (table.childNodes[i].nodeName === 'w:tr') rows.push(table.childNodes[i]);
+    }
+    const graveValues = [
+      data.grave_burial_type || 'An táng trong nghĩa trang liệt sĩ',
+      data.grave_cemetery_name || '',
+      [data.grave_commune, data.grave_district, data.grave_province].filter(Boolean).join(', ') || '',
+      [
+        data.grave_area ? 'Khu: ' + data.grave_area : '',
+        data.grave_plot ? 'Lô: ' + data.grave_plot : '',
+        data.grave_row ? 'Hàng: ' + data.grave_row : '',
+        data.grave_number ? 'Mộ số: ' + data.grave_number : ''
+      ].filter(Boolean).join('; ') || '',
+      data.grave_stele_info || '',
+      data.grave_stele_content || '',
+      data.grave_remains_status || '',
+      data.grave_gathered_status || '',
+      data.grave_notes || ''
+    ];
+
+    for (let i = 0; i < Math.min(rows.length, graveValues.length); i++) {
+      const row = rows[i];
+      const cells = [];
+      for (let j = 0; j < row.childNodes.length; j++) {
+        if (row.childNodes[j].nodeName === 'w:tc') cells.push(row.childNodes[j]);
+      }
+      if (cells.length >= 2) {
+        setCellText(doc, cells[1], graveValues[i]);
+      }
+    }
+  }
+
+  const serializer = new XMLSerializer();
+  const newXml = serializer.serializeToString(doc);
+  zip.file('word/document.xml', newXml);
+  return await zip.generateAsync({ type: 'nodebuffer' });
 }
 
 // Generate Word document route
 app.post('/api/generate', async (req, res) => {
   try {
     const data = req.body || {};
-    const isMau01 = data.form_type === 'mau01';
-    const content = isMau01 ? await fillMau01Document(data) : await fillDocument(data);
-    const filename = isMau01 ? 'Phieu_khao_sat_Mau_01_da_xac_dinh_phan_mo.docx' : 'Phieu_khao_sat_liet_si.docx';
+    const isM01 = data.form_type === 'm01' || data.loaiPhieu === 'Mẫu 01';
+    const content = isM01 ? await fillDocumentM01(data) : await fillDocument(data);
+    const prefix = isM01 ? 'Phieu_khao_sat_liet_si_Mau_01' : 'Phieu_khao_sat_liet_si_Mau_02';
+    const safeName = (data.martyr_name || 'LS').replace(/[^\p{L}\p{N}_-]+/gu, '_');
+    const filename = `${prefix}_${safeName}.docx`;
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -460,18 +485,15 @@ app.post('/api/save-sheet', async (req, res) => {
       ngayQuyetDinh: payload.decision_date || payload.ngayQuyetDinh || '',
       soQuyetDinh: payload.decision_no || payload.soQuyetDinh || '',
       soBangTQGC: payload.certificate_no || payload.soBangTQGC || '',
-      // Ép CCCD về dạng văn bản khi gửi Google Sheets.
-      // Dấu nháy đơn đầu chuỗi là cách chuẩn để Sheets không tự đổi "0xxxxxxxxxxx" thành Number.
-      soCCCD: (() => {
-        const id = String(payload.rep_id || payload.soCCCD || '').replace(/\D/g, '');
-        return id.length === 12 && id.startsWith('0') ? "'" + id : id;
-      })(),
+      soCCCD: payload.rep_id || payload.soCCCD || '',
       gioiTinhLS: payload.martyr_gender || payload.gioiTinhLS || '',
       gioiTinhNDD: payload.rep_gender || payload.gioiTinhNDD || '',
       queQuanNDD: payload.rep_hometown || payload.queQuanNDD || '',
       noiThuongTruNDD: payload.rep_address || payload.noiThuongTruNDD || '',
       capBac: payload.martyr_rank || payload.capBac || '',
-      file_id: payload.file_id || ''
+      file_id: payload.file_id || '',
+      form_type: payload.form_type || '',
+      loaiPhieu: payload.loaiPhieu || ''
     });
 
     const targetUrl = appsScriptUrl + (appsScriptUrl.includes('?') ? '&' : '?') + queryParams.toString();

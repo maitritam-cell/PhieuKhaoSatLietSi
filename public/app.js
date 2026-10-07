@@ -241,26 +241,91 @@ function setRelativesChoice(value){
   updateRelativesVisibility();
 }
 
+let currentFormType = 'm02';
+
+function switchFormType(type){
+  currentFormType = type === 'm01' ? 'm01' : 'm02';
+
+  const tabM01 = $('tabBtnM01');
+  const tabM02 = $('tabBtnM02');
+  const badge = $('currentFormBadge');
+  const title = $('formMainTitle');
+  const subTitle = $('formSubTitle');
+  const m01Extra = $('m01_rep_extra');
+  const secGrave = $('section-m01-grave');
+  const secRel = $('section-m02-relatives');
+  const btnWord = $('btnWord');
+  const btnPdf = $('btnPdf');
+
+  if(currentFormType === 'm01'){
+    if(tabM01){
+      tabM01.style.borderColor = '#2563eb';
+      tabM01.style.background = '#eff6ff';
+      tabM01.style.color = '#1d4ed8';
+    }
+    if(tabM02){
+      tabM02.style.borderColor = '#cbd5e1';
+      tabM02.style.background = '#f8fafc';
+      tabM02.style.color = '#334155';
+    }
+    if(badge){
+      badge.textContent = 'Đang chọn: MẪU 01';
+      badge.style.background = '#dbeafe';
+      badge.style.color = '#1e40af';
+    }
+    if(title) title.textContent = 'PHIẾU KHẢO SÁT THÔNG TIN LIỆT SĨ ĐÃ XÁC ĐỊNH THÔNG TIN PHẦN MỘ VÀ NGƯỜI HƯỞNG TRỢ CẤP CỦA LIỆT SĨ (MẪU 01)';
+    if(subTitle) subTitle.textContent = '(Theo kế hoạch rà soát của Bộ Công an - Bộ Lao động, Thương binh và Xã hội)';
+    if(m01Extra) m01Extra.style.display = 'block';
+    if(secGrave) secGrave.style.display = 'block';
+    if(secRel) secRel.style.display = 'none';
+    if(btnWord) btnWord.textContent = 'Xuất Word Mẫu 01';
+    if(btnPdf) btnPdf.style.display = 'none';
+  } else {
+    if(tabM02){
+      tabM02.style.borderColor = '#2563eb';
+      tabM02.style.background = '#eff6ff';
+      tabM02.style.color = '#1d4ed8';
+    }
+    if(tabM01){
+      tabM01.style.borderColor = '#cbd5e1';
+      tabM01.style.background = '#f8fafc';
+      tabM01.style.color = '#334155';
+    }
+    if(badge){
+      badge.textContent = 'Đang chọn: MẪU 02';
+      badge.style.background = '#ede9fe';
+      badge.style.color = '#6d28d9';
+    }
+    if(title) title.textContent = 'PHIẾU KHẢO SÁT THÔNG TIN LIỆT SĨ CHƯA XÁC ĐỊNH THÔNG TIN PHẦN MỘ VÀ THÂN NHÂN (MẪU 02)';
+    if(subTitle) subTitle.textContent = '(Phục vụ thu nhận mẫu ADN xác định danh tính hài cốt liệt sĩ)';
+    if(m01Extra) m01Extra.style.display = 'none';
+    if(secGrave) secGrave.style.display = 'none';
+    if(secRel) secRel.style.display = 'block';
+    if(btnWord) btnWord.textContent = 'Xuất Word Mẫu 02';
+    if(btnPdf) btnPdf.style.display = 'inline-flex';
+  }
+}
+
 function collect(){
   const ids=[
     'rep_name','rep_dob','rep_gender','rep_id','rep_issue_date','rep_issue_place','rep_hometown','rep_address','rep_phone',
+    'rep_relationship','rep_subsidy_type',
     'file_id','ministry_file','province_file','martyr_name','martyr_alias','martyr_dob','martyr_gender','martyr_hometown','martyr_rank',
     'martyr_unit','martyr_death_date','martyr_death_place','burial_place','certificate_no','decision_no','decision_date','father','mother','wife',
-    'grave_cemetery_name','grave_cemetery_address','grave_previous_burial_place','grave_recovery_unit','grave_interment_date','grave_number','grave_row','grave_lot','grave_area'
+    'grave_burial_type','grave_cemetery_name','grave_province','grave_district','grave_commune',
+    'grave_area','grave_plot','grave_row','grave_number',
+    'grave_stele_info','grave_stele_content','grave_remains_status','grave_gathered_status','grave_notes'
   ];
   const d={
-    record_id: currentRecordId || makeRecordId()
+    record_id: currentRecordId || makeRecordId(),
+    form_type: currentFormType,
+    loaiPhieu: currentFormType === 'm01' ? 'Mẫu 01' : 'Mẫu 02'
   };
   ids.forEach(id=>{
     const e=$(id);
     if(e) d[id]=(e.value||'').trim();
   });
 
-  d.form_type=$('form_type')?.value||'mau02';
-  d.grave_has_body=!!$('grave_has_body')?.checked;
-  d.grave_no_body=!!$('grave_no_body')?.checked;
-  d.grave_veterans_cemetery=!!$('grave_veterans_cemetery')?.checked;
-  d.grave_other_cemetery=!!$('grave_other_cemetery')?.checked;
   d.has_relatives=$('has_relatives_yes')?.checked?'Có':($('has_relatives_no')?.checked?'Không':'');
   d.relatives=relativesList.filter(p=>p && ((p.name||'').trim() || (p.id||'').trim() || (p.dob||'').trim() || (p.address||'').trim())).map((r,i)=>{
     return {
@@ -319,48 +384,13 @@ function cleanDateDisplay(val){
   return s;
 }
 
-function normalizeRepId(value){
-  const digits=String(value??'').replace(/\D/g,'');
-  // CCCD/ĐDCN hợp lệ của người đại diện là 12 số.
-  // Nếu nguồn Google Sheets đã tự chuyển số thành Number và làm mất số 0 đầu,
-  // khôi phục lại đủ 12 chữ số khi tải phiếu.
-  return digits.length===11 ? digits.padStart(12,'0') : digits.slice(0,12);
-}
-
-function normalizeRelativesChoice(value){
-  const s=String(value??'').trim().toLowerCase();
-  if(!s) return '';
-  if(s==='có' || s.startsWith('có ') || s.includes('có thân nhân')) return 'Có';
-  if(s==='không' || s.startsWith('không ') || s.includes('không có thân nhân')) return 'Không';
-  return '';
-}
-
 function fill(d){
   if(!d)return;
   currentRecordId=d.record_id||makeRecordId();
   isEditingExisting=true;
 
-  // Một số bản ghi cũ có dữ liệu nằm ở các tên cột khác nhau.
-  const relativeChoice=normalizeRelativesChoice(
-    d.has_relatives ??
-    d.tinhTrangThanNhan ??
-    d['Tình trạng thân nhân'] ??
-    d['Tình trạng thân nhân thuộc diện thu mẫu'] ??
-    d['Thân nhân thuộc diện thu mẫu']
-  );
-
-  // Chuẩn hóa CCCD/ĐDCN trước khi đưa vào biểu mẫu.
-  const normalizedData={...d};
-  if(normalizedData.rep_id==null || String(normalizedData.rep_id).trim()===''){
-    normalizedData.rep_id =
-      normalizedData.soCCCD ??
-      normalizedData['Số ĐDCN/CCCD/CMND'] ??
-      normalizedData['Số ĐDCN'] ??
-      '';
-  }
-  normalizedData.rep_id=normalizeRepId(normalizedData.rep_id);
-
-  if(!normalizedData.has_relatives) normalizedData.has_relatives=relativeChoice;
+  const targetType = (d.form_type === 'm01' || d.loaiPhieu === 'Mẫu 01') ? 'm01' : 'm02';
+  switchFormType(targetType);
 
   const dateKeys = [
     'rep_dob', 'martyr_dob', 'martyr_death_date', 'decision_date',
@@ -368,17 +398,10 @@ function fill(d){
     'ngayBaoTu', 'ngayQuyTap', 'ngayLapPhieu'
   ];
 
-  Object.keys(normalizedData).forEach(k=>{
+  Object.keys(d).forEach(k=>{
     const e=$(k);
     if(e && k!=='relatives'){
-      let val = normalizedData[k] ?? '';
-      if(k==='rep_id' || k==='soCCCD' || k==='rep_id_number'){
-        val=normalizeRepId(val);
-      }
-      if(e.type==='checkbox'){
-        e.checked = val===true || val==='true' || val==='Có' || val==='1' || val===1;
-        return;
-      }
+      let val = d[k] ?? '';
       if(dateKeys.includes(k) || k.toLowerCase().includes('dob') || k.toLowerCase().includes('date') || k.toLowerCase().includes('ngay')){
         val = cleanDateDisplay(val);
       }
@@ -386,72 +409,35 @@ function fill(d){
     }
   });
 
-  if(relativeChoice==='Có' || (Array.isArray(normalizedData.relatives) && normalizedData.relatives.some(r => r && (r.name || r.id)))){
-    relativesList = (normalizedData.relatives || []).filter(r => r && (r.name || r.id || r.relationship)).map(r => ({
-      relationship: r.relationship || 'Mẹ đẻ liệt sĩ',
-      id: normalizeRepId(r.id || ''),
-      name: r.name || '',
-      dob: cleanDateDisplay(r.dob || ''),
-      gender: r.gender || '',
-      father: r.father || '',
-      mother: r.mother || '',
-      address: r.address || '',
-      status: r.status || 'Còn sống',
-      signature: r.signature || ''
-    }));
-    setRelativesChoice('Có');
-  } else if(relativeChoice==='Không'){
-    relativesList = [];
-    setRelativesChoice('Không');
-  } else {
-    relativesList = [];
-    setRelativesChoice('');
+  if(targetType === 'm02'){
+    if(d.has_relatives === 'Có' || (Array.isArray(d.relatives) && d.relatives.some(r => r && (r.name || r.id)))){
+      relativesList = (d.relatives || []).filter(r => r && (r.name || r.id || r.relationship)).map(r => ({
+        relationship: r.relationship || 'Mẹ đẻ liệt sĩ',
+        id: r.id || '',
+        name: r.name || '',
+        dob: cleanDateDisplay(r.dob || ''),
+        gender: r.gender || '',
+        father: r.father || '',
+        mother: r.mother || '',
+        address: r.address || '',
+        status: r.status || 'Còn sống',
+        signature: r.signature || ''
+      }));
+      setRelativesChoice('Có');
+    } else {
+      relativesList = [];
+      setRelativesChoice(d.has_relatives === 'Không' ? 'Không' : '');
+    }
+    renderRelativesUI();
   }
-  renderRelativesUI();
-
-  updateFormTypeUI();
-  ['grave_has_body','grave_no_body'].forEach(id=>{
-    const el=$(id);
-    if(el) el.addEventListener('change',()=>{
-      if(el.checked){
-        const other=id==='grave_has_body'?'grave_no_body':'grave_has_body';
-        if($(other))$(other).checked=false;
-      }
-    });
-  });
-  ['grave_veterans_cemetery','grave_other_cemetery'].forEach(id=>{
-    const el=$(id);
-    if(el) el.addEventListener('change',()=>{
-      if(el.checked){
-        const other=id==='grave_veterans_cemetery'?'grave_other_cemetery':'grave_veterans_cemetery';
-        if($(other))$(other).checked=false;
-      }
-    });
-  });
 
   // Hiển thị banner chỉnh sửa
   const banner=$('editingBanner');
   const txt=$('editingText');
   if(banner&&txt){
-    txt.textContent=(normalizedData.record_id||'Phiếu')+' – Liệt sĩ: '+(normalizedData.martyr_name||'Chưa có tên');
+    txt.textContent=(d.loaiPhieu || (targetType==='m01'?'Mẫu 01':'Mẫu 02'))+' – '+(d.record_id||'Phiếu')+' – Liệt sĩ: '+(d.martyr_name||'Chưa có tên');
     banner.style.display='flex';
   }
-}
-
-function updateFormTypeUI(){
-  const type=$('form_type')?.value||'mau02';
-  const mau01=type==='mau01';
-  const section=$('mau01Section');
-  const relativeSection=document.querySelector('.section h2')?.textContent;
-  if(section)section.style.display=mau01?'block':'none';
-  const headings=[...document.querySelectorAll('.section h2')];
-  const relHeading=headings.find(h=>String(h.textContent||'').includes('Thông tin thân nhân'));
-  if(relHeading){
-    const relSection=relHeading.closest('.section');
-    if(relSection)relSection.style.display=mau01?'none':'block';
-  }
-  const title=document.querySelector('.card h1');
-  if(title && String(title.textContent||'').includes('Ứng dụng lập Phiếu')) title.textContent=mau01?'Phiếu khảo sát Mẫu 01 – Đã xác định phần mộ':'Ứng dụng lập Phiếu khảo sát liệt sĩ';
 }
 
 function validateForm(){
@@ -501,8 +487,14 @@ function validateForm(){
     addError('rep_phone','Số điện thoại người đại diện không hợp lệ (cần ít nhất 9-11 chữ số)');
   }
 
-  const formType=$('form_type')?.value||'mau02';
-  if(formType!=='mau01'){
+  if(currentFormType === 'm01'){
+    const repRel = ($('rep_relationship')?.value || '').trim();
+    if(!repRel) addError('rep_relationship', 'Quan hệ với liệt sĩ của người đại diện (Mẫu 01)');
+    const repSub = ($('rep_subsidy_type')?.value || '').trim();
+    if(!repSub) addError('rep_subsidy_type', 'Chế độ trợ cấp đang hưởng (Mẫu 01)');
+    const cem = ($('grave_cemetery_name')?.value || '').trim();
+    if(!cem) addError('grave_cemetery_name', 'Tên nghĩa trang / Nơi an táng phần mộ liệt sĩ');
+  } else {
     const relativeChoice=($('has_relatives_yes')?.checked?'Có':($('has_relatives_no')?.checked?'Không':'')); 
     if(!relativeChoice){
       const choice=$('has_relatives_yes')||$('has_relatives_no');
@@ -516,8 +508,6 @@ function validateForm(){
         errors.push({id:'has_relatives_yes',el:$('has_relatives_yes'),msg:'Đã chọn "Có thân nhân": Vui lòng bấm vào ít nhất 1 diện thu mẫu và nhập thông tin thân nhân'});
       }
     }
-  
-  
   }
 
   // 2. Thông tin về liệt sĩ
@@ -557,14 +547,6 @@ function validateForm(){
     addError('decision_date','Ngày quyết định');
   }
 
-  if(formType==='mau01'){
-    if(!$('grave_has_body')?.checked && !$('grave_no_body')?.checked)
-      addError('grave_has_body','Chọn mộ có hài cốt liệt sĩ hoặc mộ không có hài cốt liệt sĩ');
-    if(!$('grave_cemetery_name')?.value.trim())addError('grave_cemetery_name','Tên nghĩa trang');
-    if(!$('grave_cemetery_address')?.value.trim())addError('grave_cemetery_address','Địa chỉ nghĩa trang, xã, huyện, tỉnh');
-    if(!$('grave_veterans_cemetery')?.checked && !$('grave_other_cemetery')?.checked)
-      addError('grave_veterans_cemetery','Chọn Nghĩa trang liệt sĩ hoặc Ngoài nghĩa trang liệt sĩ');
-  }
   return errors;
 }
 
@@ -602,6 +584,7 @@ function saveLocal(d){
 
 function renderRecords(){
   const q=($('recordSearch')?.value||'').trim().toLowerCase();
+  const selectedType=($('filterFormType')?.value||'').trim();
   const body=$('recordRows');if(!body)return;
   const list=getRecords();
 
@@ -611,31 +594,40 @@ function renderRecords(){
   const badge=$('recordCountBadge');
   if(badge)badge.textContent=filteredList.length+' phiếu';
 
-  const rows=filteredList.filter(x=>!q||[x.record_id,x.martyr_name,x.file_id,x.rep_name,x.rep_phone,x.rep_id].join(' ').toLowerCase().includes(q));
+  const rows=filteredList.filter(x=>{
+    const isM01 = x.form_type === 'm01' || x.loaiPhieu === 'Mẫu 01';
+    if(selectedType === 'm01' && !isM01) return false;
+    if(selectedType === 'm02' && isM01) return false;
+    return !q || [x.record_id, x.martyr_name, x.file_id, x.rep_name, x.rep_phone, x.rep_id, isM01 ? 'mẫu 01' : 'mẫu 02'].join(' ').toLowerCase().includes(q);
+  });
 
   if(!rows.length){
     const emptyMsg = isTerritoryFiltered
       ? `Không có phiếu nào thuộc địa bàn được phân công (${currentStaffTerritories.join(', ')}). Bấm "🔄 Tải từ Google Sheet" để đồng bộ dữ liệu.`
       : 'Chưa có phiếu phù hợp. Hãy nhập phiếu và bấm "Lưu vào Google Sheets".';
-    body.innerHTML='<tr><td colspan="8" class="empty" style="text-align:center;padding:16px;color:#64748b;">'+escapeHtml(emptyMsg)+'</td></tr>';
+    body.innerHTML='<tr><td colspan="9" class="empty" style="text-align:center;padding:16px;color:#64748b;">'+escapeHtml(emptyMsg)+'</td></tr>';
     return;
   }
 
-  body.innerHTML=rows.map((x,idx)=>'<tr>'+
-    '<td style="text-align:center;">'+(idx+1)+'</td>'+
-    '<td><strong>'+escapeHtml(x.record_id||x.file_id||'')+'</strong></td>'+
-    '<td><strong style="color:#0f172a;">'+escapeHtml(x.martyr_name||'')+'</strong>'+(x.martyr_dob?`<br><small style="color:#64748b;">Sinh: ${escapeHtml(cleanDateDisplay(x.martyr_dob))}</small>`:'')+'</td>'+
-    '<td>'+escapeHtml(x.file_id||'--')+'</td>'+
-    '<td>'+escapeHtml(x.rep_name||'')+(x.rep_phone?`<br><small style="color:#0369a1;">📞 ${escapeHtml(x.rep_phone)}</small>`:'')+'</td>'+
-    '<td style="font-size:12px;">'+escapeHtml(x.saved_at?new Date(x.saved_at).toLocaleString('vi-VN'):'')+'</td>'+
-    '<td><span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;background:'+(x.trangThai==='Đã cập nhật'?'#fef3c7;color:#b45309':'#ecfdf5;color:#047857')+';">'+escapeHtml(x.trangThai||'Mới')+'</span></td>'+
-    '<td style="text-align:center;white-space:nowrap;">'+
-      '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="openRecord(\''+escapeAttr(x.record_id||'')+'\')">✏️ Sửa</button>'+
-      '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectWord(\''+escapeAttr(x.record_id||'')+'\')">📄 Word</button>'+
-      '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectPdf(\''+escapeAttr(x.record_id||'')+'\')">📑 PDF</button>'+
-      '<button type="button" class="btn danger" style="padding:4px 8px;font-size:12px;" onclick="deleteRecord(\''+escapeAttr(x.record_id||'')+'\')">🗑️</button>'+
-    '</td>'+
-  '</tr>').join('');
+  body.innerHTML=rows.map((x,idx)=>{
+    const isM01 = x.form_type === 'm01' || x.loaiPhieu === 'Mẫu 01';
+    return '<tr>'+
+      '<td style="text-align:center;">'+(idx+1)+'</td>'+
+      '<td><strong>'+escapeHtml(x.record_id||x.file_id||'')+'</strong></td>'+
+      '<td><span style="display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700;background:'+(isM01?'#dbeafe;color:#1e40af':'#ede9fe;color:#6d28d9')+';">'+(isM01?'Mẫu 01':'Mẫu 02')+'</span></td>'+
+      '<td><strong style="color:#0f172a;">'+escapeHtml(x.martyr_name||'')+'</strong>'+(x.martyr_dob?`<br><small style="color:#64748b;">Sinh: ${escapeHtml(cleanDateDisplay(x.martyr_dob))}</small>`:'')+'</td>'+
+      '<td>'+escapeHtml(x.file_id||'--')+'</td>'+
+      '<td>'+escapeHtml(x.rep_name||'')+(x.rep_phone?`<br><small style="color:#0369a1;">📞 ${escapeHtml(x.rep_phone)}</small>`:'')+'</td>'+
+      '<td style="font-size:12px;">'+escapeHtml(x.saved_at?new Date(x.saved_at).toLocaleString('vi-VN'):'')+'</td>'+
+      '<td><span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;background:'+(x.trangThai==='Đã cập nhật'?'#fef3c7;color:#b45309':'#ecfdf5;color:#047857')+';">'+escapeHtml(x.trangThai||'Mới')+'</span></td>'+
+      '<td style="text-align:center;white-space:nowrap;">'+
+        '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="openRecord(\''+escapeAttr(x.record_id||'')+'\')">✏️ Sửa</button>'+
+        '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectWord(\''+escapeAttr(x.record_id||'')+'\')">📄 Word</button>'+
+        (!isM01 ? '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectPdf(\''+escapeAttr(x.record_id||'')+'\')">📑 PDF</button>' : '')+
+        '<button type="button" class="btn danger" style="padding:4px 8px;font-size:12px;" onclick="deleteRecord(\''+escapeAttr(x.record_id||'')+'\')">🗑️</button>'+
+      '</td>'+
+    '</tr>';
+  }).join('');
 }
 
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
@@ -643,7 +635,7 @@ function escapeAttr(v){return String(v??'').replace(/\\/g,'\\\\').replace(/'/g,"
 
 function newRecord(){
   document.querySelectorAll('input,select').forEach(e=>{if(!e.dataset.rel)e.value='';});
-  updateFormTypeUI();
+  initStaffAuthentication();
   relativesList=[];
   setRelativesChoice('');
   renderRelativesUI();
@@ -714,23 +706,9 @@ async function fetchFromGoogleSheets(isSilent = false){
           if(recData.martyr_death_date) recData.martyr_death_date = cleanDateDisplay(recData.martyr_death_date);
           if(recData.rep_dob) recData.rep_dob = cleanDateDisplay(recData.rep_dob);
           if(recData.decision_date) recData.decision_date = cleanDateDisplay(recData.decision_date);
-
-          // Google Sheets có thể tự chuyển CCCD thành Number và làm mất số 0 đầu.
-          const rawRepId = recData.rep_id ?? recData.soCCCD ?? r.rep_id ?? r.soCCCD ??
-            recData['Số ĐDCN/CCCD/CMND'] ?? r['Số ĐDCN/CCCD/CMND'] ?? '';
-          if(rawRepId!=='') recData.rep_id = normalizeRepId(rawRepId);
-          if(recData.soCCCD!=null) recData.soCCCD = normalizeRepId(recData.soCCCD);
-
-          const rawChoice = recData.has_relatives ?? recData.tinhTrangThanNhan ??
-            r.has_relatives ?? r.tinhTrangThanNhan ??
-            r['Tình trạng thân nhân'] ?? r['Tình trạng thân nhân thuộc diện thu mẫu'] ?? '';
-          const choice = normalizeRelativesChoice(rawChoice);
-          if(choice) recData.has_relatives=choice;
-
           if(Array.isArray(recData.relatives)){
             recData.relatives.forEach(rel => {
               if(rel && rel.dob) rel.dob = cleanDateDisplay(rel.dob);
-              if(rel && rel.id) rel.id = normalizeRepId(rel.id);
             });
           }
 
@@ -743,9 +721,6 @@ async function fetchFromGoogleSheets(isSilent = false){
             file_id: r.file_id,
             rep_name: r.rep_name,
             rep_phone: r.rep_phone,
-            rep_id: normalizeRepId(r.rep_id || recData.rep_id || r.soCCCD || recData.soCCCD || ''),
-            has_relatives: choice,
-            tinhTrangThanNhan: choice,
             saved_at: r.saved_at,
             trangThai: r.status || 'Mới',
             ...recData
@@ -785,7 +760,6 @@ async function saveToSheets(){
   // Toàn bộ 33+ trường thông tin đẩy lên Google Sheets
   const payload={
     record_id: d.record_id,
-    form_type: d.form_type || 'mau02',
     maPhieu: d.file_id || d.record_id,
     file_id: d.file_id || '',
     ministry_file: d.ministry_file || '',
@@ -844,7 +818,24 @@ async function saveToSheets(){
     ghiChu: d.martyr_death_place || '',
     relatives: d.relatives,
     has_relatives: d.has_relatives || '',
-    tinhTrangThanNhan: d.has_relatives || '',
+    form_type: d.form_type || currentFormType,
+    loaiPhieu: d.loaiPhieu || (currentFormType === 'm01' ? 'Mẫu 01' : 'Mẫu 02'),
+    rep_relationship: d.rep_relationship || '',
+    rep_subsidy_type: d.rep_subsidy_type || '',
+    grave_burial_type: d.grave_burial_type || '',
+    grave_cemetery_name: d.grave_cemetery_name || '',
+    grave_province: d.grave_province || '',
+    grave_district: d.grave_district || '',
+    grave_commune: d.grave_commune || '',
+    grave_area: d.grave_area || '',
+    grave_plot: d.grave_plot || '',
+    grave_row: d.grave_row || '',
+    grave_number: d.grave_number || '',
+    grave_stele_info: d.grave_stele_info || '',
+    grave_stele_content: d.grave_stele_content || '',
+    grave_remains_status: d.grave_remains_status || '',
+    grave_gathered_status: d.grave_gathered_status || '',
+    grave_notes: d.grave_notes || '',
     duLieuDayDu: JSON.stringify(d)
   };
 
@@ -1116,10 +1107,6 @@ async function generatePdf(){
   if(!checkValidationAndReport('xuất PDF'))return;
   if(localStorage.getItem('phieu_liet_si_saved')!=='1'){
     alert('Vui lòng bấm "Lưu vào Google Sheets" để lưu dữ liệu vào hệ thống trước khi xuất PDF.');
-    return;
-  }
-  if((($('form_type')?.value||'mau02')==='mau01')){
-    alert('Mẫu 01 đã có đầy đủ phần nhập liệu và xuất Word theo mẫu. Chức năng xuất PDF Mẫu 01 sẽ được bổ sung sau khi chốt bản Word.');
     return;
   }
   const d=collect();
@@ -5738,15 +5725,6 @@ function initStaffAuthentication(){
 
 function initApp(){
   initStaffAuthentication();
-  $('form_type')?.addEventListener('change',()=>{
-    updateFormTypeUI();
-    localStorage.removeItem('phieu_liet_si_saved');
-    setExportEnabled(false);
-  });
-  ['grave_has_body','grave_no_body','grave_veterans_cemetery','grave_other_cemetery'].forEach(id=>{
-    const el=$(id); if(el)el.addEventListener('change',()=>{});
-  });
-  updateFormTypeUI();
   initRelations();
   ['has_relatives_yes','has_relatives_no'].forEach(id=>{
     const el=$(id);
@@ -5764,12 +5742,8 @@ function initApp(){
 
   const repIdEl=$('rep_id');
   if(repIdEl){
-    repIdEl.inputMode='numeric';
     repIdEl.addEventListener('input',function(){
       this.value=this.value.replace(/\D/g,'').slice(0,12);
-    });
-    repIdEl.addEventListener('blur',function(){
-      this.value=normalizeRepId(this.value);
     });
   }
 

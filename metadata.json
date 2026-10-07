@@ -1,5 +1,5 @@
 {
   "name": "Phiếu Khảo Sát Liệt Sĩ",
-  "description": "Ứng dụng lập và xuất Phiếu khảo sát liệt sĩ (Mẫu 02) định dạng Word và PDF.",
+  "description": "Ứng dụng lập, tra cứu, sửa và xuất Phiếu khảo sát liệt sĩ (Mẫu 01 và Mẫu 02) theo chuẩn quy định Bộ Công an.",
   "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
