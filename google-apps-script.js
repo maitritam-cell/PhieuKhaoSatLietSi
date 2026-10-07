@@ -64,6 +64,22 @@ const REL_HEADERS = [
   'Trạng thái'
 ];
 
+const M1_SHEET_NAME = 'Mẫu 01 - Đã xác định phần mộ';
+
+const M1_HEADERS = [
+  'Thời gian lưu','Mã phiếu Mẫu 01','Họ tên người đại diện','Ngày sinh NĐD','Giới tính NĐD',
+  'Số ĐDCN/CCCD NĐD','Ngày cấp NĐD','Nơi cấp NĐD','Quê quán NĐD','Nơi thường trú NĐD','Số điện thoại NĐD',
+  'Mã số hồ sơ liệt sĩ','Mã hồ sơ Bộ quản lý','Mã hồ sơ tỉnh quản lý','Họ tên liệt sĩ','Bí danh','Ngày sinh LS',
+  'Giới tính LS','Quê quán LS','Cấp bậc, chức vụ khi hy sinh','Cơ quan, đơn vị khi hy sinh','Ngày hy sinh',
+  'Nơi hy sinh','Nơi an táng ban đầu','Số Bằng Tổ quốc ghi công','Quyết định số','Ngày quyết định','Con ông',
+  'Con bà','Vợ/Chồng','Tình trạng mộ','Tên nghĩa trang','Loại nghĩa trang','Địa chỉ nghĩa trang chi tiết',
+  'Địa điểm quy tập/an táng trước khi tiếp nhận','Đơn vị quy tập/an táng trước khi tiếp nhận',
+  'Thời gian đưa vào an táng tại nghĩa trang liệt sĩ','Số mộ','Hàng','Lô','Khu','Xác nhận UBND cấp xã',
+  'Chức vụ người ký UBND','Họ tên người ký UBND','Ngày xác nhận UBND','Xác nhận Công an cấp xã',
+  'Chức vụ người ký Công an','Họ tên người ký Công an','Ngày xác nhận Công an','Xác nhận Sở Nội vụ',
+  'Chức vụ người ký Sở Nội vụ','Họ tên người ký Sở Nội vụ','Ngày xác nhận Sở Nội vụ','Trạng thái phiếu'
+];
+
 const RELATIONSHIPS = [
   'Mẹ đẻ liệt sĩ',
   'Mẹ đẻ của mẹ đẻ liệt sĩ',
@@ -79,7 +95,12 @@ function doPost(e) {
 
   try {
     const p = parsePayload_(e);
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+    // Mẫu 01 được lưu ở sheet riêng, không trộn với Mẫu 02.
+    const formType = clean_(p.form_type || p.mauPhieu || p.loaiMau || p.template || '').toLowerCase();
+    const isM01 = formType === 'm01' || formType === 'mẫu 01' || formType === 'mau 01' || formType === '1' ||
+      formType.indexOf('mẫu 01') >= 0 || formType.indexOf('mau 01') >= 0;
+    if (isM01) return saveM01_(p);
     const main = getOrCreateSheet_(ss, MAIN_SHEET_NAME, MAIN_HEADERS);
     const rel = getOrCreateSheet_(ss, REL_SHEET_NAME, REL_HEADERS);
 
@@ -179,6 +200,7 @@ function doPost(e) {
 function doGet(e) {
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const m1 = getOrCreateSheet_(ss, M1_SHEET_NAME, M1_HEADERS);
     const main = getOrCreateSheet_(ss, MAIN_SHEET_NAME, MAIN_HEADERS);
     const rel = getOrCreateSheet_(ss, REL_SHEET_NAME, REL_HEADERS);
 
@@ -233,6 +255,77 @@ function doGet(e) {
   } catch (err) {
     return jsonResponse({ ok: false, error: String(err && err.stack ? err.stack : err) });
   }
+}
+
+function saveM01_(p) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = getOrCreateSheet_(ss, M1_SHEET_NAME, M1_HEADERS);
+  const savedAt = formatNow_();
+
+  const recordId = clean_(p.record_id || p.maPhieu || p.m01_record_id);
+  const martyrName = clean_(p.martyr_name || p.hoTenLietSi);
+  const fileId = clean_(p.file_id || p.maSoHoSoLS);
+  const existing = findM01Row_(sheet, recordId, fileId, martyrName);
+
+  const row = [
+    savedAt, recordId,
+    clean_(p.rep_name || p.hoTenNguoiDaiDien), clean_(p.rep_dob || p.ngaySinhNDD),
+    clean_(p.rep_gender || p.gioiTinhNDD), clean_(p.rep_id || p.soCCCD || p.soDDCN),
+    clean_(p.rep_issue_date || p.ngayCapCCCD), clean_(p.rep_issue_place || p.noiCapCCCD),
+    clean_(p.rep_hometown || p.queQuanNDD), clean_(p.rep_address || p.noiThuongTruNDD),
+    clean_(p.rep_phone || p.soDienThoai),
+    fileId, clean_(p.ministry_file || p.maBoQuanLy), clean_(p.province_file || p.maTinhQuanLy),
+    martyrName, clean_(p.martyr_alias || p.biDanh), clean_(p.martyr_dob || p.ngaySinh),
+    clean_(p.martyr_gender || p.gioiTinhLS), clean_(p.martyr_hometown || p.queQuan),
+    clean_(p.martyr_rank || p.capBac), clean_(p.martyr_unit || p.donVi),
+    clean_(p.martyr_death_date || p.ngayHySinh), clean_(p.martyr_death_place || p.noiHySinh),
+    clean_(p.burial_place || p.noiAnTang), clean_(p.certificate_no || p.soBangTQGC),
+    clean_(p.decision_no || p.soQuyetDinh), clean_(p.decision_date || p.ngayQuyetDinh),
+    clean_(p.father || p.hoTenBo), clean_(p.mother || p.hoTenMe), clean_(p.wife || p.hoTenVo),
+    clean_(p.tomb_status || p.tinhTrangMo || p.tinhTrangMoLS),
+    clean_(p.cemetery_name || p.tenNghiaTrang), clean_(p.cemetery_type || p.loaiNghiaTrang),
+    clean_(p.cemetery_address || p.diaChiNghiaTrang),
+    clean_(p.exhumation_place || p.diaDiemQuyTapAnTang),
+    clean_(p.exhumation_unit || p.donViQuyTapAnTang),
+    clean_(p.cemetery_burial_date || p.thoiGianDuaVaoAnTang),
+    clean_(p.grave_number || p.soMo), clean_(p.row_number || p.hangMo),
+    clean_(p.plot_number || p.loMo), clean_(p.area_number || p.khuMo),
+    clean_(p.verified_by_ubnd || p.xacNhanUBND), clean_(p.ubnd_signer_title || p.chucVuNguoiKyUBND),
+    clean_(p.ubnd_signer_name || p.hoTenNguoiKyUBND), clean_(p.ubnd_verified_date || p.ngayXacNhanUBND),
+    clean_(p.verified_by_police || p.xacNhanCongAn), clean_(p.police_signer_title || p.chucVuNguoiKyCongAn),
+    clean_(p.police_signer_name || p.hoTenNguoiKyCongAn), clean_(p.police_verified_date || p.ngayXacNhanCongAn),
+    clean_(p.verified_by_dolisa || p.xacNhanSoNoiVu), clean_(p.dolisa_signer_title || p.chucVuNguoiKySoNoiVu),
+    clean_(p.dolisa_signer_name || p.hoTenNguoiKySoNoiVu), clean_(p.dolisa_verified_date || p.ngayXacNhanSoNoiVu),
+    clean_(p.trangThai || p.status) || (existing ? 'Đã cập nhật' : 'Mới')
+  ];
+
+  if (existing) sheet.getRange(existing.row, 1, 1, M1_HEADERS.length).setValues([row]);
+  else sheet.appendRow(row);
+  formatM01Sheet_(sheet);
+
+  return jsonResponse({
+    ok:true, form_type:'M01', action:existing?'updated':'inserted',
+    record_id:recordId || fileId || ('M01-'+savedAt), martyr_name:martyrName,
+    saved_at:savedAt, sheet:M1_SHEET_NAME,
+    message:existing?'Đã cập nhật thông tin Mẫu 01 vào sheet riêng.':'Đã lưu thông tin Mẫu 01 vào sheet riêng.'
+  });
+}
+
+function findM01Row_(sheet, recordId, fileId, martyrName) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+  const data = sheet.getRange(2, 1, lastRow - 1, M1_HEADERS.length).getValues();
+  const rid=clean_(recordId), fid=clean_(fileId), name=clean_(martyrName).toLowerCase();
+  for(let i=0;i<data.length;i++) if(rid && clean_(data[i][1])===rid) return {row:i+2};
+  for(let i=0;i<data.length;i++) if(fid && clean_(data[i][11])===fid) return {row:i+2};
+  for(let i=0;i<data.length;i++) if(name && clean_(data[i][14]).toLowerCase()===name) return {row:i+2};
+  return null;
+}
+
+function formatM01Sheet_(sheet) {
+  sheet.setFrozenRows(1);
+  sheet.getRange(1,1,1,M1_HEADERS.length).setWrap(true);
+  styleHeader_(sheet,M1_HEADERS.length);
 }
 
 function parsePayload_(e) {
