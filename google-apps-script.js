@@ -101,6 +101,8 @@ function doPost(e) {
     const isM01 = formType === 'm01' || formType === 'mẫu 01' || formType === 'mau 01' || formType === '1' ||
       formType.indexOf('mẫu 01') >= 0 || formType.indexOf('mau 01') >= 0;
     if (isM01) return saveM01_(p);
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const main = getOrCreateSheet_(ss, MAIN_SHEET_NAME, MAIN_HEADERS);
     const rel = getOrCreateSheet_(ss, REL_SHEET_NAME, REL_HEADERS);
 
