@@ -245,7 +245,8 @@ function collect(){
   const ids=[
     'rep_name','rep_dob','rep_gender','rep_id','rep_issue_date','rep_issue_place','rep_hometown','rep_address','rep_phone',
     'file_id','ministry_file','province_file','martyr_name','martyr_alias','martyr_dob','martyr_gender','martyr_hometown','martyr_rank',
-    'martyr_unit','martyr_death_date','martyr_death_place','burial_place','certificate_no','decision_no','decision_date','father','mother','wife'
+    'martyr_unit','martyr_death_date','martyr_death_place','burial_place','certificate_no','decision_no','decision_date','father','mother','wife',
+    'grave_cemetery_name','grave_cemetery_address','grave_previous_burial_place','grave_recovery_unit','grave_interment_date','grave_number','grave_row','grave_lot','grave_area'
   ];
   const d={
     record_id: currentRecordId || makeRecordId()
@@ -255,6 +256,11 @@ function collect(){
     if(e) d[id]=(e.value||'').trim();
   });
 
+  d.form_type=$('form_type')?.value||'mau02';
+  d.grave_has_body=!!$('grave_has_body')?.checked;
+  d.grave_no_body=!!$('grave_no_body')?.checked;
+  d.grave_veterans_cemetery=!!$('grave_veterans_cemetery')?.checked;
+  d.grave_other_cemetery=!!$('grave_other_cemetery')?.checked;
   d.has_relatives=$('has_relatives_yes')?.checked?'Có':($('has_relatives_no')?.checked?'Không':'');
   d.relatives=relativesList.filter(p=>p && ((p.name||'').trim() || (p.id||'').trim() || (p.dob||'').trim() || (p.address||'').trim())).map((r,i)=>{
     return {
@@ -399,6 +405,26 @@ function fill(d){
   }
   renderRelativesUI();
 
+  updateFormTypeUI();
+  ['grave_has_body','grave_no_body'].forEach(id=>{
+    const el=$(id);
+    if(el) el.addEventListener('change',()=>{
+      if(el.checked){
+        const other=id==='grave_has_body'?'grave_no_body':'grave_has_body';
+        if($(other))$(other).checked=false;
+      }
+    });
+  });
+  ['grave_veterans_cemetery','grave_other_cemetery'].forEach(id=>{
+    const el=$(id);
+    if(el) el.addEventListener('change',()=>{
+      if(el.checked){
+        const other=id==='grave_veterans_cemetery'?'grave_other_cemetery':'grave_veterans_cemetery';
+        if($(other))$(other).checked=false;
+      }
+    });
+  });
+
   // Hiển thị banner chỉnh sửa
   const banner=$('editingBanner');
   const txt=$('editingText');
@@ -406,6 +432,22 @@ function fill(d){
     txt.textContent=(normalizedData.record_id||'Phiếu')+' – Liệt sĩ: '+(normalizedData.martyr_name||'Chưa có tên');
     banner.style.display='flex';
   }
+}
+
+function updateFormTypeUI(){
+  const type=$('form_type')?.value||'mau02';
+  const mau01=type==='mau01';
+  const section=$('mau01Section');
+  const relativeSection=document.querySelector('.section h2')?.textContent;
+  if(section)section.style.display=mau01?'block':'none';
+  const headings=[...document.querySelectorAll('.section h2')];
+  const relHeading=headings.find(h=>String(h.textContent||'').includes('Thông tin thân nhân'));
+  if(relHeading){
+    const relSection=relHeading.closest('.section');
+    if(relSection)relSection.style.display=mau01?'none':'block';
+  }
+  const title=document.querySelector('.card h1');
+  if(title && String(title.textContent||'').includes('Ứng dụng lập Phiếu')) title.textContent=mau01?'Phiếu khảo sát Mẫu 01 – Đã xác định phần mộ':'Ứng dụng lập Phiếu khảo sát liệt sĩ';
 }
 
 function validateForm(){
@@ -455,18 +497,23 @@ function validateForm(){
     addError('rep_phone','Số điện thoại người đại diện không hợp lệ (cần ít nhất 9-11 chữ số)');
   }
 
-  const relativeChoice=($('has_relatives_yes')?.checked?'Có':($('has_relatives_no')?.checked?'Không':'')); 
-  if(!relativeChoice){
-    const choice=$('has_relatives_yes')||$('has_relatives_no');
-    if(choice){choice.classList.add('input-error');}
-    errors.push({id:'has_relatives_yes',el:choice||$('martyr_name'),msg:'Chọn Có thân nhân hoặc Không có thân nhân thuộc diện thu mẫu'});
-  } else if(relativeChoice==='Có'){
-    const hasAnyPerson=relativesList.some(p=>(p.name||'').trim()||(p.id||'').trim());
-    if(!hasAnyPerson){
-      const wrap=$('relativesTableWrap');
-      if(wrap){wrap.scrollIntoView({behavior:'smooth',block:'center'});}
-      errors.push({id:'has_relatives_yes',el:$('has_relatives_yes'),msg:'Đã chọn "Có thân nhân": Vui lòng bấm vào ít nhất 1 diện thu mẫu và nhập thông tin thân nhân'});
+  const formType=$('form_type')?.value||'mau02';
+  if(formType!=='mau01'){
+    const relativeChoice=($('has_relatives_yes')?.checked?'Có':($('has_relatives_no')?.checked?'Không':'')); 
+    if(!relativeChoice){
+      const choice=$('has_relatives_yes')||$('has_relatives_no');
+      if(choice){choice.classList.add('input-error');}
+      errors.push({id:'has_relatives_yes',el:choice||$('martyr_name'),msg:'Chọn Có thân nhân hoặc Không có thân nhân thuộc diện thu mẫu'});
+    } else if(relativeChoice==='Có'){
+      const hasAnyPerson=relativesList.some(p=>(p.name||'').trim()||(p.id||'').trim());
+      if(!hasAnyPerson){
+        const wrap=$('relativesTableWrap');
+        if(wrap){wrap.scrollIntoView({behavior:'smooth',block:'center'});}
+        errors.push({id:'has_relatives_yes',el:$('has_relatives_yes'),msg:'Đã chọn "Có thân nhân": Vui lòng bấm vào ít nhất 1 diện thu mẫu và nhập thông tin thân nhân'});
+      }
     }
+  
+  
   }
 
   // 2. Thông tin về liệt sĩ
@@ -506,6 +553,14 @@ function validateForm(){
     addError('decision_date','Ngày quyết định');
   }
 
+  if(formType==='mau01'){
+    if(!$('grave_has_body')?.checked && !$('grave_no_body')?.checked)
+      addError('grave_has_body','Chọn mộ có hài cốt liệt sĩ hoặc mộ không có hài cốt liệt sĩ');
+    if(!$('grave_cemetery_name')?.value.trim())addError('grave_cemetery_name','Tên nghĩa trang');
+    if(!$('grave_cemetery_address')?.value.trim())addError('grave_cemetery_address','Địa chỉ nghĩa trang, xã, huyện, tỉnh');
+    if(!$('grave_veterans_cemetery')?.checked && !$('grave_other_cemetery')?.checked)
+      addError('grave_veterans_cemetery','Chọn Nghĩa trang liệt sĩ hoặc Ngoài nghĩa trang liệt sĩ');
+  }
   return errors;
 }
 
@@ -584,7 +639,7 @@ function escapeAttr(v){return String(v??'').replace(/\\/g,'\\\\').replace(/'/g,"
 
 function newRecord(){
   document.querySelectorAll('input,select').forEach(e=>{if(!e.dataset.rel)e.value='';});
-  initStaffAuthentication();
+  updateFormTypeUI();
   relativesList=[];
   setRelativesChoice('');
   renderRelativesUI();
@@ -5674,6 +5729,15 @@ function initStaffAuthentication(){
 
 function initApp(){
   initStaffAuthentication();
+  $('form_type')?.addEventListener('change',()=>{
+    updateFormTypeUI();
+    localStorage.removeItem('phieu_liet_si_saved');
+    setExportEnabled(false);
+  });
+  ['grave_has_body','grave_no_body','grave_veterans_cemetery','grave_other_cemetery'].forEach(id=>{
+    const el=$(id); if(el)el.addEventListener('change',()=>{});
+  });
+  updateFormTypeUI();
   initRelations();
   ['has_relatives_yes','has_relatives_no'].forEach(id=>{
     const el=$(id);
