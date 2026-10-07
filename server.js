@@ -197,12 +197,85 @@ async function fillDocument(data) {
   return await zip.generateAsync({ type: 'nodebuffer' });
 }
 
+function xmlEsc(v){
+  return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+function mau01Para(text='',opts={}){
+  const align=opts.align||'left',bold=!!opts.bold,size=opts.size||20,before=opts.before||0,after=opts.after??25;
+  return '<w:p><w:pPr><w:jc w:val="'+align+'"/><w:spacing w:before="'+before+'" w:after="'+after+'" w:line="276"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'+(bold?'<w:b/>':'')+'<w:sz w:val="'+size+'"/><w:szCs w:val="'+size+'"/></w:rPr><w:t xml:space="preserve">'+xmlEsc(text)+'</w:t></w:r></w:p>';
+}
+function mau01DocXml(d){
+  const x=v=>String(v??'').trim(), box=v=>v?'☑':'☐';
+  const p=[];
+  p.push(mau01Para('CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM',{align:'center',bold:true,size:25,after:0}));
+  p.push(mau01Para('Độc lập - Tự do - Hạnh phúc',{align:'center',bold:true,size:22,after:10}));
+  p.push(mau01Para('---------------',{align:'center',bold:true,size:20,after:55}));
+  p.push(mau01Para('MẪU 01',{align:'right',bold:true,size:21,after:20}));
+  p.push(mau01Para('PHIẾU KHẢO SÁT',{align:'center',bold:true,size:25,after:15}));
+  p.push(mau01Para('Thông tin liệt sĩ đã xác định thông tin phần mộ và người hưởng trợ cấp của liệt sĩ',{align:'center',bold:true,size:21,after:55}));
+  p.push(mau01Para('1. Thông tin người đại diện thân nhân hoặc hưởng trợ cấp thờ cúng liệt sĩ',{bold:true,size:21,after:22}));
+  p.push(mau01Para('Họ và tên: '+x(d.rep_name)));
+  p.push(mau01Para('Ngày tháng năm sinh: '+x(d.rep_dob)+';   Giới tính: '+x(d.rep_gender)));
+  p.push(mau01Para('Số ĐDCN: '+x(d.rep_id)+'   Ngày cấp: '+x(d.rep_issue_date)+'   Nơi cấp: '+x(d.rep_issue_place)));
+  p.push(mau01Para('Quê quán: '+x(d.rep_hometown)));
+  p.push(mau01Para('Nơi thường trú: '+x(d.rep_address)));
+  p.push(mau01Para('Số điện thoại: '+x(d.rep_phone),{after:28}));
+  p.push(mau01Para('2. Thông tin về liệt sĩ:',{bold:true,size:21,after:22}));
+  p.push(mau01Para('Mã số hồ sơ liệt sĩ: '+x(d.file_id)));
+  p.push(mau01Para('Mã hồ sơ Bộ quản lý: '+x(d.ministry_file)+'    Mã hồ sơ tỉnh quản lý: '+x(d.province_file)));
+  p.push(mau01Para('Họ và tên liệt sĩ: '+x(d.martyr_name)+'    Bí danh: '+x(d.martyr_alias)));
+  p.push(mau01Para('Ngày tháng năm sinh: '+x(d.martyr_dob)+';   Giới tính: '+x(d.martyr_gender)));
+  p.push(mau01Para('Quê quán: '+x(d.martyr_hometown)));
+  p.push(mau01Para('Cấp bậc, chức vụ khi hy sinh: '+x(d.martyr_rank)));
+  p.push(mau01Para('Cơ quan, đơn vị khi hy sinh: '+x(d.martyr_unit)));
+  p.push(mau01Para('Ngày tháng năm hy sinh: '+x(d.martyr_death_date)));
+  p.push(mau01Para('Nơi hy sinh (nếu có): '+x(d.martyr_death_place)));
+  p.push(mau01Para('Nơi an táng ban đầu: '+x(d.burial_place)));
+  p.push(mau01Para('Bằng Tổ quốc ghi công số '+x(d.certificate_no)+'  Quyết định số '+x(d.decision_no)+'  ngày '+x(d.decision_date)+' của Thủ tướng Chính phủ.'));
+  p.push(mau01Para('Con ông: '+x(d.father)));
+  p.push(mau01Para('Con bà: '+x(d.mother)));
+  p.push(mau01Para('Vợ/Chồng: '+x(d.wife),{after:22}));
+  p.push(mau01Para('Thông tin về phần mộ liệt sĩ: '+box(d.grave_has_body)+' Mộ có hài cốt liệt sĩ     '+box(d.grave_no_body)+' Mộ không có hài cốt liệt sĩ',{bold:true,size:20,after:20}));
+  p.push(mau01Para('Tên nghĩa trang: '+x(d.grave_cemetery_name)));
+  p.push(mau01Para(box(d.grave_veterans_cemetery)+' Nghĩa trang liệt sĩ     '+box(d.grave_other_cemetery)+' Ngoài nghĩa trang liệt sĩ'));
+  p.push(mau01Para('Nghĩa trang thuộc tỉnh/thành phố (ghi rõ địa chỉ chi tiết, xã, huyện, tỉnh): '+x(d.grave_cemetery_address)));
+  p.push(mau01Para('Địa điểm quy tập hoặc an táng hài cốt trước khi tiếp nhận: '+x(d.grave_previous_burial_place)));
+  p.push(mau01Para('Đơn vị quy tập hoặc an táng hài cốt trước khi tiếp nhận: '+x(d.grave_recovery_unit)));
+  p.push(mau01Para('Thời gian đưa vào an táng trong nghĩa trang liệt sĩ: '+x(d.grave_interment_date)));
+  p.push(mau01Para('Vị trí mộ trong nghĩa trang liệt sĩ: Số mộ '+x(d.grave_number)+', hàng '+x(d.grave_row)+', lô '+x(d.grave_lot)+', khu '+x(d.grave_area),{after:45}));
+  p.push(mau01Para('...., ngày... tháng... năm...',{align:'center',size:18,after:10}));
+  p.push(mau01Para('Xác nhận của UBND cấp xã về nội dung khai trên bản khai là đúng.',{align:'center',size:18,after:0}));
+  p.push(mau01Para('QUYỀN HẠN, CHỨC VỤ CỦA NGƯỜI KÝ',{align:'center',bold:true,size:18,after:0}));
+  p.push(mau01Para('(Chữ ký, dấu)',{align:'center',size:18,after:0}));
+  p.push(mau01Para('Họ và tên',{align:'center',bold:true,size:18,after:12}));
+  p.push(mau01Para('........, ngày ... tháng ... năm ......',{align:'center',size:18,after:10}));
+  p.push(mau01Para('Xác nhận của Công an cấp xã về nội dung thông tin dữ liệu dân cư của các cá nhân trên bản khai là đúng.',{align:'center',size:18,after:0}));
+  p.push(mau01Para('QUYỀN HẠN, CHỨC VỤ CỦA NGƯỜI KÝ',{align:'center',bold:true,size:18,after:0}));
+  p.push(mau01Para('(Chữ ký, dấu)',{align:'center',size:18,after:0}));
+  p.push(mau01Para('Họ và tên',{align:'center',bold:true,size:18,after:12}));
+  p.push(mau01Para('...., ngày... tháng... năm...',{align:'center',size:18,after:10}));
+  p.push(mau01Para('Xác nhận của Sở Nội vụ nội dung khai trên bản khai là đúng.',{align:'center',size:18,after:0}));
+  p.push(mau01Para('QUYỀN HẠN, CHỨC VỤ CỦA NGƯỜI KÝ',{align:'center',bold:true,size:18,after:0}));
+  p.push(mau01Para('(Chữ ký, dấu)',{align:'center',size:18,after:0}));
+  p.push(mau01Para('Họ và tên',{align:'center',bold:true,size:18,after:10}));
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'+p.join('')+'<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="700" w:right="900" w:bottom="500" w:left="900" w:header="400" w:footer="400"/></w:sectPr></w:body></w:document>';
+}
+async function fillMau01Document(data){
+ const zip=new JSZip();
+ const ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>';
+ const rels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>';
+ const styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:lang w:val="vi-VN"/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>';
+ zip.file('[Content_Types].xml',ct);zip.folder('_rels').file('.rels',rels);zip.folder('word').file('document.xml',mau01DocXml(data));zip.folder('word').file('styles.xml',styles);
+ return await zip.generateAsync({type:'nodebuffer'});
+}
+
 // Generate Word document route
 app.post('/api/generate', async (req, res) => {
   try {
     const data = req.body || {};
-    const content = await fillDocument(data);
-    const filename = 'Phieu_khao_sat_liet_si.docx';
+    const isMau01 = data.form_type === 'mau01';
+    const content = isMau01 ? await fillMau01Document(data) : await fillDocument(data);
+    const filename = isMau01 ? 'Phieu_khao_sat_Mau_01_da_xac_dinh_phan_mo.docx' : 'Phieu_khao_sat_liet_si.docx';
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
