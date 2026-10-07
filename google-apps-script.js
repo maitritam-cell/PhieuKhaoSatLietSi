@@ -64,7 +64,7 @@ const REL_HEADERS = [
   'Trạng thái'
 ];
 
-const M1_SHEET_NAME = 'Mẫu 01 - Đã xác định phần mộ';
+const M1_SHEET_NAME = 'M01';
 
 const M1_HEADERS = [
   'Thời gian lưu','Mã phiếu Mẫu 01','Họ tên người đại diện','Ngày sinh NĐD','Giới tính NĐD',
@@ -326,8 +326,14 @@ function findM01Row_(sheet, recordId, fileId, martyrName) {
 
 function formatM01Sheet_(sheet) {
   sheet.setFrozenRows(1);
-  sheet.getRange(1,1,1,M1_HEADERS.length).setWrap(true);
-  styleHeader_(sheet,M1_HEADERS.length);
+  sheet.getRange(1, 1, 1, M1_HEADERS.length).setWrap(true);
+  styleHeader_(sheet, M1_HEADERS.length);
+
+  // Các mã số quan trọng phải lưu dạng TEXT để không mất số 0 đầu.
+  [6, 12, 13, 26].forEach(function(col) {
+    sheet.getRange(2, col, Math.max(sheet.getMaxRows() - 1, 1), 1)
+      .setNumberFormat('@');
+  });
 }
 
 function parsePayload_(e) {
