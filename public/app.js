@@ -1113,8 +1113,13 @@ async function overlayBox(doc,page,x0,y0,x1,y1,text,opt={}){
 }
 
 async function generatePdf(){
+  if(!checkValidationAndReport('xuất PDF'))return;
+  if(localStorage.getItem('phieu_liet_si_saved')!=='1'){
+    alert('Vui lòng bấm "Lưu vào Google Sheets" để lưu dữ liệu vào hệ thống trước khi xuất PDF.');
+    return;
+  }
   if((($('form_type')?.value||'mau02')==='mau01')){
-    alert('Mẫu 01 đã được triển khai đầy đủ phần nhập liệu và xuất Word theo mẫu. Chức năng xuất PDF Mẫu 01 sẽ được bổ sung sau khi chốt bản Word.');
+    alert('Mẫu 01 đã có đầy đủ phần nhập liệu và xuất Word theo mẫu. Chức năng xuất PDF Mẫu 01 sẽ được bổ sung sau khi chốt bản Word.');
     return;
   }
   const d=collect();
