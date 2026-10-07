@@ -312,9 +312,12 @@ function collect(){
     'rep_relationship','rep_subsidy_type',
     'file_id','ministry_file','province_file','martyr_name','martyr_alias','martyr_dob','martyr_gender','martyr_hometown','martyr_rank',
     'martyr_unit','martyr_death_date','martyr_death_place','burial_place','certificate_no','decision_no','decision_date','father','mother','wife',
-    'grave_burial_type','grave_cemetery_name','grave_province','grave_district','grave_commune',
+    'grave_burial_type','grave_cemetery_name','cemetery_type','cemetery_burial_date',
+    'grave_province','grave_district','grave_commune',
+    'exhumation_place','exhumation_unit',
     'grave_area','grave_plot','grave_row','grave_number',
-    'grave_stele_info','grave_stele_content','grave_remains_status','grave_gathered_status','grave_notes'
+    'grave_stele_info','grave_stele_content','grave_remains_status','grave_gathered_status','grave_notes',
+    'ubnd_signer_name','ubnd_signer_title','police_signer_name','police_signer_title','dolisa_signer_name','dolisa_signer_title'
   ];
   const d={
     record_id: currentRecordId || makeRecordId(),
@@ -836,6 +839,40 @@ async function saveToSheets(){
     grave_remains_status: d.grave_remains_status || '',
     grave_gathered_status: d.grave_gathered_status || '',
     grave_notes: d.grave_notes || '',
+    // Đồng bộ trực tiếp với các cột trong sheet M01 (54 cột)
+    tomb_status: d.tomb_status || d.grave_burial_type || '',
+    tinhTrangMo: d.tomb_status || d.grave_burial_type || '',
+    cemetery_name: d.cemetery_name || d.grave_cemetery_name || '',
+    tenNghiaTrang: d.cemetery_name || d.grave_cemetery_name || '',
+    cemetery_type: d.cemetery_type || '',
+    loaiNghiaTrang: d.cemetery_type || '',
+    cemetery_address: d.cemetery_address || [d.grave_commune, d.grave_district, d.grave_province].filter(Boolean).join(', ') || '',
+    diaChiNghiaTrang: d.cemetery_address || [d.grave_commune, d.grave_district, d.grave_province].filter(Boolean).join(', ') || '',
+    exhumation_place: d.exhumation_place || '',
+    diaDiemQuyTapAnTang: d.exhumation_place || '',
+    exhumation_unit: d.exhumation_unit || '',
+    donViQuyTapAnTang: d.exhumation_unit || '',
+    cemetery_burial_date: d.cemetery_burial_date || '',
+    thoiGianDuaVaoAnTang: d.cemetery_burial_date || '',
+    soMo: d.grave_number || '',
+    hangMo: d.grave_row || '',
+    loMo: d.grave_plot || '',
+    khuMo: d.grave_area || '',
+    row_number: d.grave_row || '',
+    plot_number: d.grave_plot || '',
+    area_number: d.grave_area || '',
+    verified_by_ubnd: d.verified_by_ubnd || 'Đúng sự thật',
+    ubnd_signer_title: d.ubnd_signer_title || 'Chủ tịch UBND xã/phường',
+    ubnd_signer_name: d.ubnd_signer_name || '',
+    ubnd_verified_date: d.ubnd_verified_date || '',
+    verified_by_police: d.verified_by_police || 'Đúng dữ liệu dân cư',
+    police_signer_title: d.police_signer_title || 'Trưởng Công an xã/phường',
+    police_signer_name: d.police_signer_name || '',
+    police_verified_date: d.police_verified_date || '',
+    verified_by_dolisa: d.verified_by_dolisa || 'Đúng hồ sơ quản lý',
+    dolisa_signer_title: d.dolisa_signer_title || 'Giám đốc / Phó Giám đốc',
+    dolisa_signer_name: d.dolisa_signer_name || '',
+    dolisa_verified_date: d.dolisa_verified_date || '',
     duLieuDayDu: JSON.stringify(d)
   };
 
@@ -962,7 +999,8 @@ async function generateWord(){
       body:JSON.stringify(d)
     });
     if(!r.ok)throw new Error(await r.text());
-    downloadBlob(await r.blob(),'Phieu_khao_sat_liet_si_'+(d.record_id||d.martyr_name)+'.docx');
+    const prefix = (d.form_type === 'm01' || d.loaiPhieu === 'Mẫu 01') ? 'Phieu_khao_sat_Mau_01_' : 'Phieu_khao_sat_Mau_02_';
+    downloadBlob(await r.blob(), prefix + (d.record_id || d.martyr_name || 'LS') + '.docx');
     setStatus('Đã xuất Word thành công.');
   }catch(e){
     console.error(e);setStatus('Lỗi Word: '+e.message,'error');alert('Không xuất được Word: '+e.message);
@@ -981,7 +1019,8 @@ async function exportDirectWord(id){
       body:JSON.stringify(item)
     });
     if(!r.ok)throw new Error(await r.text());
-    downloadBlob(await r.blob(),'Phieu_khao_sat_liet_si_'+(item.record_id||id)+'.docx');
+    const prefix = (item.form_type === 'm01' || item.loaiPhieu === 'Mẫu 01') ? 'Phieu_khao_sat_Mau_01_' : 'Phieu_khao_sat_Mau_02_';
+    downloadBlob(await r.blob(), prefix + (item.record_id || id) + '.docx');
     setStatus('Đã xuất Word thành công.');
   }catch(e){
     alert('Lỗi xuất Word: '+e.message);

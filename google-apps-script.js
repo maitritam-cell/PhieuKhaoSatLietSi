@@ -249,6 +249,27 @@ function doGet(e) {
       records.push(rec);
     });
 
+    const m1Rows = readData_(m1, M1_HEADERS.length);
+    m1Rows.forEach(function(row) {
+      const rec = m1RowToRecord_(row);
+      const searchText = [
+        rec.record_id,
+        rec.martyr_name,
+        rec.file_id,
+        rec.ministry_file,
+        rec.province_file,
+        rec.rep_name,
+        rec.rep_phone
+      ].join(' ').toLowerCase();
+
+      if (q && searchText.indexOf(q) === -1) return;
+
+      rec.data = m1RowToFrontend_(row);
+      rec.data.record_id = rec.record_id;
+      rec.data.relatives = [];
+      records.push(rec);
+    });
+
     return jsonResponse({
       ok: true,
       total: records.length,
@@ -562,6 +583,92 @@ function mainRowToFrontend_(row) {
 
     saved_at: clean_(row[0]),
     trangThai: 'Mới'
+  };
+}
+
+function m1RowToRecord_(row) {
+  return {
+    record_id: clean_(row[1]) || clean_(row[11]) || ('M01-' + normalizeDate_(row[0])),
+    form_type: 'm01',
+    loaiPhieu: 'Mẫu 01',
+    martyr_name: clean_(row[14]),
+    martyr_dob: clean_(row[16]),
+    martyr_death_date: clean_(row[21]),
+    martyr_hometown: clean_(row[18]),
+    file_id: clean_(row[11]),
+    ministry_file: clean_(row[12]),
+    province_file: clean_(row[13]),
+    rep_name: clean_(row[2]),
+    rep_phone: clean_(row[10]),
+    has_relatives: 'Không',
+    saved_at: clean_(row[0]),
+    status: clean_(row[53]) || 'Mới'
+  };
+}
+
+function m1RowToFrontend_(row) {
+  return {
+    record_id: clean_(row[1]) || clean_(row[11]) || ('M01-' + normalizeDate_(row[0])),
+    form_type: 'm01',
+    loaiPhieu: 'Mẫu 01',
+    rep_name: clean_(row[2]),
+    rep_dob: clean_(row[3]),
+    rep_gender: clean_(row[4]),
+    rep_id: clean_(row[5]),
+    rep_issue_date: clean_(row[6]),
+    rep_issue_place: clean_(row[7]),
+    rep_hometown: clean_(row[8]),
+    rep_address: clean_(row[9]),
+    rep_phone: clean_(row[10]),
+    file_id: clean_(row[11]),
+    ministry_file: clean_(row[12]),
+    province_file: clean_(row[13]),
+    martyr_name: clean_(row[14]),
+    martyr_alias: clean_(row[15]),
+    martyr_dob: clean_(row[16]),
+    martyr_gender: clean_(row[17]),
+    martyr_hometown: clean_(row[18]),
+    martyr_rank: clean_(row[19]),
+    martyr_unit: clean_(row[20]),
+    martyr_death_date: clean_(row[21]),
+    martyr_death_place: clean_(row[22]),
+    burial_place: clean_(row[23]),
+    certificate_no: clean_(row[24]),
+    decision_no: clean_(row[25]),
+    decision_date: clean_(row[26]),
+    father: clean_(row[27]),
+    mother: clean_(row[28]),
+    wife: clean_(row[29]),
+    tomb_status: clean_(row[30]),
+    grave_burial_type: clean_(row[30]),
+    cemetery_name: clean_(row[31]),
+    grave_cemetery_name: clean_(row[31]),
+    cemetery_type: clean_(row[32]),
+    cemetery_address: clean_(row[33]),
+    exhumation_place: clean_(row[34]),
+    exhumation_unit: clean_(row[35]),
+    cemetery_burial_date: clean_(row[36]),
+    grave_number: clean_(row[37]),
+    row_number: clean_(row[38]),
+    grave_row: clean_(row[38]),
+    plot_number: clean_(row[39]),
+    grave_plot: clean_(row[39]),
+    area_number: clean_(row[40]),
+    grave_area: clean_(row[40]),
+    verified_by_ubnd: clean_(row[41]),
+    ubnd_signer_title: clean_(row[42]),
+    ubnd_signer_name: clean_(row[43]),
+    ubnd_verified_date: clean_(row[44]),
+    verified_by_police: clean_(row[45]),
+    police_signer_title: clean_(row[46]),
+    police_signer_name: clean_(row[47]),
+    police_verified_date: clean_(row[48]),
+    verified_by_dolisa: clean_(row[49]),
+    dolisa_signer_title: clean_(row[50]),
+    dolisa_signer_name: clean_(row[51]),
+    dolisa_verified_date: clean_(row[52]),
+    trangThai: clean_(row[53]) || 'Mới',
+    saved_at: clean_(row[0])
   };
 }
 

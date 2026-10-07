@@ -226,19 +226,20 @@ async function fillDocumentM01(data) {
     8: [['Nơi thường trú:', data.rep_address]],
     9: [['Số điện thoại:', data.rep_phone], ['Quan hệ với liệt sĩ:', data.rep_relationship]],
     10: [['Chế độ trợ cấp đang hưởng:', data.rep_subsidy_type]],
-    12: [['Mã hồ sơ Bộ quản lý:', data.ministry_file], ['Mã hồ sơ tỉnh quản lý:', data.province_file]],
-    13: [['Họ và tên liệt sĩ:', data.martyr_name], ['Bí danh:', data.martyr_alias]],
-    14: [['Ngày tháng năm sinh:', data.martyr_dob], ['Giới tính:', data.martyr_gender]],
-    15: [['Quê quán:', data.martyr_hometown]],
-    16: [['Cấp bậc, chức vụ khi hy sinh:', data.martyr_rank]],
-    17: [['Cơ quan, đơn vị khi hy sinh:', data.martyr_unit]],
-    18: [['Ngày tháng năm hy sinh:', data.martyr_death_date]],
-    19: [['Nơi hy sinh (nếu có):', data.martyr_death_place]],
-    20: [['Nơi an táng ban đầu:', data.burial_place]],
-    21: [['Bằng Tổ quốc ghi công số', data.certificate_no], ['Quyết định số', data.decision_no], ['ngày', data.decision_date]],
-    22: [['Con ông:', data.father]],
-    23: [['Con bà:', data.mother]],
-    24: [['Vợ:', data.wife]]
+    12: [['Mã số hồ sơ liệt sĩ:', data.file_id]],
+    13: [['Mã hồ sơ Bộ quản lý:', data.ministry_file], ['Mã hồ sơ tỉnh quản lý:', data.province_file]],
+    14: [['Họ và tên liệt sĩ:', data.martyr_name], ['Bí danh:', data.martyr_alias]],
+    15: [['Ngày tháng năm sinh:', data.martyr_dob], ['Giới tính:', data.martyr_gender]],
+    16: [['Quê quán:', data.martyr_hometown]],
+    17: [['Cấp bậc, chức vụ khi hy sinh:', data.martyr_rank]],
+    18: [['Cơ quan, đơn vị khi hy sinh:', data.martyr_unit]],
+    19: [['Ngày tháng năm hy sinh:', data.martyr_death_date]],
+    20: [['Nơi hy sinh (nếu có):', data.martyr_death_place]],
+    21: [['Nơi an táng ban đầu:', data.burial_place]],
+    22: [['Bằng Tổ quốc ghi công số', data.certificate_no], ['Quyết định số', data.decision_no], ['ngày', data.decision_date]],
+    23: [['Con ông:', data.father]],
+    24: [['Con bà:', data.mother]],
+    25: [['Vợ:', data.wife]]
   };
 
   for (const [idxStr, items] of Object.entries(mapping)) {
@@ -251,26 +252,29 @@ async function fillDocumentM01(data) {
     }
   }
 
-  if (tables.length >= 3) {
-    const table = tables[2];
+  // Bảng 1: Bảng thông tin phần mộ liệt sĩ đã xác định (11 hàng)
+  if (tables.length >= 1) {
+    const table = tables[0];
     const rows = [];
     for (let i = 0; i < table.childNodes.length; i++) {
       if (table.childNodes[i].nodeName === 'w:tr') rows.push(table.childNodes[i]);
     }
     const graveValues = [
-      data.grave_burial_type || 'An táng trong nghĩa trang liệt sĩ',
-      data.grave_cemetery_name || '',
-      [data.grave_commune, data.grave_district, data.grave_province].filter(Boolean).join(', ') || '',
+      data.grave_burial_type || data.tomb_status || 'An táng trong nghĩa trang liệt sĩ',
+      data.grave_cemetery_name || data.cemetery_name || '',
+      data.cemetery_type || 'Nghĩa trang liệt sĩ',
+      data.cemetery_address || [data.grave_commune, data.grave_district, data.grave_province].filter(Boolean).join(', ') || '',
+      data.exhumation_place || '',
+      data.exhumation_unit || '',
+      data.cemetery_burial_date || '',
       [
-        data.grave_area ? 'Khu: ' + data.grave_area : '',
-        data.grave_plot ? 'Lô: ' + data.grave_plot : '',
-        data.grave_row ? 'Hàng: ' + data.grave_row : '',
-        data.grave_number ? 'Mộ số: ' + data.grave_number : ''
+        (data.grave_area || data.area_number) ? 'Khu: ' + (data.grave_area || data.area_number) : '',
+        (data.grave_plot || data.plot_number) ? 'Lô: ' + (data.grave_plot || data.plot_number) : '',
+        (data.grave_row || data.row_number) ? 'Hàng: ' + (data.grave_row || data.row_number) : '',
+        data.grave_number ? 'Số mộ: ' + data.grave_number : ''
       ].filter(Boolean).join('; ') || '',
-      data.grave_stele_info || '',
-      data.grave_stele_content || '',
-      data.grave_remains_status || '',
-      data.grave_gathered_status || '',
+      [data.grave_stele_info, data.grave_stele_content].filter(Boolean).join(' - ') || '',
+      [data.grave_remains_status, data.grave_gathered_status].filter(Boolean).join('; ') || '',
       data.grave_notes || ''
     ];
 
@@ -282,6 +286,49 @@ async function fillDocumentM01(data) {
       }
       if (cells.length >= 2) {
         setCellText(doc, cells[1], graveValues[i]);
+      }
+    }
+  }
+
+  // Bảng 2: Bảng xác nhận (UBND, Công an, Sở Nội vụ)
+  if (tables.length >= 2) {
+    const sigTable = tables[1];
+    const sigRows = [];
+    for (let i = 0; i < sigTable.childNodes.length; i++) {
+      if (sigTable.childNodes[i].nodeName === 'w:tr') sigRows.push(sigTable.childNodes[i]);
+    }
+    // Cập nhật người ký nếu có
+    if (sigRows.length >= 1) {
+      const r0Cells = [];
+      for (let j = 0; j < sigRows[0].childNodes.length; j++) {
+        if (sigRows[0].childNodes[j].nodeName === 'w:tc') r0Cells.push(sigRows[0].childNodes[j]);
+      }
+      if (r0Cells.length >= 1 && data.ubnd_signer_name) {
+        const pList = r0Cells[0].getElementsByTagName('w:p');
+        if (pList.length > 0) {
+          const lastP = pList[pList.length - 1];
+          replaceFirst(doc, lastP, 'Họ và tên', data.ubnd_signer_name);
+        }
+      }
+      if (r0Cells.length >= 2 && data.police_signer_name) {
+        const pList = r0Cells[1].getElementsByTagName('w:p');
+        if (pList.length > 0) {
+          const lastP = pList[pList.length - 1];
+          replaceFirst(doc, lastP, 'Họ và tên', data.police_signer_name);
+        }
+      }
+    }
+    if (sigRows.length >= 2) {
+      const r1Cells = [];
+      for (let j = 0; j < sigRows[1].childNodes.length; j++) {
+        if (sigRows[1].childNodes[j].nodeName === 'w:tc') r1Cells.push(sigRows[1].childNodes[j]);
+      }
+      if (r1Cells.length >= 1 && data.dolisa_signer_name) {
+        const pList = r1Cells[0].getElementsByTagName('w:p');
+        if (pList.length > 0) {
+          const lastP = pList[pList.length - 1];
+          replaceFirst(doc, lastP, 'Họ và tên', data.dolisa_signer_name);
+        }
       }
     }
   }
@@ -299,11 +346,16 @@ app.post('/api/generate', async (req, res) => {
     const isM01 = data.form_type === 'm01' || data.loaiPhieu === 'Mẫu 01';
     const content = isM01 ? await fillDocumentM01(data) : await fillDocument(data);
     const prefix = isM01 ? 'Phieu_khao_sat_liet_si_Mau_01' : 'Phieu_khao_sat_liet_si_Mau_02';
-    const safeName = (data.martyr_name || 'LS').replace(/[^\p{L}\p{N}_-]+/gu, '_');
-    const filename = `${prefix}_${safeName}.docx`;
+    const asciiName = (data.martyr_name || 'LS')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[đĐ]/g, 'd')
+      .replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `${prefix}_${asciiName}.docx`;
+    const encodedFilename = encodeURIComponent(`${prefix}_${(data.martyr_name || 'LS')}.docx`);
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"; filename*=UTF-8''${encodedFilename}`);
     res.setHeader('Content-Length', content.length);
     res.send(content);
   } catch (err) {

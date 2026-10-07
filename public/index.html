@@ -180,15 +180,31 @@ input.input-error,select.input-error{border-color:#dc2626!important;outline:2px 
   <h2>3. Thông tin phần mộ liệt sĩ đã xác định</h2>
   <div class="grid">
     <div>
-      <label>Hình thức an táng <span class="req">*</span></label>
+      <label>Tình trạng phần mộ / Hình thức an táng <span class="req">*</span></label>
       <select id="grave_burial_type">
         <option value="An táng trong nghĩa trang liệt sĩ">An táng trong nghĩa trang liệt sĩ</option>
+        <option value="Đã quy tập vào nghĩa trang liệt sĩ">Đã quy tập vào nghĩa trang liệt sĩ</option>
         <option value="An táng ngoài nghĩa trang liệt sĩ (gia tộc, quê hương)">An táng ngoài nghĩa trang liệt sĩ (gia tộc, quê hương)</option>
+        <option value="Chưa quy tập">Chưa quy tập</option>
       </select>
     </div>
     <div>
       <label>Tên nghĩa trang / Nơi an táng hiện nay <span class="req">*</span></label>
       <input id="grave_cemetery_name" placeholder="Ví dụ: Nghĩa trang liệt sĩ Quốc gia Đường 9">
+    </div>
+    <div>
+      <label>Loại nghĩa trang</label>
+      <select id="cemetery_type">
+        <option value="Nghĩa trang liệt sĩ Quốc gia">Nghĩa trang liệt sĩ Quốc gia</option>
+        <option value="Nghĩa trang liệt sĩ cấp Tỉnh">Nghĩa trang liệt sĩ cấp Tỉnh</option>
+        <option value="Nghĩa trang liệt sĩ cấp Huyện">Nghĩa trang liệt sĩ cấp Huyện</option>
+        <option value="Nghĩa trang liệt sĩ cấp Xã">Nghĩa trang liệt sĩ cấp Xã</option>
+        <option value="Nghĩa trang gia tộc / Quê hương">Nghĩa trang gia tộc / Quê hương</option>
+      </select>
+    </div>
+    <div>
+      <label>Thời gian đưa vào an táng tại nghĩa trang</label>
+      <input id="cemetery_burial_date" placeholder="Năm (YYYY) hoặc dd/mm/yyyy">
     </div>
     <div>
       <label>Tỉnh / Thành phố nơi an táng</label>
@@ -203,6 +219,15 @@ input.input-error,select.input-error{border-color:#dc2626!important;outline:2px 
       <input id="grave_commune" placeholder="Xã / Phường / Thị trấn">
     </div>
     
+    <div>
+      <label>Địa điểm quy tập / an táng trước khi tiếp nhận</label>
+      <input id="exhumation_place" placeholder="Ví dụ: Cao điểm 544, Gio Linh, Quảng Trị">
+    </div>
+    <div>
+      <label>Đơn vị quy tập / an táng trước khi tiếp nhận</label>
+      <input id="exhumation_unit" placeholder="Ví dụ: Đội K54, Bộ CHQS tỉnh Quảng Trị">
+    </div>
+
     <div class="full" style="background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e2e8f0;">
       <strong style="color:#0f172a;display:block;margin-bottom:8px;">📍 Vị trí cụ thể của mộ trong nghĩa trang:</strong>
       <div class="grid">
@@ -245,6 +270,39 @@ input.input-error,select.input-error{border-color:#dc2626!important;outline:2px 
     <div class="full">
       <label>Ghi chú về phần mộ / Di vật kèm theo</label>
       <textarea id="grave_notes" placeholder="Ghi chú thêm về hiện trạng mộ, các di vật kèm theo nếu có..."></textarea>
+    </div>
+
+    <!-- Thông tin cơ quan ký xác nhận -->
+    <div class="full" style="background:#f1f5f9;padding:12px 14px;border-radius:8px;border:1px solid #cbd5e1;margin-top:4px;">
+      <details>
+        <summary style="cursor:pointer;font-weight:700;color:#1e3a8a;">🏛️ Thông tin ký xác nhận (UBND, Công an, Sở Nội vụ - Mặc định tự động)</summary>
+        <div class="grid" style="margin-top:10px;gap:10px;">
+          <div>
+            <label style="font-size:12px;">Họ tên người ký UBND cấp xã</label>
+            <input id="ubnd_signer_name" placeholder="Họ và tên Chủ tịch/Phó CT">
+          </div>
+          <div>
+            <label style="font-size:12px;">Chức vụ người ký UBND</label>
+            <input id="ubnd_signer_title" placeholder="Chủ tịch UBND xã/phường">
+          </div>
+          <div>
+            <label style="font-size:12px;">Họ tên người ký Công an cấp xã</label>
+            <input id="police_signer_name" placeholder="Họ và tên Trưởng CA xã/phường">
+          </div>
+          <div>
+            <label style="font-size:12px;">Chức vụ người ký Công an</label>
+            <input id="police_signer_title" placeholder="Trưởng Công an xã/phường">
+          </div>
+          <div>
+            <label style="font-size:12px;">Họ tên người ký Sở Nội vụ</label>
+            <input id="dolisa_signer_name" placeholder="Họ và tên người ký Sở Nội vụ">
+          </div>
+          <div>
+            <label style="font-size:12px;">Chức vụ người ký Sở Nội vụ</label>
+            <input id="dolisa_signer_title" placeholder="Giám đốc / Phó Giám đốc">
+          </div>
+        </div>
+      </details>
     </div>
   </div>
 </div>
