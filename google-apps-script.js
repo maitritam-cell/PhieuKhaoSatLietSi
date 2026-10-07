@@ -45,7 +45,8 @@ const MAIN_HEADERS = [
   'Nơi thường trú NĐD',
   'Số điện thoại',
   'Số thân nhân kê khai',
-  'Tình trạng thân nhân thuộc diện thu mẫu'
+  'Tình trạng thân nhân thuộc diện thu mẫu',
+  'Trạng thái phiếu'
 ];
 
 const REL_HEADERS = [
@@ -122,7 +123,8 @@ function doPost(e) {
       clean_(p.rep_address || p.noiThuongTruNDD),
       clean_(p.rep_phone || p.soDienThoai),
       relatives.length,
-      normalizeRelativesChoice_(p.has_relatives || p.tinhTrangThanNhan) || (relatives.length > 0 ? 'Có' : 'Không')
+      normalizeRelativesChoice_(p.has_relatives || p.tinhTrangThanNhan) || (relatives.length > 0 ? 'Có' : 'Không'),
+      clean_(p.trangThai || p.status) || (oldIdentity ? 'Đã cập nhật' : 'Mới')
     ];
 
     if (oldIdentity) {
@@ -398,7 +400,7 @@ function rowToRecord_(row) {
     has_relatives: normalizeRelativesChoice_(row[30]) || (numberOr_(row[29], 0) > 0 ? 'Có' : 'Không'),
     tinhTrangThanNhan: normalizeRelativesChoice_(row[30]) || (numberOr_(row[29], 0) > 0 ? 'Có' : 'Không'),
     saved_at: clean_(row[0]),
-    status: 'Mới'
+    status: clean_(row[31]) || 'Mới'
   };
 }
 
@@ -417,6 +419,7 @@ function mainRowToFrontend_(row) {
 
     has_relatives: normalizeRelativesChoice_(row[30]) || (numberOr_(row[29], 0) > 0 ? 'Có' : 'Không'),
     tinhTrangThanNhan: normalizeRelativesChoice_(row[30]) || (numberOr_(row[29], 0) > 0 ? 'Có' : 'Không'),
+    trangThai: clean_(row[31]) || 'Mới',
 
     file_id: clean_(row[19]),
     ministry_file: clean_(row[17]),
