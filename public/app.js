@@ -375,6 +375,10 @@ function fill(d){
       if(k==='rep_id' || k==='soCCCD' || k==='rep_id_number'){
         val=normalizeRepId(val);
       }
+      if(e.type==='checkbox'){
+        e.checked = val===true || val==='true' || val==='Có' || val==='1' || val===1;
+        return;
+      }
       if(dateKeys.includes(k) || k.toLowerCase().includes('dob') || k.toLowerCase().includes('date') || k.toLowerCase().includes('ngay')){
         val = cleanDateDisplay(val);
       }
@@ -781,6 +785,7 @@ async function saveToSheets(){
   // Toàn bộ 33+ trường thông tin đẩy lên Google Sheets
   const payload={
     record_id: d.record_id,
+    form_type: d.form_type || 'mau02',
     maPhieu: d.file_id || d.record_id,
     file_id: d.file_id || '',
     ministry_file: d.ministry_file || '',
@@ -1108,9 +1113,8 @@ async function overlayBox(doc,page,x0,y0,x1,y1,text,opt={}){
 }
 
 async function generatePdf(){
-  if(!checkValidationAndReport('xuất PDF'))return;
-  if(localStorage.getItem('phieu_liet_si_saved')!=='1'){
-    alert('Vui lòng bấm "Lưu vào Google Sheets" để lưu dữ liệu vào hệ thống trước khi xuất PDF.');
+  if((($('form_type')?.value||'mau02')==='mau01')){
+    alert('Mẫu 01 đã được triển khai đầy đủ phần nhập liệu và xuất Word theo mẫu. Chức năng xuất PDF Mẫu 01 sẽ được bổ sung sau khi chốt bản Word.');
     return;
   }
   const d=collect();
