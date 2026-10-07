@@ -336,6 +336,23 @@ function formatM01Sheet_(sheet) {
   });
 }
 
+function setupM01() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = getOrCreateSheet_(ss, M1_SHEET_NAME, M1_HEADERS);
+
+  // Định dạng các cột mã số dưới dạng TEXT để giữ số 0 đầu.
+  [6, 12, 13, 26].forEach(function(col) {
+    sheet.getRange(2, col, Math.max(sheet.getMaxRows() - 1, 1), 1)
+      .setNumberFormat('@');
+  });
+
+  sheet.setFrozenRows(1);
+  sheet.getRange(1, 1, 1, M1_HEADERS.length).setWrap(true);
+  styleHeader_(sheet, M1_HEADERS.length);
+
+  return 'Đã khởi tạo trang M01 với ' + M1_HEADERS.length + ' cột.';
+}
+
 function parsePayload_(e) {
   if (e && e.postData && e.postData.contents) {
     try {
