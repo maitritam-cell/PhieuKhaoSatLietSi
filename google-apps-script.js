@@ -44,7 +44,8 @@ const MAIN_HEADERS = [
   'Quê quán NĐD',
   'Nơi thường trú NĐD',
   'Số điện thoại',
-  'Số thân nhân kê khai'
+  'Số thân nhân kê khai',
+  'Tình trạng thân nhân thuộc diện thu mẫu'
 ];
 
 const REL_HEADERS = [
@@ -120,7 +121,8 @@ function doPost(e) {
       clean_(p.rep_hometown || p.queQuanNDD),
       clean_(p.rep_address || p.noiThuongTruNDD),
       clean_(p.rep_phone || p.soDienThoai),
-      relatives.length
+      relatives.length,
+      normalizeRelativesChoice_(p.has_relatives || p.tinhTrangThanNhan) || (relatives.length > 0 ? 'Có' : 'Không')
     ];
 
     if (oldIdentity) {
@@ -259,15 +261,30 @@ function getOrCreateSheet_(ss, name, headers) {
     return sheet;
   }
 
-  const firstRow = sheet.getRange(1, 1, 1, headers.length).getDisplayValues()[0]
+  const existingCols = Math.max(sheet.getLastColumn(), 0);
+  const firstRow = sheet.getRange(1, 1, 1, Math.max(existingCols, headers.length)).getDisplayValues()[0]
     .map(function(v) { return clean_(v); });
-  const hasExpectedHeader = firstRow.length === headers.length &&
-    headers.every(function(h, i) { return firstRow[i] === h; });
 
-  if (!hasExpectedHeader) {
-    // Nếu hàng đầu tiên đã có nội dung, không ghi đè; đẩy hàng đó xuống.
-    sheet.insertRowBefore(1);
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  // Nếu các tiêu đề hiện tại là tiền tố của cấu trúc mới, chỉ bổ sung
+  // những cột còn thiếu ở bên phải, không chèn thêm một hàng tiêu đề mới.
+  const prefixMatches = existingCols > 0 &&
+    Math.min(existingCols, headers.length) > 0 &&
+    headers.slice(0, Math.min(existingCols, headers.length)).every(function(h, i) {
+      return firstRow[i] === h;
+    });
+
+  if (prefixMatches && existingCols < headers.length) {
+    sheet.getRange(1, existingCols + 1, 1, headers.length - existingCols)
+      .setValues([headers.slice(existingCols)]);
+  } else {
+    const hasExpectedHeader = existingCols === headers.length &&
+      headers.every(function(h, i) { return firstRow[i] === h; });
+
+    if (!hasExpectedHeader) {
+      // Chỉ chèn hàng mới khi cấu trúc tiêu đề thực sự không tương thích.
+      sheet.insertRowBefore(1);
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    }
   }
 
   styleHeader_(sheet, headers.length);
@@ -378,6 +395,8 @@ function rowToRecord_(row) {
     province_file: clean_(row[18]),
     rep_name: clean_(row[20]),
     rep_phone: clean_(row[28]),
+    has_relatives: normalizeRelativesChoice_(row[30]) || (numberOr_(row[29], 0) > 0 ? 'Có' : 'Không'),
+    tinhTrangThanNhan: normalizeRelativesChoice_(row[30]) || (numberOr_(row[29], 0) > 0 ? 'Có' : 'Không'),
     saved_at: clean_(row[0]),
     status: 'Mới'
   };
@@ -395,6 +414,9 @@ function mainRowToFrontend_(row) {
     rep_hometown: clean_(row[26]),
     rep_address: clean_(row[27]),
     rep_phone: clean_(row[28]),
+
+    has_relatives: normalizeRelativesChoice_(row[30]) || (numberOr_(row[29], 0) > 0 ? 'Có' : 'Không'),
+    tinhTrangThanNhan: normalizeRelativesChoice_(row[30]) || (numberOr_(row[29], 0) > 0 ? 'Có' : 'Không'),
 
     file_id: clean_(row[19]),
     ministry_file: clean_(row[17]),
@@ -420,6 +442,14 @@ function mainRowToFrontend_(row) {
     saved_at: clean_(row[0]),
     trangThai: 'Mới'
   };
+}
+
+function normalizeRelativesChoice_(value) {
+  const s = clean_(value).toLowerCase();
+  if (!s) return '';
+  if (s === 'có' || s === 'co' || s === 'c') return 'Có';
+  if (s === 'không' || s === 'khong' || s === 'k' || s === 'no') return 'Không';
+  return clean_(value);
 }
 
 function key_(a, b) {
