@@ -47,6 +47,18 @@ input.input-error,select.input-error{border-color:#dc2626!important;outline:2px 
 <h1>Ứng dụng lập Phiếu khảo sát liệt sĩ</h1>
 <div class="sub">Nhập thông tin → Lưu Google Sheets → Tra cứu & Sửa phiếu → Xuất Mẫu 02 (Word/PDF).</div>
 <div style="margin:0 0 14px;"><a href="/assignments.html" style="display:inline-flex;align-items:center;gap:7px;padding:9px 12px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">👥 Quản lý rà soát / Giao hồ sơ cho cán bộ</a></div>
+<div class="section" style="margin-top:12px;background:#f8fafc;border-color:#bfdbfe;">
+  <div class="grid">
+    <div class="full">
+      <label style="font-size:14px;">Loại phiếu khảo sát</label>
+      <select id="form_type">
+        <option value="mau02">Mẫu 02 - Liệt sĩ chưa xác định thông tin phần mộ</option>
+        <option value="mau01">Mẫu 01 - Liệt sĩ đã xác định thông tin phần mộ</option>
+      </select>
+      <div class="note">Mẫu 01 sử dụng đúng nhóm nội dung phần mộ theo mẫu anh đã cung cấp.</div>
+    </div>
+  </div>
+</div>
 <div style="margin:0 0 14px;display:none;gap:8px;flex-wrap:wrap;"><button type="button" class="btn btn-outline" onclick="openScriptConfigModal()" style="font-size:13px;">⚙️ Cài đặt Google Sheets</button><button type="button" class="btn btn-outline" onclick="openScriptConfigModal();setTimeout(testScriptConnection,150)" style="font-size:13px;">🔌 Kiểm tra kết nối</button></div>
 
 <!-- Banner thông báo khi đang trong chế độ chỉnh sửa phiếu -->
