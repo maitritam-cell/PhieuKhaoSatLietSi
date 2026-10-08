@@ -429,6 +429,21 @@ function cleanDateDisplay(val){
   return s;
 }
 
+function normalizeRepId(value){
+  const digits=String(value??'').replace(/\D/g,'');
+  // CCCD/ĐDCN hợp lệ của người đại diện là 12 số.
+  // Khi dữ liệu từ Google Sheets đã mất số 0 đầu, khôi phục đủ 12 số khi tải lại.
+  return digits.length===11 ? digits.padStart(12,'0') : digits.slice(0,12);
+}
+
+function normalizeRelativesChoice(value){
+  const s=String(value??'').trim().toLowerCase();
+  if(!s) return '';
+  if(s==='có' || s.startsWith('có ') || s.includes('có thân nhân')) return 'Có';
+  if(s==='không' || s.startsWith('không ') || s.includes('không có thân nhân')) return 'Không';
+  return '';
+}
+
 function fill(d){
   if(!d)return;
   currentRecordId=d.record_id||makeRecordId();
@@ -437,16 +452,41 @@ function fill(d){
   const targetType = (d.form_type === 'm01' || d.loaiPhieu === 'Mẫu 01') ? 'm01' : 'm02';
   switchFormType(targetType);
 
+  // Khôi phục chính xác lựa chọn "Có/Không thân nhân thuộc diện thu mẫu",
+  // kể cả dữ liệu được lưu bằng tên trường cũ.
+  const relativeChoice=normalizeRelativesChoice(
+    d.has_relatives ??
+    d.tinhTrangThanNhan ??
+    d['Tình trạng thân nhân'] ??
+    d['Tình trạng thân nhân thuộc diện thu mẫu'] ??
+    d['Thân nhân thuộc diện thu mẫu']
+  );
+
+  // Không để CCCD/ĐDCN bị mất số 0 đầu khi tải lại phiếu.
+  const normalizedData={...d};
+  if(normalizedData.rep_id==null || String(normalizedData.rep_id).trim()===''){
+    normalizedData.rep_id =
+      normalizedData.soCCCD ??
+      normalizedData['Số ĐDCN/CCCD/CMND'] ??
+      normalizedData['Số ĐDCN'] ??
+      '';
+  }
+  normalizedData.rep_id=normalizeRepId(normalizedData.rep_id);
+  if(!normalizedData.has_relatives) normalizedData.has_relatives=relativeChoice;
+
   const dateKeys = [
     'rep_dob', 'martyr_dob', 'martyr_death_date', 'decision_date',
     'ngayCapCCCD', 'ngayNhapNgu', 'ngayXuatNgu', 'ngayHySinh',
     'ngayBaoTu', 'ngayQuyTap', 'ngayLapPhieu'
   ];
 
-  Object.keys(d).forEach(k=>{
+  Object.keys(normalizedData).forEach(k=>{
     const e=$(k);
     if(e && k!=='relatives'){
-      let val = d[k] ?? '';
+      let val = normalizedData[k] ?? '';
+      if(k==='rep_id' || k==='soCCCD' || k==='rep_id_number'){
+        val=normalizeRepId(val);
+      }
       if(dateKeys.includes(k) || k.toLowerCase().includes('dob') || k.toLowerCase().includes('date') || k.toLowerCase().includes('ngay')){
         val = cleanDateDisplay(val);
       }
@@ -455,10 +495,10 @@ function fill(d){
   });
 
   if(targetType === 'm02'){
-    if(d.has_relatives === 'Có' || (Array.isArray(d.relatives) && d.relatives.some(r => r && (r.name || r.id)))){
-      relativesList = (d.relatives || []).filter(r => r && (r.name || r.id || r.relationship)).map(r => ({
+    if(relativeChoice==='Có' || (Array.isArray(normalizedData.relatives) && normalizedData.relatives.some(r => r && (r.name || r.id)))){
+      relativesList = (normalizedData.relatives || []).filter(r => r && (r.name || r.id || r.relationship)).map(r => ({
         relationship: r.relationship || 'Mẹ đẻ liệt sĩ',
-        id: r.id || '',
+        id: normalizeRepId(r.id || ''),
         name: r.name || '',
         dob: cleanDateDisplay(r.dob || ''),
         gender: r.gender || '',
@@ -469,18 +509,20 @@ function fill(d){
         signature: r.signature || ''
       }));
       setRelativesChoice('Có');
+    } else if(relativeChoice==='Không'){
+      relativesList = [];
+      setRelativesChoice('Không');
     } else {
       relativesList = [];
-      setRelativesChoice(d.has_relatives === 'Không' ? 'Không' : '');
+      setRelativesChoice('');
     }
     renderRelativesUI();
   }
 
-  // Hiển thị banner chỉnh sửa
   const banner=$('editingBanner');
   const txt=$('editingText');
   if(banner&&txt){
-    txt.textContent=(d.loaiPhieu || (targetType==='m01'?'Mẫu 01':'Mẫu 02'))+' – '+(d.record_id||'Phiếu')+' – Liệt sĩ: '+(d.martyr_name||'Chưa có tên');
+    txt.textContent=(normalizedData.loaiPhieu || (targetType==='m01'?'Mẫu 01':'Mẫu 02'))+' – '+(normalizedData.record_id||'Phiếu')+' – Liệt sĩ: '+(normalizedData.martyr_name||'Chưa có tên');
     banner.style.display='flex';
   }
 }
