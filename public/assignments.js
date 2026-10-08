@@ -184,6 +184,16 @@ async function loadRecords(){
   if(!res.ok||!Array.isArray(data.records))throw new Error(data.error||'Không đọc được danh sách hồ sơ');
   records=data.records;
 
+  const m01Count=records.filter(r=>normalizeFormType(r)==='m01').length;
+  const m02Count=records.length-m01Count;
+  if(m01Count===0){
+    msg(
+      'Chưa nhận được dữ liệu Mẫu 01 từ Google Sheets. Apps Script Web App đang trả về '+m02Count+
+      ' hồ sơ Mẫu 02 và 0 hồ sơ Mẫu 01. Hãy triển khai lại phiên bản Google Apps Script có hàm đọc sheet "M01".',
+      'error'
+    );
+  }
+
   renderRecordSelect();
   await loadBulkOptions();
  }catch(e){
