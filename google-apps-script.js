@@ -277,6 +277,21 @@ function doGet(e) {
   }
 }
 
+function parseM01Position_(value) {
+  const s = clean_(value);
+  const out = {area:'', plot:'', row:'', number:''};
+  if (!s) return out;
+  const pick = function(pattern) {
+    const m = s.match(pattern);
+    return m ? clean_(m[1]) : '';
+  };
+  out.area = pick(/(?:khu)\s*[:\-]?\s*([^,;|]+)/i);
+  out.plot = pick(/(?:lô|lo)\s*[:\-]?\s*([^,;|]+)/i);
+  out.row = pick(/(?:hàng|hang)\s*[:\-]?\s*([^,;|]+)/i);
+  out.number = pick(/(?:số\s*mộ|so\s*mo)\s*[:\-]?\s*([^,;|]+)/i);
+  return out;
+}
+
 function saveM01_(p) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = getOrCreateSheet_(ss, M1_SHEET_NAME, M1_HEADERS);
@@ -287,6 +302,8 @@ function saveM01_(p) {
   const fileId = clean_(p.file_id || p.maSoHoSoLS);
   const existing = findM01Row_(sheet, recordId, fileId, martyrName);
 
+  const position = clean_(p.grave_position || p.viTriMo);
+  const posParts = parseM01Position_(position);
   const row = [
     savedAt, recordId,
     clean_(p.rep_name || p.hoTenNguoiDaiDien), clean_(p.rep_dob || p.ngaySinhNDD),
@@ -311,10 +328,7 @@ function saveM01_(p) {
     clean_(p.exhumation_place || p.diaDiemQuyTapAnTang),
     clean_(p.exhumation_unit || p.donViQuyTapAnTang),
     clean_(p.cemetery_burial_date || p.thoiGianDuaVaoAnTang),
-    clean_(p.grave_area || p.area_number || p.khuMo),
-    clean_(p.grave_plot || p.plot_number || p.loMo),
-    clean_(p.grave_row || p.row_number || p.hangMo),
-    clean_(p.grave_number || p.soMo),
+    posParts.area, posParts.plot, posParts.row, posParts.number,
     clean_(p.grave_stele_info || p.thongTinBiaMo),
     clean_(p.grave_remains_status || p.tinhTrangHaiCotQuyTap),
     clean_(p.grave_notes || p.ghiChuPhanMoDiVat),
