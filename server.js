@@ -634,12 +634,16 @@ app.get('/api/admin-records', async (req, res) => {
   if (!staff) return;
 
   const q = (req.query.q || '').trim().toLowerCase();
-  const appsScriptUrl = (req.query.appsScriptUrl || '').trim();
+  const appsScriptUrl = (req.query.appsScriptUrl || '').trim() || DEFAULT_APPS_SCRIPT_URL;
+
+  // Hợp nhất cả Mẫu 02 (Supabase) và Mẫu 01 (Google Sheets M01).
+  // Trước đây endpoint trả về ngay sau khi đọc m02_records nên M01 không bao giờ xuất hiện.
+  const merged = new Map();
 
   if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
       let queryUrl = process.env.SUPABASE_URL.replace(/\/+$/, '') +
-        '/rest/v1/m02_records?select=*&order=updated_at.desc&limit=100';
+        '/rest/v1/m02_records?select=*&order=updated_at.desc&limit=500';
       if (q) {
         queryUrl += '&or=(martyr_name.ilike.*' + encodeURIComponent(q) +
           '*,record_id.ilike.*' + encodeURIComponent(q) +
@@ -653,23 +657,83 @@ app.get('/api/admin-records', async (req, res) => {
         }
       });
       if (dbRes.ok) {
-        return res.json({ ok: true, source: 'supabase', records: await dbRes.json() });
+        const dbRecords = await dbRes.json();
+        for (const r of (dbRecords || [])) {
+          const key = String(r.record_id || r.file_id || r.martyr_name || '').trim();
+          if (!key) continue;
+          merged.set(key, {
+            ...r,
+            form_type: r.form_type || 'm02',
+            loaiPhieu: r.loaiPhieu || 'Mẫu 02'
+          });
+        }
       }
     } catch (e) {
-      console.warn('Admin Supabase query error, fallback to sheets:', e.message);
+      console.warn('Admin Supabase query error, continue with Sheets:', e.message);
     }
   }
 
   if (appsScriptUrl && appsScriptUrl.startsWith('https://script.google.com/')) {
     try {
       const gRes = await fetch(appsScriptUrl + '?action=list&q=' + encodeURIComponent(q), { redirect: 'follow' });
-      if (gRes.ok) return res.json(await gRes.json());
+      if (gRes.ok) {
+        const gData = await gRes.json();
+        const sheetRecords = Array.isArray(gData.records) ? gData.records : [];
+        for (const r of sheetRecords) {
+          const key = String(r.record_id || r.file_id || r.martyr_name || '').trim();
+          if (!key) continue;
+
+          const previous = merged.get(key) || {};
+          const previousData = previous.data && typeof previous.data === 'object' ? previous.data : {};
+          const currentData = r.data && typeof r.data === 'object' ? r.data : {};
+
+          const isM01 = r.form_type === 'm01' ||
+            r.loaiPhieu === 'Mẫu 01' ||
+            currentData.form_type === 'm01' ||
+            currentData.loaiPhieu === 'Mẫu 01';
+
+          merged.set(key, {
+            ...previous,
+            ...r,
+            form_type: isM01 ? 'm01' : (r.form_type || previous.form_type || 'm02'),
+            loaiPhieu: isM01 ? 'Mẫu 01' : (r.loaiPhieu || previous.loaiPhieu || 'Mẫu 02'),
+            data: { ...previousData, ...currentData }
+          });
+        }
+      } else {
+        console.warn('Admin Apps Script returned HTTP ' + gRes.status);
+      }
     } catch (e) {
       console.warn('Admin Apps Script query error:', e.message);
     }
   }
 
-  return res.json({ ok: true, records: [] });
+  let records = Array.from(merged.values());
+
+  // Chuẩn hóa các trường chính để giao hồ sơ và phân loại theo nơi thường trú hoạt động
+  // cho cả Mẫu 01 lẫn Mẫu 02.
+  records = records.map(r => {
+    const d = r.data && typeof r.data === 'object' ? r.data : {};
+    const isM01 = r.form_type === 'm01' || r.loaiPhieu === 'Mẫu 01' || d.form_type === 'm01' || d.loaiPhieu === 'Mẫu 01';
+    return {
+      ...r,
+      form_type: isM01 ? 'm01' : 'm02',
+      loaiPhieu: isM01 ? 'Mẫu 01' : 'Mẫu 02',
+      record_id: r.record_id || d.record_id || r.file_id || d.file_id || '',
+      martyr_name: r.martyr_name || d.martyr_name || d['Họ tên liệt sĩ'] || '',
+      file_id: r.file_id || d.file_id || d['Mã số hồ sơ liệt sĩ'] || '',
+      rep_name: r.rep_name || d.rep_name || d['Họ tên người đại diện'] || '',
+      rep_phone: r.rep_phone || d.rep_phone || d['Số điện thoại NĐD'] || '',
+      rep_address: r.rep_address || d.rep_address || d.noiThuongTruNDD || d['Nơi thường trú NĐD'] || '',
+      data: d
+    };
+  });
+
+  return res.json({
+    ok: true,
+    total: records.length,
+    records
+  });
 });
 
 // Admin endpoints to view and manage to_dan_pho
