@@ -901,13 +901,14 @@ async function saveToSheets(){
     const result=await proxyRes.json().catch(()=>({}));
 
     if(proxyRes.ok && result.ok){
-      markSaved();
+      const isM01 = d.form_type === 'm01' || d.loaiPhieu === 'Mẫu 01';
+      const targetSheetDesc = isM01 ? 'trang tính "M01"' : 'Google Sheets';
       const msg = isEditingExisting
-        ? `Đã cập nhật thành công thông tin phiếu "${d.record_id}" của liệt sĩ "${d.martyr_name}" trên Google Sheets!`
-        : `Đã lưu thành công thông tin liệt sĩ "${d.martyr_name}" vào Google Sheets!`;
+        ? `Đã cập nhật thành công thông tin phiếu "${d.record_id}" của liệt sĩ "${d.martyr_name}" vào ${targetSheetDesc}!`
+        : `Đã lưu thành công thông tin liệt sĩ "${d.martyr_name}" vào ${targetSheetDesc}!`;
       setStatus(msg);
       showNotification('success','Lưu thành công!',msg);
-      alert(msg+'\n\nNút Xuất Word và Xuất PDF đúng Mẫu 02 đã sẵn sàng.');
+      alert(msg + (isM01 ? '\n\nĐã sẵn sàng xuất Word Mẫu 01.' : '\n\nNút Xuất Word và Xuất PDF đúng Mẫu 02 đã sẵn sàng.'));
       return;
     }
 

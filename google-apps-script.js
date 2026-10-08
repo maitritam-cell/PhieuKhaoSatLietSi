@@ -14,6 +14,14 @@ const MAIN_SHEET_NAME = 'Thông tin khảo sát';
 const REL_SHEET_NAME = 'Thân nhân họ ngoại';
 const TZ = 'Asia/Ho_Chi_Minh';
 
+function getSpreadsheet_() {
+  try {
+    const active = SpreadsheetApp.getActiveSpreadsheet();
+    if (active) return active;
+  } catch (err) {}
+  return SpreadsheetApp.openById(SPREADSHEET_ID);
+}
+
 const MAIN_HEADERS = [
   'Thời gian lưu',
   'Họ tên liệt sĩ',
@@ -124,13 +132,13 @@ function doPost(e) {
   try {
     const p = parsePayload_(e);
 
-    // Mẫu 01 được lưu ở sheet riêng, không trộn với Mẫu 02.
-    const formType = clean_(p.form_type || p.mauPhieu || p.loaiMau || p.template || '').toLowerCase();
+    // Mẫu 01 được lưu ở sheet riêng 'M01', không trộn với Mẫu 02.
+    const formType = clean_(p.form_type || p.loaiPhieu || p.mauPhieu || p.loaiMau || p.template || '').toLowerCase();
     const isM01 = formType === 'm01' || formType === 'mẫu 01' || formType === 'mau 01' || formType === '1' ||
-      formType.indexOf('mẫu 01') >= 0 || formType.indexOf('mau 01') >= 0;
+      formType.indexOf('m01') >= 0 || formType.indexOf('mẫu 01') >= 0 || formType.indexOf('mau 01') >= 0;
     if (isM01) return saveM01_(p);
 
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const ss = getSpreadsheet_();
     const main = getOrCreateSheet_(ss, MAIN_SHEET_NAME, MAIN_HEADERS);
     const rel = getOrCreateSheet_(ss, REL_SHEET_NAME, REL_HEADERS);
 
@@ -229,7 +237,7 @@ function doPost(e) {
 
 function doGet(e) {
   try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const ss = getSpreadsheet_();
     const m1 = getOrCreateSheet_(ss, M1_SHEET_NAME, M1_HEADERS);
     const main = getOrCreateSheet_(ss, MAIN_SHEET_NAME, MAIN_HEADERS);
     const rel = getOrCreateSheet_(ss, REL_SHEET_NAME, REL_HEADERS);
@@ -309,7 +317,7 @@ function doGet(e) {
 }
 
 function saveM01_(p) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ss = getSpreadsheet_();
   const sheet = getOrCreateSheet_(ss, M1_SHEET_NAME, M1_HEADERS);
   const savedAt = formatNow_();
 
@@ -409,7 +417,7 @@ function formatM01Sheet_(sheet) {
 }
 
 function setupM01() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ss = getSpreadsheet_();
   const sheet = getOrCreateSheet_(ss, M1_SHEET_NAME, M1_HEADERS);
 
   // Định dạng các cột mã số dưới dạng TEXT để giữ số 0 đầu.
