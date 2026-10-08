@@ -72,57 +72,33 @@ function replaceFirst(doc, p, label, value) {
 
 
 function applyConfirmationBlock(doc, body) {
-  const keywords = [
-    'Xác nhận của UBND phường',
-    'Xác nhận của Công an phường',
-    'Xác nhận của Sở Nội vụ'
-  ];
-
-  // Xóa các đoạn xác nhận cũ trong mẫu nếu đã có, tránh bị lặp.
-  const allParagraphs = [];
-  const bodyParagraphs = body.getElementsByTagName('w:p');
-  for (let i = 0; i < bodyParagraphs.length; i++) {
-    const p = bodyParagraphs[i];
-    const text = Array.from(p.getElementsByTagName('w:t'))
-      .map(t => t.textContent || '').join('').replace(/\\s+/g, ' ').trim();
-    if (keywords.some(k => text.includes(k))) {
-      allParagraphs.push(p);
-    }
-  }
-  allParagraphs.forEach(p => {
-    if (p.parentNode) p.parentNode.removeChild(p);
-  });
-
   const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 
-  function addParagraph(text, opts = {}) {
+  function makeParagraph(text, opts = {}) {
     const p = doc.createElementNS(W, 'w:p');
-
     const pPr = doc.createElementNS(W, 'w:pPr');
+
     const jc = doc.createElementNS(W, 'w:jc');
     jc.setAttribute('w:val', opts.align || 'center');
     pPr.appendChild(jc);
 
     const spacing = doc.createElementNS(W, 'w:spacing');
     spacing.setAttribute('w:before', '0');
-    spacing.setAttribute('w:after', String(opts.after ?? 80));
+    spacing.setAttribute('w:after', String(opts.after ?? 40));
     pPr.appendChild(spacing);
     p.appendChild(pPr);
 
     const r = doc.createElementNS(W, 'w:r');
     const rPr = doc.createElementNS(W, 'w:rPr');
+
     const fonts = doc.createElementNS(W, 'w:rFonts');
     fonts.setAttribute('w:ascii', 'Times New Roman');
     fonts.setAttribute('w:hAnsi', 'Times New Roman');
     fonts.setAttribute('w:cs', 'Times New Roman');
     rPr.appendChild(fonts);
 
-    if (opts.bold) {
-      rPr.appendChild(doc.createElementNS(W, 'w:b'));
-    }
-    if (opts.italic) {
-      rPr.appendChild(doc.createElementNS(W, 'w:i'));
-    }
+    if (opts.bold) rPr.appendChild(doc.createElementNS(W, 'w:b'));
+    if (opts.italic) rPr.appendChild(doc.createElementNS(W, 'w:i'));
 
     const t = doc.createElementNS(W, 'w:t');
     t.setAttribute('xml:space', 'preserve');
@@ -130,38 +106,116 @@ function applyConfirmationBlock(doc, body) {
     r.appendChild(rPr);
     r.appendChild(t);
     p.appendChild(r);
-
-    body.insertBefore(p, body.lastChild);
+    return p;
   }
 
-  function addBlock(lines) {
-    lines.forEach(line => addParagraph(line.text, line));
-    addParagraph('', { after: 100 });
+  function replaceCell(cell, lines) {
+    // Giữ nguyên tcPr để bảo toàn kích thước, đường viền và vị trí của ô trong mẫu.
+    const children = [];
+    for (let i = 0; i < cell.childNodes.length; i++) {
+      const child = cell.childNodes[i];
+      if (child.nodeName !== 'w:tcPr') children.push(child);
+    }
+    children.forEach(child => cell.removeChild(child));
+
+    for (const line of lines) {
+      cell.appendChild(makeParagraph(line.text, line));
+    }
   }
 
-  addBlock([
-    { text: 'Phan Rang, ngày …… tháng 9 năm 2026', italic: true },
-    { text: 'Xác nhận của UBND phường', bold: false },
-    { text: 'về nội dung khai trên bản khai là đúng' },
-    { text: 'CHỦ TỊCH', bold: true, after: 240 },
-    { text: 'Lê Hoài Nam', bold: true, after: 240 }
-  ]);
+  const blocks = [
+    {
+      keyword: 'Xác nhận của UBND phường',
+      lines: [
+        { text: 'Phan Rang, ngày …… tháng 9 năm 2026', italic: true },
+        { text: 'Xác nhận của UBND phường' },
+        { text: 'về nội dung khai trên bản khai là đúng' },
+        { text: 'CHỦ TỊCH', bold: true, after: 80 },
+        { text: 'Lê Hoài Nam', bold: true, after: 40 }
+      ]
+    },
+    {
+      keyword: 'Xác nhận của Công an phường',
+      lines: [
+        { text: 'Phan Rang, ngày …… tháng 8 năm 2026', italic: true },
+        { text: 'Xác nhận của Công an phường' },
+        { text: 'về nội dung thông tin dữ liệu dân cư của các cá nhân trên bản khai là đúng.' },
+        { text: 'KT. TRƯỞNG CÔNG AN PHƯỜNG', bold: true, after: 40 },
+        { text: 'PHÓ TRƯỞNG CÔNG AN PHƯỜNG', bold: true, after: 80 },
+        { text: 'Trung tá Trương Thành Trung', bold: true, after: 40 }
+      ]
+    },
+    {
+      keyword: 'Xác nhận của Sở Nội vụ',
+      lines: [
+        { text: 'Khánh Hòa, ngày …… tháng …… năm 2026', italic: true },
+        { text: 'Xác nhận của Sở Nội vụ' },
+        { text: 'nội dung khai trên bản khai là đúng.' },
+        { text: 'GIÁM ĐỐC', bold: true, after: 40 }
+      ]
+    }
+  ];
 
-  addBlock([
-    { text: 'Phan Rang, ngày …… tháng 8 năm 2026', italic: true },
-    { text: 'Xác nhận của Công an phường' },
-    { text: 'về nội dung thông tin dữ liệu dân cư của các cá nhân trên bản khai là đúng.' },
-    { text: 'KT. TRƯỞNG CÔNG AN PHƯỜNG', bold: true },
-    { text: 'PHÓ TRƯỞNG CÔNG AN PHƯỜNG', bold: true, after: 240 },
-    { text: 'Trung tá Trương Thành Trung', bold: true, after: 240 }
-  ]);
+  // Quan trọng: thay trực tiếp NỘI DUNG TRONG Ô đang có của mẫu,
+  // không xóa ô rồi chèn xuống cuối tài liệu. Nhờ vậy bố cục 2 ô phía trên
+  // và ô Sở Nội vụ ở giữa phía dưới được giữ nguyên như mẫu gốc.
+  const cells = body.getElementsByTagName('w:tc');
+  const used = new Set();
 
-  addBlock([
-    { text: 'Khánh Hòa, ngày …… tháng …… năm 2026', italic: true },
-    { text: 'Xác nhận của Sở Nội vụ' },
-    { text: 'nội dung khai trên bản khai là đúng.' },
-    { text: 'GIÁM ĐỐC', bold: true, after: 240 }
-  ]);
+  for (const block of blocks) {
+    for (let i = 0; i < cells.length; i++) {
+      if (used.has(i)) continue;
+      const cell = cells[i];
+      const text = Array.from(cell.getElementsByTagName('w:t'))
+        .map(t => t.textContent || '')
+        .join('')
+        .replace(/\\s+/g, ' ')
+        .trim();
+
+      if (text.includes(block.keyword)) {
+        replaceCell(cell, block.lines);
+        used.add(i);
+        break;
+      }
+    }
+  }
+
+  // Fallback cho mẫu cũ không đặt khu vực xác nhận trong bảng:
+  // thay ngay tại các paragraph chứa tiêu đề, thay vì append ở cuối.
+  const remaining = blocks.filter((_, idx) => !Array.from(used).some(i => i === idx));
+  if (remaining.length) {
+    const paragraphs = body.getElementsByTagName('w:p');
+    for (const block of remaining) {
+      for (let i = 0; i < paragraphs.length; i++) {
+        const p = paragraphs[i];
+        const text = Array.from(p.getElementsByTagName('w:t'))
+          .map(t => t.textContent || '')
+          .join('')
+          .replace(/\\s+/g, ' ')
+          .trim();
+        if (!text.includes(block.keyword)) continue;
+
+        const parent = p.parentNode;
+        if (!parent) continue;
+
+        const old = [];
+        for (let j = 0; j < parent.childNodes.length; j++) {
+          const node = parent.childNodes[j];
+          if (node.nodeName === 'w:p') old.push(node);
+        }
+        const startIndex = old.indexOf(p);
+        old.slice(startIndex, Math.min(startIndex + block.lines.length, old.length))
+          .forEach(node => parent.removeChild(node));
+
+        let anchor = p;
+        for (const line of block.lines) {
+          const np = makeParagraph(line.text, line);
+          parent.insertBefore(np, anchor);
+        }
+        break;
+      }
+    }
+  }
 }
 
 // Helper to set cell text in a table row
