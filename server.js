@@ -335,7 +335,7 @@ app.post('/api/generate', async (req, res) => {
   }
 });
 
-const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwXHveyxf6Z1Hi-P-Ex9RtELyGszNRGhHsGMv6vVEsb43HcFyg3sbTa2XKvtJfkiT0orw/exec';
+const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxDJfEZo5tYBS4emSeQfAL8XbS8OSE4a26P8FEUnVRd9af4LKhFZlhI1a4gyyygcAE/exec';
 const DEFAULT_SUPABASE_URL = 'https://zyvckivbwwlhmpkbonze.supabase.co';
 const DEFAULT_SUPABASE_KEY = 'sb_publishable_1ojllrmwxQSMPZWtO6VBqw_5oygalyC';
 
