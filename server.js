@@ -70,6 +70,100 @@ function replaceFirst(doc, p, label, value) {
   return true;
 }
 
+
+function applyConfirmationBlock(doc, body) {
+  const keywords = [
+    'Xác nhận của UBND phường',
+    'Xác nhận của Công an phường',
+    'Xác nhận của Sở Nội vụ'
+  ];
+
+  // Xóa các đoạn xác nhận cũ trong mẫu nếu đã có, tránh bị lặp.
+  const allParagraphs = [];
+  const bodyParagraphs = body.getElementsByTagName('w:p');
+  for (let i = 0; i < bodyParagraphs.length; i++) {
+    const p = bodyParagraphs[i];
+    const text = Array.from(p.getElementsByTagName('w:t'))
+      .map(t => t.textContent || '').join('').replace(/\\s+/g, ' ').trim();
+    if (keywords.some(k => text.includes(k))) {
+      allParagraphs.push(p);
+    }
+  }
+  allParagraphs.forEach(p => {
+    if (p.parentNode) p.parentNode.removeChild(p);
+  });
+
+  const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+
+  function addParagraph(text, opts = {}) {
+    const p = doc.createElementNS(W, 'w:p');
+
+    const pPr = doc.createElementNS(W, 'w:pPr');
+    const jc = doc.createElementNS(W, 'w:jc');
+    jc.setAttribute('w:val', opts.align || 'center');
+    pPr.appendChild(jc);
+
+    const spacing = doc.createElementNS(W, 'w:spacing');
+    spacing.setAttribute('w:before', '0');
+    spacing.setAttribute('w:after', String(opts.after ?? 80));
+    pPr.appendChild(spacing);
+    p.appendChild(pPr);
+
+    const r = doc.createElementNS(W, 'w:r');
+    const rPr = doc.createElementNS(W, 'w:rPr');
+    const fonts = doc.createElementNS(W, 'w:rFonts');
+    fonts.setAttribute('w:ascii', 'Times New Roman');
+    fonts.setAttribute('w:hAnsi', 'Times New Roman');
+    fonts.setAttribute('w:cs', 'Times New Roman');
+    rPr.appendChild(fonts);
+
+    if (opts.bold) {
+      rPr.appendChild(doc.createElementNS(W, 'w:b'));
+    }
+    if (opts.italic) {
+      rPr.appendChild(doc.createElementNS(W, 'w:i'));
+    }
+
+    const t = doc.createElementNS(W, 'w:t');
+    t.setAttribute('xml:space', 'preserve');
+    t.textContent = text;
+    r.appendChild(rPr);
+    r.appendChild(t);
+    p.appendChild(r);
+
+    body.insertBefore(p, body.lastChild);
+  }
+
+  function addBlock(lines) {
+    lines.forEach(line => addParagraph(line.text, line));
+    addParagraph('', { after: 100 });
+  }
+
+  addBlock([
+    { text: 'Phan Rang, ngày …… tháng 9 năm 2026', italic: true },
+    { text: 'Xác nhận của UBND phường', bold: false },
+    { text: 'về nội dung khai trên bản khai là đúng' },
+    { text: 'CHỦ TỊCH', bold: true, after: 240 },
+    { text: 'Lê Hoài Nam', bold: true, after: 240 }
+  ]);
+
+  addBlock([
+    { text: 'Phan Rang, ngày …… tháng 8 năm 2026', italic: true },
+    { text: 'Xác nhận của Công an phường' },
+    { text: 'về nội dung thông tin dữ liệu dân cư của các cá nhân trên bản khai là đúng.' },
+    { text: 'KT. TRƯỞNG CÔNG AN PHƯỜNG', bold: true },
+    { text: 'PHÓ TRƯỞNG CÔNG AN PHƯỜNG', bold: true, after: 240 },
+    { text: 'Trung tá Trương Thành Trung', bold: true, after: 240 }
+  ]);
+
+  addBlock([
+    { text: 'Khánh Hòa, ngày …… tháng …… năm 2026', italic: true },
+    { text: 'Xác nhận của Sở Nội vụ' },
+    { text: 'nội dung khai trên bản khai là đúng.' },
+    { text: 'GIÁM ĐỐC', bold: true, after: 240 }
+  ]);
+}
+
 // Helper to set cell text in a table row
 function setCellText(doc, cell, val) {
   const strVal = String(val ?? '');
@@ -196,6 +290,8 @@ async function fillDocument(data) {
     }
   }
 
+  applyConfirmationBlock(doc, body);
+
   const serializer = new XMLSerializer();
   const newXml = serializer.serializeToString(doc);
   zip.file('word/document.xml', newXml);
@@ -303,6 +399,8 @@ async function fillDocumentM01(data) {
   if (paragraphs[33]) {
     formatLine(paragraphs[33], `Vị trí mộ trong nghĩa trang liệt sĩ: ${gravePos || 'Số mộ...., hàng......., lô...., khu .......................................'}`);
   }
+
+  applyConfirmationBlock(doc, body);
 
   const serializer = new XMLSerializer();
   const newXml = serializer.serializeToString(doc);
