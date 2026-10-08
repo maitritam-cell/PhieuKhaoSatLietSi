@@ -132,7 +132,8 @@ function applyConfirmationBlock(doc, body) {
         { text: 'Phan Rang, ngày …… tháng 9 năm 2026', italic: true },
         { text: 'Xác nhận của UBND phường' },
         { text: 'về nội dung khai trên bản khai là đúng' },
-        { text: 'CHỦ TỊCH', bold: true, after: 80 },
+        // Chừa khoảng trống chữ ký giữa chức vụ và họ tên, đủ để ký tay.
+        { text: 'CHỦ TỊCH', bold: true, after: 720 },
         { text: 'Lê Hoài Nam', bold: true, after: 40 }
       ]
     },
@@ -144,7 +145,8 @@ function applyConfirmationBlock(doc, body) {
         { text: 'Xác nhận của Công an phường' },
         { text: 'về nội dung thông tin dữ liệu dân cư của các cá nhân trên bản khai là đúng.' },
         { text: 'KT. TRƯỞNG CÔNG AN PHƯỜNG', bold: true, after: 40 },
-        { text: 'PHÓ TRƯỞNG CÔNG AN PHƯỜNG', bold: true, after: 80 },
+        // Chức danh nằm trên chữ ký; chừa khoảng trống rộng để ký tay.
+        { text: 'PHÓ TRƯỞNG CÔNG AN PHƯỜNG', bold: true, after: 720 },
         { text: 'Trung tá Trương Thành Trung', bold: true, after: 40 }
       ]
     },
@@ -154,7 +156,8 @@ function applyConfirmationBlock(doc, body) {
         { text: 'Khánh Hòa, ngày …… tháng …… năm 2026', italic: true },
         { text: 'Xác nhận của Sở Nội vụ' },
         { text: 'nội dung khai trên bản khai là đúng.' },
-        { text: 'GIÁM ĐỐC', bold: true, after: 40 }
+        // Chừa khoảng trống ký tay trước khi ghi họ tên/chức danh.
+        { text: 'GIÁM ĐỐC', bold: true, after: 720 }
       ]
     }
   ];
