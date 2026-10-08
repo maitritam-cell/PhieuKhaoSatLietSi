@@ -253,6 +253,7 @@ function switchFormType(type){
   const subTitle = $('formSubTitle');
   const m01Extra = $('m01_rep_extra');
   const secGrave = $('section-m01-grave');
+  const secConfirm = $('section-m01-confirm');
   const secRel = $('section-m02-relatives');
   const btnWord = $('btnWord');
   const btnPdf = $('btnPdf');
@@ -277,6 +278,7 @@ function switchFormType(type){
     if(subTitle) subTitle.textContent = '(Theo kế hoạch rà soát của Bộ Công an - Bộ Lao động, Thương binh và Xã hội)';
     if(m01Extra) m01Extra.style.display = 'block';
     if(secGrave) secGrave.style.display = 'block';
+    if(secConfirm) secConfirm.style.display = 'block';
     if(secRel) secRel.style.display = 'none';
     if(btnWord) btnWord.textContent = 'Xuất Word Mẫu 01';
     if(btnPdf) btnPdf.style.display = 'none';
@@ -300,6 +302,7 @@ function switchFormType(type){
     if(subTitle) subTitle.textContent = '(Phục vụ thu nhận mẫu ADN xác định danh tính hài cốt liệt sĩ)';
     if(m01Extra) m01Extra.style.display = 'none';
     if(secGrave) secGrave.style.display = 'none';
+    if(secConfirm) secConfirm.style.display = 'none';
     if(secRel) secRel.style.display = 'block';
     if(btnWord) btnWord.textContent = 'Xuất Word Mẫu 02';
     if(btnPdf) btnPdf.style.display = 'inline-flex';
