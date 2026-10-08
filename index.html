@@ -134,30 +134,91 @@ input.input-error,select.input-error{border-color:#dc2626!important;outline:2px 
 <div><label>Con ông</label><input id="father"></div><div><label>Con bà</label><input id="mother"></div><div><label>Vợ</label><input id="wife"></div>
 </div></div>
 
-<div class="section" id="section-m01-grave" style="display:none;"><h2>3. Thông tin phần mộ liệt sĩ đã xác định</h2><div class="grid">
-<div class="full"><label>Hình thức an táng / Tình trạng mộ</label><select id="grave_burial_type"><option value="">-- Chọn --</option><option>Mộ có hài cốt liệt sĩ</option><option>Mộ không có hài cốt liệt sĩ</option></select></div>
-<div class="full"><label>Tên nghĩa trang liệt sĩ / Nơi an táng</label><input id="grave_cemetery_name"></div>
-<div><label>Loại nghĩa trang</label><select id="cemetery_type"><option value="">-- Chọn --</option><option>Nghĩa trang liệt sĩ</option><option>Ngoài nghĩa trang liệt sĩ</option></select></div>
-<div class="full"><label>Địa chỉ nghĩa trang chi tiết</label><input id="cemetery_address"></div>
-<div class="full"><label>Địa điểm quy tập / an táng trước khi tiếp nhận</label><input id="exhumation_place"></div>
-<div class="full"><label>Đơn vị quy tập / an táng trước khi tiếp nhận</label><input id="exhumation_unit"></div>
-<div><label>Thời gian đưa vào an táng tại nghĩa trang</label><input id="cemetery_burial_date" placeholder="dd/mm/yyyy"></div>
-<div><label>Khu</label><input id="grave_area"></div><div><label>Lô</label><input id="grave_plot"></div>
-<div><label>Hàng</label><input id="grave_row"></div><div><label>Số mộ</label><input id="grave_number"></div>
-<div class="full"><label>Thông tin ghi trên bia mộ &amp; Nội dung cụ thể</label><textarea id="grave_stele_info" style="width:100%;min-height:76px;padding:10px 11px;border:1px solid #cfd5dd;border-radius:8px;font:inherit;"></textarea></div>
-<div class="full"><label>Tình trạng hài cốt trong mộ &amp; Quy tập</label><textarea id="grave_remains_status" style="width:100%;min-height:76px;padding:10px 11px;border:1px solid #cfd5dd;border-radius:8px;font:inherit;"></textarea></div>
-<div class="full"><label>Ghi chú về phần mộ / Di vật kèm theo</label><textarea id="grave_notes" style="width:100%;min-height:76px;padding:10px 11px;border:1px solid #cfd5dd;border-radius:8px;font:inherit;"></textarea></div>
-</div></div>
+<div class="section" id="section-m01-grave" style="display:none;">
+  <h2>3. Thông tin phần mộ liệt sĩ đã xác định</h2>
+  <div class="grid">
+    <div class="full">
+      <label>Hình thức an táng / Tình trạng mộ</label>
+      <select id="grave_burial_type">
+        <option value="">-- Chọn --</option>
+        <option>Mộ có hài cốt liệt sĩ</option>
+        <option>Mộ không có hài cốt liệt sĩ</option>
+      </select>
+    </div>
+    <div class="full">
+      <label>Tên nghĩa trang liệt sĩ / Nơi an táng</label>
+      <input id="grave_cemetery_name">
+    </div>
+    <div>
+      <label>Loại nghĩa trang</label>
+      <select id="cemetery_type">
+        <option value="">-- Chọn --</option>
+        <option>Nghĩa trang liệt sĩ</option>
+        <option>Ngoài nghĩa trang liệt sĩ</option>
+      </select>
+    </div>
+    <div class="full">
+      <label>Địa chỉ nghĩa trang chi tiết</label>
+      <input id="cemetery_address">
+    </div>
+    <div class="full">
+      <label>Địa điểm quy tập / an táng trước khi tiếp nhận</label>
+      <input id="exhumation_place">
+    </div>
+    <div class="full">
+      <label>Đơn vị quy tập / an táng trước khi tiếp nhận</label>
+      <input id="exhumation_unit">
+    </div>
+    <div class="full">
+      <label>Thời gian đưa vào an táng tại nghĩa trang</label>
+      <input id="cemetery_burial_date" placeholder="Năm (YYYY) hoặc dd/mm/yyyy">
+    </div>
+    <div class="full">
+      <label>Vị trí mộ cụ thể (Khu, Lô, Hàng, Số mộ)</label>
+      <input id="grave_position" placeholder="Ví dụ: Khu 2, Lô B, Hàng 3, Số mộ 15">
+    </div>
+    <div class="full">
+      <label>Thông tin ghi trên bia mộ &amp; Nội dung cụ thể</label>
+      <textarea id="grave_stele_info" style="width:100%;min-height:90px;padding:10px 11px;border:1px solid #cfd5dd;border-radius:8px;font:inherit;" placeholder="Ghi chính xác thông tin và nội dung trên bia mộ"></textarea>
+    </div>
+    <div class="full">
+      <label>Tình trạng hài cốt trong mộ &amp; Quy tập</label>
+      <textarea id="grave_remains_status" style="width:100%;min-height:90px;padding:10px 11px;border:1px solid #cfd5dd;border-radius:8px;font:inherit;" placeholder="Ghi tình trạng hài cốt và tình trạng quy tập"></textarea>
+    </div>
+    <div class="full">
+      <label>Ghi chú về phần mộ / Di vật kèm theo</label>
+      <textarea id="grave_notes" style="width:100%;min-height:90px;padding:10px 11px;border:1px solid #cfd5dd;border-radius:8px;font:inherit;" placeholder="Ghi chú phần mộ, di vật kèm theo nếu có"></textarea>
+    </div>
+  </div>
+</div>
 
-<div class="section" id="section-m01-confirm" style="display:none;"><h2>4. Xác nhận</h2><div class="grid">
-<div class="full"><strong>Xác nhận của UBND cấp xã về nội dung khai trên bản khai là đúng.</strong></div>
-<div><label>Quyền hạn, chức vụ của người ký</label><input id="ubnd_signer_title"></div><div><label>Họ và tên</label><input id="ubnd_signer_name"></div><div><label>Ngày xác nhận</label><input id="ubnd_verified_date" placeholder="dd/mm/yyyy"></div>
-<div class="full"><strong>Xác nhận của Công an cấp xã về nội dung thông tin dữ liệu dân cư của các cá nhân trên bản khai là đúng.</strong></div>
-<div><label>Quyền hạn, chức vụ của người ký</label><input id="police_signer_title"></div><div><label>Họ và tên</label><input id="police_signer_name"></div><div><label>Ngày xác nhận</label><input id="police_verified_date" placeholder="dd/mm/yyyy"></div>
-<div class="full"><strong>Xác nhận của Sở Nội vụ trên bản khai là đúng.</strong></div>
-<div><label>Quyền hạn, chức vụ của người ký</label><input id="dolisa_signer_title"></div><div><label>Họ và tên</label><input id="dolisa_signer_name"></div><div><label>Ngày xác nhận</label><input id="dolisa_verified_date" placeholder="dd/mm/yyyy"></div>
-</div></div>
+<div class="section" id="section-m01-confirm" style="display:none;">
+  <h2>4. Cấu hình người ký xác nhận</h2>
+  <div class="info-box">
+    Thông tin dưới đây được dùng làm thông tin người ký khi lưu và xuất Mẫu 01. Có thể lưu thành cấu hình mặc định để các phiếu sau tự điền.
+  </div>
+  <div class="grid">
+    <div class="full"><strong>Xác nhận của UBND cấp xã về nội dung khai trên bản khai là đúng.</strong></div>
+    <div><label>Quyền hạn, chức vụ người ký UBND</label><input id="ubnd_signer_title"></div>
+    <div><label>Họ và tên người ký UBND</label><input id="ubnd_signer_name"></div>
+    <div><label>Ngày xác nhận UBND</label><input id="ubnd_verified_date" placeholder="dd/mm/yyyy"></div>
 
+    <div class="full"><strong>Xác nhận của Công an cấp xã về nội dung thông tin dữ liệu dân cư của các cá nhân trên bản khai là đúng.</strong></div>
+    <div><label>Quyền hạn, chức vụ người ký Công an</label><input id="police_signer_title"></div>
+    <div><label>Họ và tên người ký Công an</label><input id="police_signer_name"></div>
+    <div><label>Ngày xác nhận Công an</label><input id="police_verified_date" placeholder="dd/mm/yyyy"></div>
+
+    <div class="full"><strong>Xác nhận của Sở Nội vụ trên bản khai là đúng.</strong></div>
+    <div><label>Quyền hạn, chức vụ người ký Sở Nội vụ</label><input id="dolisa_signer_title"></div>
+    <div><label>Họ và tên người ký Sở Nội vụ</label><input id="dolisa_signer_name"></div>
+    <div><label>Ngày xác nhận Sở Nội vụ</label><input id="dolisa_verified_date" placeholder="dd/mm/yyyy"></div>
+
+    <div class="full" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
+      <button type="button" class="btn btn-outline" onclick="saveM01SignerConfig()">💾 Lưu cấu hình người ký mặc định</button>
+      <button type="button" class="btn btn-outline" onclick="loadM01SignerConfig(true)">↻ Áp dụng cấu hình đã lưu</button>
+    </div>
+  </div>
+</div>
 <div class="section" id="section-m02-relatives"><h2>3. Thông tin thân nhân</h2>
 <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:14px 16px;margin-bottom:12px;">
   <strong>Liệt sĩ có thân nhân:</strong>
