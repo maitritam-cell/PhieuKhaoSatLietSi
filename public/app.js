@@ -435,6 +435,22 @@ function fill(d){
     }
   });
 
+  // M01 dùng một trường vị trí mộ duy nhất; hỗ trợ dữ liệu cũ đã lưu theo Khu/Lô/Hàng/Số mộ.
+  if(targetType === 'm01'){
+    const posEl=$('grave_position');
+    if(posEl && !posEl.value){
+      posEl.value = d.grave_position || [
+        d.grave_area ? 'Khu: '+d.grave_area : '',
+        d.grave_plot ? 'Lô: '+d.grave_plot : '',
+        d.grave_row ? 'Hàng: '+d.grave_row : '',
+        d.grave_number ? 'Số mộ: '+d.grave_number : ''
+      ].filter(Boolean).join(', ');
+    }
+    if($('grave_stele_info') && !$('grave_stele_info').value){
+      $('grave_stele_info').value = d.grave_stele_info || '';
+    }
+  }
+
   if(targetType === 'm02'){
     if(d.has_relatives === 'Có' || (Array.isArray(d.relatives) && d.relatives.some(r => r && (r.name || r.id)))){
       relativesList = (d.relatives || []).filter(r => r && (r.name || r.id || r.relationship)).map(r => ({
