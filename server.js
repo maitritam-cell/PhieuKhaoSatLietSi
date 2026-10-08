@@ -71,6 +71,35 @@ function replaceFirst(doc, p, label, value) {
 }
 
 
+function setParagraphText(doc, paragraph, text) {
+  if (!paragraph) return;
+  const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const pPr = Array.from(paragraph.childNodes).find(node => node.nodeName === 'w:pPr');
+  const firstRun = Array.from(paragraph.childNodes).find(node => node.nodeName === 'w:r');
+  const oldRPr = firstRun && Array.from(firstRun.childNodes).find(node => node.nodeName === 'w:rPr');
+  const rPr = oldRPr ? oldRPr.cloneNode(true) : null;
+  Array.from(paragraph.childNodes).forEach(node => {
+    if (node !== pPr) paragraph.removeChild(node);
+  });
+  const run = doc.createElementNS(W, 'w:r');
+  if (rPr) run.appendChild(rPr);
+  const t = doc.createElementNS(W, 'w:t');
+  t.setAttribute('xml:space', 'preserve');
+  t.textContent = text;
+  run.appendChild(t);
+  paragraph.appendChild(run);
+}
+
+function formatVietnameseDecisionDate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return 'ngày.... tháng... năm ......';
+  let match = raw.match(/^(\\d{1,2})[\\/-](\\d{1,2})[\\/-](\\d{4})$/);
+  if (match) return `ngày ${match[1].padStart(2, '0')} tháng ${match[2].padStart(2, '0')} năm ${match[3]}`;
+  match = raw.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/);
+  if (match) return `ngày ${match[3].padStart(2, '0')} tháng ${match[2].padStart(2, '0')} năm ${match[1]}`;
+  return raw;
+}
+
 function applyConfirmationBlock(doc, body) {
   const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 
@@ -329,7 +358,7 @@ async function fillDocument(data) {
   const mapping = {
     4: [['Họ và tên:', data.rep_name]],
     5: [['Ngày tháng năm sinh:', data.rep_dob], ['Giới tính:', data.rep_gender]],
-    6: [['Số ĐDCN', data.rep_id], ['Ngày cấp', data.rep_issue_date], ['Nơi cấp:', data.rep_issue_place]],
+
     7: [['Quê quán:', data.rep_hometown]],
     8: [['Nơi thường trú:', data.rep_address]],
     9: [['Số điện thoại:', data.rep_phone]],
@@ -342,7 +371,7 @@ async function fillDocument(data) {
     18: [['Ngày tháng năm hy sinh:', data.martyr_death_date]],
     19: [['Nơi hy sinh (nếu có):', data.martyr_death_place]],
     20: [['Nơi an táng ban đầu:', data.burial_place]],
-    21: [['Bằng Tổ quốc ghi công số', data.certificate_no], ['Quyết định số', data.decision_no], ['ngày', data.decision_date]],
+
     22: [['Con ông:', data.father]],
     23: [['Con bà:', data.mother]],
     24: [['Vợ:', data.wife]]
@@ -356,6 +385,19 @@ async function fillDocument(data) {
         if (value) replaceFirst(doc, p, label, value);
       }
     }
+  }
+
+  const identityParts = [
+    data.rep_id && `Số ĐDCN: ${data.rep_id}`,
+    data.rep_issue_date && `Ngày cấp: ${data.rep_issue_date}`,
+    data.rep_issue_place && `Nơi cấp: ${data.rep_issue_place}`
+  ].filter(Boolean);
+  if (identityParts.length) setParagraphText(doc, paragraphs[6], identityParts.join('; '));
+
+  const hasDecisionInfo = data.certificate_no || data.decision_no || data.decision_date;
+  if (hasDecisionInfo) {
+    const decisionLine = `Bằng Tổ quốc ghi công số: ${data.certificate_no || '...........'}; Quyết định số: ${data.decision_no || '...........'}; ${formatVietnameseDecisionDate(data.decision_date)} của Thủ tướng Chính phủ.`;
+    setParagraphText(doc, paragraphs[21], decisionLine);
   }
 
   if (tables.length >= 3) {
@@ -443,7 +485,7 @@ async function fillDocumentM01(data) {
   // 1. Thông tin người đại diện thân nhân hoặc hưởng trợ cấp thờ cúng liệt sĩ
   if (paragraphs[4]) formatLine(paragraphs[4], `Họ và tên: ${data.rep_name || ''}`);
   if (paragraphs[5]) formatLine(paragraphs[5], `Ngày tháng năm sinh: ${data.rep_dob || ''}; Giới tính: ${data.rep_gender || ''}`);
-  if (paragraphs[6]) formatLine(paragraphs[6], `Số ĐDCN: ${data.rep_id || ''}   Ngày cấp: ${data.rep_issue_date || ''}   Nơi cấp: ${data.rep_issue_place || ''}`);
+  if (paragraphs[6]) formatLine(paragraphs[6], [data.rep_id && `Số ĐDCN: ${data.rep_id}`, data.rep_issue_date && `Ngày cấp: ${data.rep_issue_date}`, data.rep_issue_place && `Nơi cấp: ${data.rep_issue_place}`].filter(Boolean).join('; '));
   if (paragraphs[7]) formatLine(paragraphs[7], `Quê quán: ${data.rep_hometown || ''}`);
   if (paragraphs[8]) formatLine(paragraphs[8], `Nơi thường trú: ${data.rep_address || ''}`);
   if (paragraphs[9]) formatLine(paragraphs[9], `Số điện thoại: ${data.rep_phone || ''}`);
@@ -460,8 +502,8 @@ async function fillDocumentM01(data) {
   if (paragraphs[19]) formatLine(paragraphs[19], `Nơi hy sinh (nếu có): ${data.martyr_death_place || ''}`);
   if (paragraphs[20]) formatLine(paragraphs[20], `Nơi an táng ban đầu: ${data.burial_place || ''}`);
 
-  const certDateStr = data.decision_date ? `ngày ${data.decision_date}` : 'ngày.... tháng... năm ......';
-  if (paragraphs[21]) formatLine(paragraphs[21], `Bằng Tổ quốc ghi công số: ${data.certificate_no || '...........'}   Quyết định số: ${data.decision_no || '...........'}   ${certDateStr} của Thủ tướng Chính phủ.`);
+  const certDateStr = formatVietnameseDecisionDate(data.decision_date);
+  if (paragraphs[21]) formatLine(paragraphs[21], `Bằng Tổ quốc ghi công số: ${data.certificate_no || '...........'}; Quyết định số: ${data.decision_no || '...........'}; ${certDateStr} của Thủ tướng Chính phủ.`);
   if (paragraphs[22]) formatLine(paragraphs[22], `Con ông: ${data.father || ''}`);
   if (paragraphs[23]) formatLine(paragraphs[23], `Con bà: ${data.mother || ''}`);
   if (paragraphs[24]) formatLine(paragraphs[24], `Vợ/Chồng: ${data.wife || ''}`);
