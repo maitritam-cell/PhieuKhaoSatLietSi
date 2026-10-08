@@ -133,7 +133,7 @@ function applyConfirmationBlock(doc, body) {
         { text: 'Xác nhận của UBND phường' },
         { text: 'về nội dung khai trên bản khai là đúng' },
         // Chừa khoảng trống chữ ký giữa chức vụ và họ tên, đủ để ký tay.
-        { text: 'CHỦ TỊCH', bold: true, after: 720 },
+        { text: 'CHỦ TỊCH', bold: true, after: 960 },
         { text: 'Lê Hoài Nam', bold: true, after: 40 }
       ]
     },
