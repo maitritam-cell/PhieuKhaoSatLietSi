@@ -364,19 +364,102 @@ function formatM01Sheet_(sheet) {
 
 function setupM01() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = getOrCreateSheet_(ss, M1_SHEET_NAME, M1_HEADERS);
+  const sheet = ensureM01Schema_(ss.getSheetByName(M1_SHEET_NAME));
 
-  // Định dạng các cột mã số dưới dạng TEXT để giữ số 0 đầu.
-  [6, 12, 13, 26].forEach(function(col) {
+  [6, 14, 15, 27, 28].forEach(function(col) {
     sheet.getRange(2, col, Math.max(sheet.getMaxRows() - 1, 1), 1)
       .setNumberFormat('@');
   });
 
   sheet.setFrozenRows(1);
-  sheet.getRange(1, 1, 1, M1_HEADERS.length).setWrap(true);
+  sheet.getRange(1, 1, 1, M1_HEADERS.length)
+    .setWrap(true)
+    .setVerticalAlignment('middle');
   styleHeader_(sheet, M1_HEADERS.length);
 
-  return 'Đã khởi tạo trang M01 với ' + M1_HEADERS.length + ' cột.';
+  if (sheet.getFilter()) sheet.getFilter().remove();
+  sheet.getRange(1, 1, Math.max(sheet.getLastRow(), 2), M1_HEADERS.length).createFilter();
+  sheet.getRange(1, 1, Math.max(sheet.getLastRow(), 2), M1_HEADERS.length)
+    .setBorder(true, true, true, true, true, true);
+
+  for (let col = 1; col <= M1_HEADERS.length; col++) {
+    sheet.autoResizeColumn(col);
+    if (sheet.getColumnWidth(col) > 280) sheet.setColumnWidth(col, 280);
+    if (sheet.getColumnWidth(col) < 100) sheet.setColumnWidth(col, 100);
+  }
+  sheet.setRowHeight(1, 42);
+
+  return 'Đã khởi tạo/nâng cấp trang M01 với ' + M1_HEADERS.length + ' cột.';
+}
+
+function ensureM01Schema_(sheet) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(M1_SHEET_NAME);
+    sheet.getRange(1, 1, 1, M1_HEADERS.length).setValues([M1_HEADERS]);
+    styleHeader_(sheet, M1_HEADERS.length);
+    return sheet;
+  }
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+
+  if (lastRow === 0 || lastCol === 0) {
+    sheet.clear();
+    sheet.getRange(1, 1, 1, M1_HEADERS.length).setValues([M1_HEADERS]);
+    styleHeader_(sheet, M1_HEADERS.length);
+    return sheet;
+  }
+
+  const oldHeaders = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0].map(function(v) {
+    return clean_(v);
+  });
+
+  const exact = oldHeaders.length === M1_HEADERS.length &&
+    M1_HEADERS.every(function(h, i) { return oldHeaders[i] === h; });
+  if (exact) return sheet;
+
+  const aliases = {
+    'Vợ': ['Vợ/Chồng'],
+    'Hình thức an táng / Tình trạng mộ': ['Tình trạng mộ'],
+    'Tên nghĩa trang liệt sĩ / Nơi an táng': ['Tên nghĩa trang'],
+    'Địa điểm quy tập / an táng trước khi tiếp nhận': ['Địa điểm quy tập/an táng trước khi tiếp nhận'],
+    'Đơn vị quy tập / an táng trước khi tiếp nhận': ['Đơn vị quy tập/an táng trước khi tiếp nhận'],
+    'Thời gian đưa vào an táng tại nghĩa trang': ['Thời gian đưa vào an táng tại nghĩa trang liệt sĩ']
+  };
+
+  const oldIndex = {};
+  oldHeaders.forEach(function(h, i) {
+    if (h) oldIndex[h] = i;
+  });
+
+  const data = lastRow > 1
+    ? sheet.getRange(2, 1, lastRow - 1, lastCol).getValues()
+    : [];
+
+  const newData = data.map(function(oldRow) {
+    return M1_HEADERS.map(function(header) {
+      let idx = oldIndex[header];
+      if (idx === undefined && aliases[header]) {
+        for (const a of aliases[header]) {
+          if (oldIndex[a] !== undefined) {
+            idx = oldIndex[a];
+            break;
+          }
+        }
+      }
+      return idx === undefined ? '' : oldRow[idx];
+    });
+  });
+
+  sheet.clear();
+  sheet.getRange(1, 1, 1, M1_HEADERS.length).setValues([M1_HEADERS]);
+  if (newData.length) {
+    sheet.getRange(2, 1, newData.length, M1_HEADERS.length).setValues(newData);
+  }
+  styleHeader_(sheet, M1_HEADERS.length);
+  return sheet;
 }
 
 function parsePayload_(e) {
@@ -390,6 +473,10 @@ function parsePayload_(e) {
 
 function getOrCreateSheet_(ss, name, headers) {
   let sheet = ss.getSheetByName(name);
+
+  if (name === M1_SHEET_NAME) {
+    return ensureM01Schema_(sheet);
+  }
 
   if (!sheet) {
     sheet = ss.insertSheet(name);
