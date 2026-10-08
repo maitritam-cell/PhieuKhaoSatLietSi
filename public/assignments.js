@@ -1,7 +1,7 @@
 const SUPABASE_URL='https://zyvckivbwwlhmpkbonze.supabase.co';
 const SUPABASE_KEY='sb_publishable_1ojllrmwxQSMPZWtO6VBqw_5oygalyC';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbxDJfEZo5tYBS4emSeQfAL8XbS8OSE4a26P8FEUnVRd9af4LKhFZlhI1a4gyyygcAE/exec';
+const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbwXHveyxf6Z1Hi-P-Ex9RtELyGszNRGhHsGMv6vVEsb43HcFyg3sbTa2XKvtJfkiT0orw/exec';
 let me=null, profile=null, profiles=[], territories=[], staffTerritories={}, records=[], allAssignments=[], authLoadToken=0;
 const ADMIN_STAFF_FUNCTION='https://zyvckivbwwlhmpkbonze.supabase.co/functions/v1/admin-manage-staff';
 const $=id=>document.getElementById(id);
@@ -183,9 +183,31 @@ async function loadRecords(){
   const data=await res.json();
   if(!res.ok||!Array.isArray(data.records))throw new Error(data.error||'Không đọc được danh sách hồ sơ');
   records=data.records;
-  $('recordSelect').innerHTML='<option value="">Chọn phiếu cần giao</option>'+records.map((r,i)=>'<option value="'+i+'">'+esc(r.martyr_name||'Chưa có tên')+' • '+esc(r.file_id||r.record_id||'Chưa có mã')+'</option>').join('');
- }catch(e){$('recordSelect').innerHTML='<option value="">Không tải được danh sách</option>';msg('Không tải được danh sách hồ sơ: '+e.message,'error');}
+
+  renderRecordSelect();
+  await loadBulkOptions();
+ }catch(e){
+  $('recordSelect').innerHTML='<option value="">Không tải được danh sách</option>';
+  msg('Không tải được danh sách hồ sơ: '+e.message,'error');
+ }
 }
+
+function normalizeFormType(r){
+ const d=r?.data&&typeof r.data==='object'?r.data:{};
+ return (r?.form_type==='m01'||r?.loaiPhieu==='Mẫu 01'||d.form_type==='m01'||d.loaiPhieu==='Mẫu 01')?'m01':'m02';
+}
+
+function renderRecordSelect(){
+ const selectedType=$('recordFormType')?.value||'m02';
+ const list=records.filter(r=>!selectedType||normalizeFormType(r)===selectedType);
+ $('recordSelect').innerHTML='<option value="">Chọn phiếu cần giao ('+list.length+' hồ sơ)</option>'+
+   list.map(r=>{
+     const originalIndex=records.indexOf(r);
+     const type=normalizeFormType(r)==='m01'?'Mẫu 01':'Mẫu 02';
+     return '<option value="'+originalIndex+'">['+type+'] '+esc(r.martyr_name||'Chưa có tên')+' • '+esc(r.file_id||r.record_id||'Chưa có mã')+' • '+esc(r.rep_address||'Chưa rõ nơi thường trú')+'</option>';
+   }).join('');
+}
+
 $('createAssignmentBtn').onclick=async()=>{
  clearMsg();const ix=$('recordSelect').value,assigned_to=$('staffSelect').value;
  if(ix===''||!assigned_to)return msg('Chọn phiếu và cán bộ được giao.','error');
@@ -323,7 +345,10 @@ function addressOf(r){
 }
 async function loadBulkOptions(){
  if(profile.role!=='admin')return;
- const map={}; records.forEach((r,i)=>{const a=addressOf(r);if(!map[a])map[a]=[];map[a].push(i);});
+ const formType=$('bulkFormType')?.value||'m02';
+ const filtered=records.filter(r=>!formType||normalizeFormType(r)===formType);
+ const map={};
+ filtered.forEach((r,i)=>{const a=addressOf(r);if(!map[a])map[a]=[];map[a].push(i);});
  const opts=Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0],'vi')).map(([a,ix])=>'<option value="'+esc(a)+'">'+esc(a)+' ('+ix.length+' hồ sơ)</option>').join('');
  $('bulkAddress').innerHTML='<option value="">Chọn nơi thường trú</option>'+opts;
  const assignableStaff=profiles.filter(p=>p.active);
@@ -331,20 +356,29 @@ async function loadBulkOptions(){
  $('bulkStaff').innerHTML='<option value="">Chọn người nhận</option>'+bulkStaffOptions;
  updateBulkCount();
 }
+
 function updateBulkCount(){
  const address=$('bulkAddress').value;
+ const formType=$('bulkFormType')?.value||'m02';
  if(!address){$('bulkCount').textContent='Chọn một nơi thường trú để xem số hồ sơ.';return;}
- const ids=records.map((r,i)=>addressOf(r)===address?i:-1).filter(i=>i>=0);
+ const filtered=records.filter(r=>!formType||normalizeFormType(r)===formType);
+ const ids=filtered.map((r,i)=>addressOf(r)===address?i:-1).filter(i=>i>=0);
+ const selected=ids.map(i=>filtered[i]);
  const existing=new Set(allAssignments.map(a=>String(a.source_record_id)));
- const newCount=ids.filter(i=>!existing.has(String(records[i].record_id||records[i].file_id||('record-'+i)))).length;
- $('bulkCount').textContent='Nhóm này có '+ids.length+' hồ sơ; dự kiến giao mới '+newCount+' hồ sơ (hồ sơ đã giao sẽ được bỏ qua).';
+ const newCount=selected.filter(r=>!existing.has(String(r.record_id||r.file_id))).length;
+ const label=formType==='m01'?'Mẫu 01':formType==='m02'?'Mẫu 02':'tất cả biểu mẫu';
+ $('bulkCount').textContent='['+label+'] Nhóm này có '+selected.length+' hồ sơ; dự kiến giao mới '+newCount+' hồ sơ (hồ sơ đã giao sẽ được bỏ qua).';
 }
+$('recordFormType')?.addEventListener('change',renderRecordSelect);
+$('bulkFormType')?.addEventListener('change',async()=>{await loadBulkOptions();});
 $('bulkAddress')?.addEventListener('change',updateBulkCount);
 $('bulkAssignBtn')?.addEventListener('click',async()=>{
  clearMsg();const address=$('bulkAddress').value,assigned_to=$('bulkStaff').value;
  if(!address||!assigned_to)return msg('Chọn nơi thường trú và cán bộ phụ trách.','error');
+ const formType=$('bulkFormType')?.value||'m02';
+ const filtered=records.filter(r=>!formType||normalizeFormType(r)===formType);
  const existing=new Set(allAssignments.map(a=>String(a.source_record_id)));
- const selected=records.filter(r=>addressOf(r)===address).filter((r,i)=>!existing.has(String(r.record_id||r.file_id||('record-'+i))));
+ const selected=filtered.filter(r=>addressOf(r)===address).filter((r,i)=>!existing.has(String(r.record_id||r.file_id||('record-'+i))));
  if(!selected.length)return msg('Nhóm này không còn hồ sơ chưa được giao.','error');
  const rows=selected.map((r,i)=>{const d=r.data&&typeof r.data==='object'?r.data:r;return {source_record_id:String(r.record_id||r.file_id||('record-'+i)),martyr_name:r.martyr_name||d.martyr_name||d['Họ tên liệt sĩ']||'Chưa có tên',file_id:r.file_id||d.file_id||'',assigned_to,assigned_by:me.id,unit_name:$('bulkUnit').value.trim()||address,task_note:$('bulkNote').value.trim()||'Rà soát và bổ sung đầy đủ thông tin hồ sơ.',due_date:$('bulkDueDate').value||null,record_snapshot:d};});
  $('bulkAssignBtn').disabled=true;
