@@ -94,9 +94,9 @@ function formatVietnameseDecisionDate(value) {
   const raw = String(value || '').trim();
   if (!raw) return 'ngày.... tháng... năm ......';
   let match = raw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
-  if (match) return \`ngày \${match[1].padStart(2, '0')} tháng \${match[2].padStart(2, '0')} năm \${match[3]}\`;
+  if (match) return 'ngày ' + match[1].padStart(2, '0') + ' tháng ' + match[2].padStart(2, '0') + ' năm ' + match[3];
   match = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (match) return \`ngày \${match[3].padStart(2, '0')} tháng \${match[2].padStart(2, '0')} năm \${match[1]}\`;
+  if (match) return 'ngày ' + match[3].padStart(2, '0') + ' tháng ' + match[2].padStart(2, '0') + ' năm ' + match[1];
   return raw;
 }
 
