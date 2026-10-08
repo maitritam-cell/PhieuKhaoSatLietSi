@@ -1,7 +1,7 @@
 const SUPABASE_URL='https://zyvckivbwwlhmpkbonze.supabase.co';
 const SUPABASE_KEY='sb_publishable_1ojllrmwxQSMPZWtO6VBqw_5oygalyC';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbwXHveyxf6Z1Hi-P-Ex9RtELyGszNRGhHsGMv6vVEsb43HcFyg3sbTa2XKvtJfkiT0orw/exec';
+const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbxDJfEZo5tYBS4emSeQfAL8XbS8OSE4a26P8FEUnVRd9af4LKhFZlhI1a4gyyygcAE/exec';
 let me=null, profile=null, profiles=[], territories=[], staffTerritories={}, records=[], allAssignments=[], authLoadToken=0;
 const ADMIN_STAFF_FUNCTION='https://zyvckivbwwlhmpkbonze.supabase.co/functions/v1/admin-manage-staff';
 const $=id=>document.getElementById(id);
