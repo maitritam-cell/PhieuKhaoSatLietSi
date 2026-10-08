@@ -312,10 +312,11 @@ function switchFormType(type){
 function collect(){
   const ids=[
     'rep_name','rep_dob','rep_gender','rep_id','rep_issue_date','rep_issue_place','rep_hometown','rep_address','rep_phone',
+    'rep_relationship','rep_subsidy_type',
     'file_id','ministry_file','province_file','martyr_name','martyr_alias','martyr_dob','martyr_gender','martyr_hometown','martyr_rank',
     'martyr_unit','martyr_death_date','martyr_death_place','burial_place','certificate_no','decision_no','decision_date','father','mother','wife',
     'grave_burial_type','grave_cemetery_name','cemetery_type','cemetery_address','cemetery_burial_date',
-    'exhumation_place','exhumation_unit','grave_area','grave_plot','grave_row','grave_number',
+    'exhumation_place','exhumation_unit','grave_position','grave_stele_info','grave_remains_status','grave_notes',
     'ubnd_signer_name','ubnd_signer_title','ubnd_verified_date',
     'police_signer_name','police_signer_title','police_verified_date',
     'dolisa_signer_name','dolisa_signer_title','dolisa_verified_date'
@@ -329,6 +330,16 @@ function collect(){
     const e=$(id);
     if(e) d[id]=(e.value||'').trim();
   });
+
+  // Giữ tương thích với dữ liệu M01 cũ đã từng lưu theo 4 ô Khu/Lô/Hàng/Số mộ.
+  if(!d.grave_position){
+    d.grave_position = [
+      d.grave_area ? 'Khu: '+d.grave_area : '',
+      d.grave_plot ? 'Lô: '+d.grave_plot : '',
+      d.grave_row ? 'Hàng: '+d.grave_row : '',
+      d.grave_number ? 'Số mộ: '+d.grave_number : ''
+    ].filter(Boolean).join(', ');
+  }
 
   // Chuẩn hóa tên trường M01 để khớp trực tiếp với saveM01_() và M1_HEADERS.
   d.tomb_status = d.grave_burial_type || '';
@@ -835,15 +846,12 @@ async function saveToSheets(){
     rep_subsidy_type: d.rep_subsidy_type || '',
     grave_burial_type: d.grave_burial_type || '',
     grave_cemetery_name: d.grave_cemetery_name || '',
-    grave_province: d.grave_province || '',
-    grave_district: d.grave_district || '',
-    grave_commune: d.grave_commune || '',
+    grave_position: d.grave_position || '',
     grave_area: d.grave_area || '',
     grave_plot: d.grave_plot || '',
     grave_row: d.grave_row || '',
     grave_number: d.grave_number || '',
     grave_stele_info: d.grave_stele_info || '',
-    grave_stele_content: d.grave_stele_content || '',
     grave_remains_status: d.grave_remains_status || '',
     grave_gathered_status: d.grave_gathered_status || '',
     grave_notes: d.grave_notes || '',
@@ -854,8 +862,8 @@ async function saveToSheets(){
     tenNghiaTrang: d.cemetery_name || d.grave_cemetery_name || '',
     cemetery_type: d.cemetery_type || '',
     loaiNghiaTrang: d.cemetery_type || '',
-    cemetery_address: d.cemetery_address || [d.grave_commune, d.grave_district, d.grave_province].filter(Boolean).join(', ') || '',
-    diaChiNghiaTrang: d.cemetery_address || [d.grave_commune, d.grave_district, d.grave_province].filter(Boolean).join(', ') || '',
+    cemetery_address: d.cemetery_address || '',
+    diaChiNghiaTrang: d.cemetery_address || '',
     exhumation_place: d.exhumation_place || '',
     diaDiemQuyTapAnTang: d.exhumation_place || '',
     exhumation_unit: d.exhumation_unit || '',
@@ -5770,9 +5778,36 @@ function initStaffAuthentication(){
  }else showStaffGate(false);
 }
 
+function saveM01SignerConfig(){
+  const cfg={
+    ubnd_signer_title:$('ubnd_signer_title')?.value?.trim()||'',
+    ubnd_signer_name:$('ubnd_signer_name')?.value?.trim()||'',
+    police_signer_title:$('police_signer_title')?.value?.trim()||'',
+    police_signer_name:$('police_signer_name')?.value?.trim()||'',
+    dolisa_signer_title:$('dolisa_signer_title')?.value?.trim()||'',
+    dolisa_signer_name:$('dolisa_signer_name')?.value?.trim()||''
+  };
+  localStorage.setItem('m01_signer_config',JSON.stringify(cfg));
+  showNotification('success','Đã lưu cấu hình người ký','Thông tin người ký mặc định đã được lưu trên thiết bị này.');
+}
+
+function loadM01SignerConfig(showToast=false){
+  try{
+    const cfg=JSON.parse(localStorage.getItem('m01_signer_config')||'null');
+    if(!cfg)return false;
+    ['ubnd_signer_title','ubnd_signer_name','police_signer_title','police_signer_name','dolisa_signer_title','dolisa_signer_name'].forEach(id=>{
+      const e=$(id);
+      if(e && cfg[id] && !e.value) e.value=cfg[id];
+    });
+    if(showToast) showNotification('success','Đã áp dụng cấu hình người ký','Đã điền người ký mặc định vào Mẫu 01.');
+    return true;
+  }catch(_){return false;}
+}
+
 function initApp(){
   initStaffAuthentication();
   initRelations();
+  loadM01SignerConfig(false);
   ['has_relatives_yes','has_relatives_no'].forEach(id=>{
     const el=$(id);
     if(el) el.addEventListener('change',()=>{
@@ -5809,6 +5844,8 @@ function initApp(){
   });
 }
 
+window.saveM01SignerConfig=saveM01SignerConfig;
+window.loadM01SignerConfig=loadM01SignerConfig;
 window.openRecord=openRecord;
 window.deleteRecord=deleteRecord;
 window.newRecord=newRecord;
