@@ -187,9 +187,20 @@ async function loadRecords(){
   const m01Count=records.filter(r=>normalizeFormType(r)==='m01').length;
   const m02Count=records.length-m01Count;
   if(m01Count===0){
+    const d=data.google_apps_script_diagnostic;
+    let detail=' Chưa xác định được workbook/sheet.';
+    if(d){
+      const names=(d.sheets||[]).map(x=>x.name+' ('+x.rows+' dòng)').join(', ');
+      detail=' Web App đang đọc Spreadsheet '+(d.spreadsheet_id||'không xác định')+
+        '. Sheet M01 được nhận diện: '+(d.m01_found?'CÓ':'KHÔNG')+
+        (d.resolved_m01_name?' ('+d.resolved_m01_name+')':'')+
+        ', dữ liệu: '+(d.m01_rows??0)+' dòng.'+
+        (names?' Các sheet: '+names+'.':'');
+    }
     msg(
       'Chưa nhận được dữ liệu Mẫu 01 từ Google Sheets. Apps Script Web App đang trả về '+m02Count+
-      ' hồ sơ Mẫu 02 và 0 hồ sơ Mẫu 01. Hãy triển khai lại phiên bản Google Apps Script có hàm đọc sheet "M01".',
+      ' hồ sơ Mẫu 02 và 0 hồ sơ Mẫu 01.'+detail+
+      ' Hãy triển khai lại phiên bản Google Apps Script mới nhất.',
       'error'
     );
   }
