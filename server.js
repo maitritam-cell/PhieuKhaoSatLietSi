@@ -639,6 +639,7 @@ app.get('/api/admin-records', async (req, res) => {
   // Hợp nhất cả Mẫu 02 (Supabase) và Mẫu 01 (Google Sheets M01).
   // Trước đây endpoint trả về ngay sau khi đọc m02_records nên M01 không bao giờ xuất hiện.
   const merged = new Map();
+  let googleAppsScriptDiagnostic = null;
 
   if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
@@ -700,6 +701,21 @@ app.get('/api/admin-records', async (req, res) => {
             data: { ...previousData, ...currentData }
           });
         }
+        // Khi endpoint đọc dữ liệu trả về 0 Mẫu 01, gọi endpoint chẩn đoán
+        // để biết chính xác workbook/sheet mà Web App đang đọc.
+        const hasM01 = sheetRecords.some(r =>
+          r.form_type === 'm01' ||
+          r.loaiPhieu === 'Mẫu 01' ||
+          (r.data && (r.data.form_type === 'm01' || r.data.loaiPhieu === 'Mẫu 01'))
+        );
+        if (!hasM01) {
+          try {
+            const dRes = await fetch(appsScriptUrl + '?action=diagnose', { redirect: 'follow' });
+            if (dRes.ok) googleAppsScriptDiagnostic = await dRes.json();
+          } catch (diagnoseErr) {
+            console.warn('Apps Script diagnostic error:', diagnoseErr.message);
+          }
+        }
       } else {
         console.warn('Admin Apps Script returned HTTP ' + gRes.status);
       }
@@ -732,7 +748,8 @@ app.get('/api/admin-records', async (req, res) => {
   return res.json({
     ok: true,
     total: records.length,
-    records
+    records,
+    google_apps_script_diagnostic: googleAppsScriptDiagnostic
   });
 });
 
