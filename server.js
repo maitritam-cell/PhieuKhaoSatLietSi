@@ -267,7 +267,7 @@ async function fillDocumentM01(data) {
       data.exhumation_place || '',
       data.exhumation_unit || '',
       data.cemetery_burial_date || '',
-      [
+      data.grave_position || [
         (data.grave_area || data.area_number) ? 'Khu: ' + (data.grave_area || data.area_number) : '',
         (data.grave_plot || data.plot_number) ? 'Lô: ' + (data.grave_plot || data.plot_number) : '',
         (data.grave_row || data.row_number) ? 'Hàng: ' + (data.grave_row || data.row_number) : '',
@@ -297,6 +297,13 @@ async function fillDocumentM01(data) {
     for (let i = 0; i < sigTable.childNodes.length; i++) {
       if (sigTable.childNodes[i].nodeName === 'w:tr') sigRows.push(sigTable.childNodes[i]);
     }
+    // Cập nhật cấu hình người ký: chức vụ, họ tên và ngày xác nhận nếu template có các nhãn tương ứng.
+    const signerGroups = [
+      {cellIndex: 0, title:data.ubnd_signer_title, name:data.ubnd_signer_name, date:data.ubnd_verified_date},
+      {cellIndex: 1, title:data.police_signer_title, name:data.police_signer_name, date:data.police_verified_date},
+      {cellIndex: 2, title:data.dolisa_signer_title, name:data.dolisa_signer_name, date:data.dolisa_verified_date}
+    ];
+
     // Cập nhật người ký nếu có
     if (sigRows.length >= 1) {
       const r0Cells = [];
