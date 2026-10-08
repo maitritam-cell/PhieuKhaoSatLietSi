@@ -1006,7 +1006,16 @@ app.get('/api/records', async (req, res) => {
       });
     });
   }
-  return res.json({ ok: true, records });
+  let appsScriptDiagnostic = null;
+  if (appsScriptUrl && appsScriptUrl.startsWith('https://script.google.com/')) {
+    try {
+      const dRes = await fetch(appsScriptUrl + '?action=diagnose', { redirect: 'follow' });
+      if (dRes.ok) appsScriptDiagnostic = await dRes.json();
+    } catch (e) {
+      console.warn('Apps Script diagnostic query error:', e.message);
+    }
+  }
+  return res.json({ ok: true, records, apps_script_diagnostic: appsScriptDiagnostic });
 });
 
 // Health check endpoint
