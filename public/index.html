@@ -178,14 +178,17 @@ input.input-error,select.input-error{border-color:#dc2626!important;outline:2px 
     </div>
   </div>
 </div>
-<div class="section" id="section-m02-relatives"><h2>3. Thông tin thân nhân</h2>
+<div class="section" id="section-m02-relatives"><h2>3. Thông tin thân nhân (Diện thu mẫu ADN)</h2>
 <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:14px 16px;margin-bottom:12px;">
-  <strong>Liệt sĩ có thân nhân:</strong>
-  <label style="display:flex;align-items:center;gap:7px;margin:0;font-weight:600;cursor:pointer;"><input id="has_relatives_yes" type="checkbox" style="width:18px;height:18px;" onchange="setRelativesChoice('Có')"> Có thân nhân</label>
-  <label style="display:flex;align-items:center;gap:7px;margin:0;font-weight:600;cursor:pointer;"><input id="has_relatives_no" type="checkbox" style="width:18px;height:18px;" onchange="setRelativesChoice('Không')"> Không có thân nhân</label>
+  <strong>Liệt sĩ có thân nhân thuộc diện thu mẫu ADN:</strong>
+  <label style="display:flex;align-items:center;gap:7px;margin:0;font-weight:600;cursor:pointer;"><input id="has_relatives_yes" type="checkbox" style="width:18px;height:18px;" onchange="setRelativesChoice('Có')"> Có thân nhân thuộc diện thu mẫu</label>
+  <label style="display:flex;align-items:center;gap:7px;margin:0;font-weight:600;cursor:pointer;"><input id="has_relatives_no" type="checkbox" style="width:18px;height:18px;" onchange="setRelativesChoice('Không')"> Không có thân nhân thuộc diện thu mẫu</label>
 </div>
-<div id="relativesTableWrap" style="display:none;"><div class="note">Chỉ hiển thị bảng khi chọn “Có thân nhân”.</div>
-<div class="rel"><table><thead><tr><th>STT</th><th>Đối tượng</th><th>ĐDCN/CCCD/CMND</th><th>Họ và tên</th><th>Ngày sinh</th><th>Giới tính</th><th>Họ tên bố</th><th>Họ tên mẹ</th><th>Nơi thường trú</th><th>Trạng thái</th><th>Chữ ký và ghi rõ họ tên</th></tr></thead><tbody id="relbody"></tbody></table></div>
+<div id="relativesTableWrap" style="display:none;">
+  <div style="background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;">
+    💡 <strong>Cách nhập:</strong> Bấm vào diện có thân nhân để mở ô nhập liệu. Nếu một diện có <strong>2 người trở lên</strong> (ví dụ 2 anh em), bấm nút dấu <strong>[ ＋ ]</strong> phía sau diện đó để hiện thêm người tiếp tục nhập.
+  </div>
+  <div id="relativesCategoriesList"></div>
 </div></div>
 <div class="actions">
 <button class="btn danger" onclick="clearAll()">Xóa biểu mẫu</button>
