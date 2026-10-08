@@ -464,6 +464,8 @@ function fill(d){
 
   // Không để CCCD/ĐDCN bị mất số 0 đầu khi tải lại phiếu.
   const normalizedData={...d};
+  if (!normalizedData.rep_issue_date) normalizedData.rep_issue_date = normalizedData.ngayCapCCCD || normalizedData['Ngày cấp'] || '';
+  if (!normalizedData.rep_issue_place) normalizedData.rep_issue_place = normalizedData.noiCapCCCD || normalizedData['Nơi cấp'] || '';
   if(normalizedData.rep_id==null || String(normalizedData.rep_id).trim()===''){
     normalizedData.rep_id =
       normalizedData.soCCCD ??
@@ -475,7 +477,7 @@ function fill(d){
   if(!normalizedData.has_relatives) normalizedData.has_relatives=relativeChoice;
 
   const dateKeys = [
-    'rep_dob', 'martyr_dob', 'martyr_death_date', 'decision_date',
+    'rep_dob', 'rep_issue_date', 'martyr_dob', 'martyr_death_date', 'decision_date',
     'ngayCapCCCD', 'ngayNhapNgu', 'ngayXuatNgu', 'ngayHySinh',
     'ngayBaoTu', 'ngayQuyTap', 'ngayLapPhieu'
   ];

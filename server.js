@@ -389,8 +389,8 @@ async function fillDocument(data) {
 
   const identityParts = [
     data.rep_id && `Số ĐDCN: ${data.rep_id}`,
-    data.rep_issue_date && `Ngày cấp: ${data.rep_issue_date}`,
-    data.rep_issue_place && `Nơi cấp: ${data.rep_issue_place}`
+    (data.rep_issue_date || data.ngayCapCCCD || data['Ngày cấp']) && `Ngày cấp: ${data.rep_issue_date || data.ngayCapCCCD || data['Ngày cấp']}`,
+    (data.rep_issue_place || data.noiCapCCCD || data['Nơi cấp']) && `Nơi cấp: ${data.rep_issue_place || data.noiCapCCCD || data['Nơi cấp']}`
   ].filter(Boolean);
   if (identityParts.length) setParagraphText(doc, paragraphs[6], identityParts.join('; '));
 
@@ -485,7 +485,7 @@ async function fillDocumentM01(data) {
   // 1. Thông tin người đại diện thân nhân hoặc hưởng trợ cấp thờ cúng liệt sĩ
   if (paragraphs[4]) formatLine(paragraphs[4], `Họ và tên: ${data.rep_name || ''}`);
   if (paragraphs[5]) formatLine(paragraphs[5], `Ngày tháng năm sinh: ${data.rep_dob || ''}; Giới tính: ${data.rep_gender || ''}`);
-  if (paragraphs[6]) formatLine(paragraphs[6], [data.rep_id && `Số ĐDCN: ${data.rep_id}`, data.rep_issue_date && `Ngày cấp: ${data.rep_issue_date}`, data.rep_issue_place && `Nơi cấp: ${data.rep_issue_place}`].filter(Boolean).join('; '));
+  if (paragraphs[6]) formatLine(paragraphs[6], [data.rep_id && `Số ĐDCN: ${data.rep_id}`, (data.rep_issue_date || data.ngayCapCCCD || data['Ngày cấp']) && `Ngày cấp: ${data.rep_issue_date || data.ngayCapCCCD || data['Ngày cấp']}`, (data.rep_issue_place || data.noiCapCCCD || data['Nơi cấp']) && `Nơi cấp: ${data.rep_issue_place || data.noiCapCCCD || data['Nơi cấp']}`].filter(Boolean).join('; '));
   if (paragraphs[7]) formatLine(paragraphs[7], `Quê quán: ${data.rep_hometown || ''}`);
   if (paragraphs[8]) formatLine(paragraphs[8], `Nơi thường trú: ${data.rep_address || ''}`);
   if (paragraphs[9]) formatLine(paragraphs[9], `Số điện thoại: ${data.rep_phone || ''}`);
