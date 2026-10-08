@@ -275,7 +275,6 @@ function switchFormType(type){
     }
     if(title) title.textContent = 'PHIẾU KHẢO SÁT THÔNG TIN LIỆT SĨ ĐÃ XÁC ĐỊNH THÔNG TIN PHẦN MỘ VÀ NGƯỜI HƯỞNG TRỢ CẤP CỦA LIỆT SĨ (MẪU 01)';
     if(subTitle) subTitle.textContent = '(Theo kế hoạch rà soát của Bộ Công an - Bộ Lao động, Thương binh và Xã hội)';
-    if(m01Extra) m01Extra.style.display = 'block';
     if(secGrave) secGrave.style.display = 'block';
     if(secRel) secRel.style.display = 'none';
     if(btnWord) btnWord.textContent = 'Xuất Word Mẫu 01';
@@ -298,7 +297,6 @@ function switchFormType(type){
     }
     if(title) title.textContent = 'PHIẾU KHẢO SÁT THÔNG TIN LIỆT SĨ CHƯA XÁC ĐỊNH THÔNG TIN PHẦN MỘ VÀ THÂN NHÂN (MẪU 02)';
     if(subTitle) subTitle.textContent = '(Phục vụ thu nhận mẫu ADN xác định danh tính hài cốt liệt sĩ)';
-    if(m01Extra) m01Extra.style.display = 'none';
     if(secGrave) secGrave.style.display = 'none';
     if(secRel) secRel.style.display = 'block';
     if(btnWord) btnWord.textContent = 'Xuất Word Mẫu 02';
@@ -306,17 +304,57 @@ function switchFormType(type){
   }
 }
 
+window.saveM01SignerConfig = function() {
+  const cfg = {
+    ubnd_signer_title: ($('ubnd_signer_title')?.value || '').trim(),
+    ubnd_signer_name: ($('ubnd_signer_name')?.value || '').trim(),
+    ubnd_verified_date: ($('ubnd_verified_date')?.value || '').trim(),
+    police_signer_title: ($('police_signer_title')?.value || '').trim(),
+    police_signer_name: ($('police_signer_name')?.value || '').trim(),
+    police_verified_date: ($('police_verified_date')?.value || '').trim(),
+    dolisa_signer_title: ($('dolisa_signer_title')?.value || '').trim(),
+    dolisa_signer_name: ($('dolisa_signer_name')?.value || '').trim(),
+    dolisa_verified_date: ($('dolisa_verified_date')?.value || '').trim()
+  };
+  localStorage.setItem('m01_signer_config', JSON.stringify(cfg));
+  if (typeof showNotification === 'function') {
+    showNotification('success', 'Đã lưu cấu hình', 'Đã lưu cấu hình người ký mặc định cho Mẫu 01!');
+  } else {
+    alert('Đã lưu cấu hình người ký mặc định cho Mẫu 01!');
+  }
+};
+
+window.loadM01SignerConfig = function(showMessage) {
+  try {
+    const raw = localStorage.getItem('m01_signer_config');
+    if (!raw) {
+      if (showMessage) {
+        if (typeof showNotification === 'function') showNotification('info', 'Chưa có cấu hình', 'Chưa có cấu hình người ký được lưu trước đó.');
+        else alert('Chưa có cấu hình người ký được lưu trước đó.');
+      }
+      return;
+    }
+    const cfg = JSON.parse(raw);
+    Object.keys(cfg).forEach(k => {
+      const el = $(k);
+      if (el && cfg[k]) el.value = cfg[k];
+    });
+    if (showMessage) {
+      if (typeof showNotification === 'function') showNotification('success', 'Đã áp dụng cấu hình', 'Đã nạp thông tin người ký đã lưu vào biểu mẫu.');
+      else alert('Đã nạp thông tin người ký đã lưu vào biểu mẫu.');
+    }
+  } catch (e) {
+    console.error('Error loading signer config:', e);
+  }
+};
+
 function collect(){
   const ids=[
     'rep_name','rep_dob','rep_gender','rep_id','rep_issue_date','rep_issue_place','rep_hometown','rep_address','rep_phone',
-    'rep_relationship','rep_subsidy_type',
     'file_id','ministry_file','province_file','martyr_name','martyr_alias','martyr_dob','martyr_gender','martyr_hometown','martyr_rank',
     'martyr_unit','martyr_death_date','martyr_death_place','burial_place','certificate_no','decision_no','decision_date','father','mother','wife',
-    'grave_burial_type','grave_cemetery_name','cemetery_type','cemetery_burial_date',
-    'grave_province','grave_district','grave_commune',
-    'exhumation_place','exhumation_unit',
-    'grave_area','grave_plot','grave_row','grave_number',
-    'grave_stele_info','grave_stele_content','grave_remains_status','grave_gathered_status','grave_notes'
+    'grave_burial_type','grave_cemetery_name','cemetery_type','cemetery_address','exhumation_place','exhumation_unit','cemetery_burial_date',
+    'grave_position'
   ];
   const d={
     record_id: currentRecordId || makeRecordId(),
@@ -328,19 +366,9 @@ function collect(){
     if(e) d[id]=(e.value||'').trim();
   });
 
-  // Đồng bộ các trường đặc trưng của Mẫu 01
   if(currentFormType === 'm01'){
     d.tomb_status = d.grave_burial_type || '';
     d.cemetery_name = d.grave_cemetery_name || '';
-    d.cemetery_address = [d.grave_commune, d.grave_district, d.grave_province].filter(Boolean).join(', ');
-    d.grave_location = [
-      d.grave_area ? ('Khu: ' + d.grave_area) : '',
-      d.grave_plot ? ('Lô: ' + d.grave_plot) : '',
-      d.grave_row ? ('Hàng: ' + d.grave_row) : '',
-      d.grave_number ? ('Mộ số: ' + d.grave_number) : ''
-    ].filter(Boolean).join('; ');
-    d.grave_stele = [d.grave_stele_info, d.grave_stele_content].filter(Boolean).join(' - ');
-    d.grave_remains = [d.grave_remains_status, d.grave_gathered_status].filter(Boolean).join('; ');
   }
 
   d.has_relatives=$('has_relatives_yes')?.checked?'Có':($('has_relatives_no')?.checked?'Không':'');
@@ -505,10 +533,6 @@ function validateForm(){
   }
 
   if(currentFormType === 'm01'){
-    const repRel = ($('rep_relationship')?.value || '').trim();
-    if(!repRel) addError('rep_relationship', 'Quan hệ với liệt sĩ của người đại diện (Mẫu 01)');
-    const repSub = ($('rep_subsidy_type')?.value || '').trim();
-    if(!repSub) addError('rep_subsidy_type', 'Chế độ trợ cấp đang hưởng (Mẫu 01)');
     const cem = ($('grave_cemetery_name')?.value || '').trim();
     if(!cem) addError('grave_cemetery_name', 'Tên nghĩa trang / Nơi an táng phần mộ liệt sĩ');
   } else {
@@ -837,56 +861,16 @@ async function saveToSheets(){
     has_relatives: d.has_relatives || '',
     form_type: d.form_type || currentFormType,
     loaiPhieu: d.loaiPhieu || (currentFormType === 'm01' ? 'Mẫu 01' : 'Mẫu 02'),
-    rep_relationship: d.rep_relationship || '',
-    rep_subsidy_type: d.rep_subsidy_type || '',
     grave_burial_type: d.grave_burial_type || '',
+    tomb_status: d.grave_burial_type || '',
     grave_cemetery_name: d.grave_cemetery_name || '',
-    grave_province: d.grave_province || '',
-    grave_district: d.grave_district || '',
-    grave_commune: d.grave_commune || '',
-    grave_area: d.grave_area || '',
-    grave_plot: d.grave_plot || '',
-    grave_row: d.grave_row || '',
-    grave_number: d.grave_number || '',
-    grave_stele_info: d.grave_stele_info || '',
-    grave_stele_content: d.grave_stele_content || '',
-    grave_remains_status: d.grave_remains_status || '',
-    grave_gathered_status: d.grave_gathered_status || '',
-    grave_notes: d.grave_notes || '',
-    // Đồng bộ trực tiếp với các cột trong sheet M01 (54 cột)
-    tomb_status: d.tomb_status || d.grave_burial_type || '',
-    tinhTrangMo: d.tomb_status || d.grave_burial_type || '',
-    cemetery_name: d.cemetery_name || d.grave_cemetery_name || '',
-    tenNghiaTrang: d.cemetery_name || d.grave_cemetery_name || '',
+    cemetery_name: d.grave_cemetery_name || '',
     cemetery_type: d.cemetery_type || '',
-    loaiNghiaTrang: d.cemetery_type || '',
-    cemetery_address: d.cemetery_address || [d.grave_commune, d.grave_district, d.grave_province].filter(Boolean).join(', ') || '',
-    diaChiNghiaTrang: d.cemetery_address || [d.grave_commune, d.grave_district, d.grave_province].filter(Boolean).join(', ') || '',
+    cemetery_address: d.cemetery_address || '',
     exhumation_place: d.exhumation_place || '',
-    diaDiemQuyTapAnTang: d.exhumation_place || '',
     exhumation_unit: d.exhumation_unit || '',
-    donViQuyTapAnTang: d.exhumation_unit || '',
     cemetery_burial_date: d.cemetery_burial_date || '',
-    thoiGianDuaVaoAnTang: d.cemetery_burial_date || '',
-    soMo: d.grave_number || '',
-    hangMo: d.grave_row || '',
-    loMo: d.grave_plot || '',
-    khuMo: d.grave_area || '',
-    row_number: d.grave_row || '',
-    plot_number: d.grave_plot || '',
-    area_number: d.grave_area || '',
-    verified_by_ubnd: d.verified_by_ubnd || 'Đúng sự thật',
-    ubnd_signer_title: d.ubnd_signer_title || 'Chủ tịch UBND xã/phường',
-    ubnd_signer_name: d.ubnd_signer_name || '',
-    ubnd_verified_date: d.ubnd_verified_date || '',
-    verified_by_police: d.verified_by_police || 'Đúng dữ liệu dân cư',
-    police_signer_title: d.police_signer_title || 'Trưởng Công an xã/phường',
-    police_signer_name: d.police_signer_name || '',
-    police_verified_date: d.police_verified_date || '',
-    verified_by_dolisa: d.verified_by_dolisa || 'Đúng hồ sơ quản lý',
-    dolisa_signer_title: d.dolisa_signer_title || 'Giám đốc / Phó Giám đốc',
-    dolisa_signer_name: d.dolisa_signer_name || '',
-    dolisa_verified_date: d.dolisa_verified_date || '',
+    grave_position: d.grave_position || '',
     duLieuDayDu: JSON.stringify(d)
   };
 

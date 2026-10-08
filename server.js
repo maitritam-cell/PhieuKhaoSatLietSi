@@ -211,133 +211,97 @@ async function fillDocumentM01(data) {
   const body = doc.getElementsByTagName('w:body')[0];
 
   const paragraphs = [];
-  const tables = [];
   for (let i = 0; i < body.childNodes.length; i++) {
     const node = body.childNodes[i];
     if (node.nodeName === 'w:p') paragraphs.push(node);
-    if (node.nodeName === 'w:tbl') tables.push(node);
   }
 
-  const mapping = {
-    4: [['Họ và tên:', data.rep_name]],
-    5: [['Ngày tháng năm sinh:', data.rep_dob], ['Giới tính:', data.rep_gender]],
-    6: [['Số ĐDCN', data.rep_id], ['Ngày cấp', data.rep_issue_date], ['Nơi cấp:', data.rep_issue_place]],
-    7: [['Quê quán:', data.rep_hometown]],
-    8: [['Nơi thường trú:', data.rep_address]],
-    9: [['Số điện thoại:', data.rep_phone], ['Quan hệ với liệt sĩ:', data.rep_relationship]],
-    10: [['Chế độ trợ cấp đang hưởng:', data.rep_subsidy_type]],
-    12: [['Mã số hồ sơ liệt sĩ:', data.file_id]],
-    13: [['Mã hồ sơ Bộ quản lý:', data.ministry_file], ['Mã hồ sơ tỉnh quản lý:', data.province_file]],
-    14: [['Họ và tên liệt sĩ:', data.martyr_name], ['Bí danh:', data.martyr_alias]],
-    15: [['Ngày tháng năm sinh:', data.martyr_dob], ['Giới tính:', data.martyr_gender]],
-    16: [['Quê quán:', data.martyr_hometown]],
-    17: [['Cấp bậc, chức vụ khi hy sinh:', data.martyr_rank]],
-    18: [['Cơ quan, đơn vị khi hy sinh:', data.martyr_unit]],
-    19: [['Ngày tháng năm hy sinh:', data.martyr_death_date]],
-    20: [['Nơi hy sinh (nếu có):', data.martyr_death_place]],
-    21: [['Nơi an táng ban đầu:', data.burial_place]],
-    22: [['Bằng Tổ quốc ghi công số', data.certificate_no], ['Quyết định số', data.decision_no], ['ngày', data.decision_date]],
-    23: [['Con ông:', data.father]],
-    24: [['Con bà:', data.mother]],
-    25: [['Vợ:', data.wife]]
-  };
-
-  for (const [idxStr, items] of Object.entries(mapping)) {
-    const idx = parseInt(idxStr, 10);
-    if (idx < paragraphs.length) {
-      const p = paragraphs[idx];
-      for (const [label, value] of items) {
-        if (value) replaceFirst(doc, p, label, value);
-      }
+  function formatLine(p, formattedText) {
+    if (!p) return;
+    const pPr = p.getElementsByTagName('w:pPr')[0];
+    const firstR = p.getElementsByTagName('w:r')[0];
+    let rPr = null;
+    if (firstR) {
+      const existingRpr = firstR.getElementsByTagName('w:rPr')[0];
+      if (existingRpr) rPr = existingRpr.cloneNode(true);
     }
+    const toRemove = [];
+    for (let c = p.firstChild; c; c = c.nextSibling) {
+      if (c !== pPr) toRemove.push(c);
+    }
+    toRemove.forEach(c => p.removeChild(c));
+
+    const r = doc.createElement('w:r');
+    if (rPr) r.appendChild(rPr);
+    const t = doc.createElement('w:t');
+    t.setAttribute('xml:space', 'preserve');
+    t.textContent = formattedText;
+    r.appendChild(t);
+    p.appendChild(r);
   }
 
-  // Bảng 1: Bảng thông tin phần mộ liệt sĩ đã xác định (11 hàng)
-  if (tables.length >= 1) {
-    const table = tables[0];
-    const rows = [];
-    for (let i = 0; i < table.childNodes.length; i++) {
-      if (table.childNodes[i].nodeName === 'w:tr') rows.push(table.childNodes[i]);
-    }
-    const graveValues = [
-      data.grave_burial_type || data.tomb_status || 'An táng trong nghĩa trang liệt sĩ',
-      data.grave_cemetery_name || data.cemetery_name || '',
-      data.cemetery_type || 'Nghĩa trang liệt sĩ',
-      data.cemetery_address || [data.grave_commune, data.grave_district, data.grave_province].filter(Boolean).join(', ') || '',
-      data.exhumation_place || '',
-      data.exhumation_unit || '',
-      data.cemetery_burial_date || '',
-      data.grave_position || [
-        (data.grave_area || data.area_number) ? 'Khu: ' + (data.grave_area || data.area_number) : '',
-        (data.grave_plot || data.plot_number) ? 'Lô: ' + (data.grave_plot || data.plot_number) : '',
-        (data.grave_row || data.row_number) ? 'Hàng: ' + (data.grave_row || data.row_number) : '',
-        data.grave_number ? 'Số mộ: ' + data.grave_number : ''
-      ].filter(Boolean).join('; ') || '',
-      [data.grave_stele_info, data.grave_stele_content].filter(Boolean).join(' - ') || '',
-      [data.grave_remains_status, data.grave_gathered_status].filter(Boolean).join('; ') || '',
-      data.grave_notes || ''
-    ];
+  // 1. Thông tin người đại diện thân nhân hoặc hưởng trợ cấp thờ cúng liệt sĩ
+  if (paragraphs[4]) formatLine(paragraphs[4], `Họ và tên: ${data.rep_name || ''}`);
+  if (paragraphs[5]) formatLine(paragraphs[5], `Ngày tháng năm sinh: ${data.rep_dob || ''}; Giới tính: ${data.rep_gender || ''}`);
+  if (paragraphs[6]) formatLine(paragraphs[6], `Số ĐDCN: ${data.rep_id || ''}   Ngày cấp: ${data.rep_issue_date || ''}   Nơi cấp: ${data.rep_issue_place || ''}`);
+  if (paragraphs[7]) formatLine(paragraphs[7], `Quê quán: ${data.rep_hometown || ''}`);
+  if (paragraphs[8]) formatLine(paragraphs[8], `Nơi thường trú: ${data.rep_address || ''}`);
+  if (paragraphs[9]) formatLine(paragraphs[9], `Số điện thoại: ${data.rep_phone || ''}`);
 
-    for (let i = 0; i < Math.min(rows.length, graveValues.length); i++) {
-      const row = rows[i];
-      const cells = [];
-      for (let j = 0; j < row.childNodes.length; j++) {
-        if (row.childNodes[j].nodeName === 'w:tc') cells.push(row.childNodes[j]);
-      }
-      if (cells.length >= 2) {
-        setCellText(doc, cells[1], graveValues[i]);
-      }
-    }
+  // 2. Thông tin về liệt sĩ
+  if (paragraphs[11]) formatLine(paragraphs[11], `Mã số hồ sơ liệt sĩ: ${data.file_id || ''}`);
+  if (paragraphs[12]) formatLine(paragraphs[12], `Mã hồ sơ Bộ quản lý: ${data.ministry_file || ''}   Mã hồ sơ tỉnh quản lý: ${data.province_file || ''}`);
+  if (paragraphs[13]) formatLine(paragraphs[13], `Họ và tên liệt sĩ: ${data.martyr_name || ''}   Bí danh: ${data.martyr_alias || ''}`);
+  if (paragraphs[14]) formatLine(paragraphs[14], `Ngày tháng năm sinh: ${data.martyr_dob || ''}; Giới tính: ${data.martyr_gender || ''}`);
+  if (paragraphs[15]) formatLine(paragraphs[15], `Quê quán: ${data.martyr_hometown || ''}`);
+  if (paragraphs[16]) formatLine(paragraphs[16], `Cấp bậc, chức vụ khi hy sinh: ${data.martyr_rank || ''}`);
+  if (paragraphs[17]) formatLine(paragraphs[17], `Cơ quan, đơn vị khi hy sinh: ${data.martyr_unit || ''}`);
+  if (paragraphs[18]) formatLine(paragraphs[18], `Ngày tháng năm hy sinh: ${data.martyr_death_date || ''}`);
+  if (paragraphs[19]) formatLine(paragraphs[19], `Nơi hy sinh (nếu có): ${data.martyr_death_place || ''}`);
+  if (paragraphs[20]) formatLine(paragraphs[20], `Nơi an táng ban đầu: ${data.burial_place || ''}`);
+
+  const certDateStr = data.decision_date ? `ngày ${data.decision_date}` : 'ngày.... tháng... năm ......';
+  if (paragraphs[21]) formatLine(paragraphs[21], `Bằng Tổ quốc ghi công số: ${data.certificate_no || '...........'}   Quyết định số: ${data.decision_no || '...........'}   ${certDateStr} của Thủ tướng Chính phủ.`);
+  if (paragraphs[22]) formatLine(paragraphs[22], `Con ông: ${data.father || ''}`);
+  if (paragraphs[23]) formatLine(paragraphs[23], `Con bà: ${data.mother || ''}`);
+  if (paragraphs[24]) formatLine(paragraphs[24], `Vợ/Chồng: ${data.wife || ''}`);
+
+  // 3. Thông tin phần mộ liệt sĩ đã xác định
+  const graveBurialType = (data.grave_burial_type || data.tomb_status || '').trim();
+  const isNoRemains = graveBurialType.includes('không có');
+  if (paragraphs[25]) {
+    formatLine(paragraphs[25], `Thông tin về phần mộ liệt sĩ:   ${isNoRemains ? '[  ]' : '[X]'} Mộ có hài cốt liệt sĩ      ${isNoRemains ? '[X]' : '[  ]'} Mộ không có hài cốt liệt sĩ`);
   }
 
-  // Bảng 2: Bảng xác nhận (UBND, Công an, Sở Nội vụ)
-  if (tables.length >= 2) {
-    const sigTable = tables[1];
-    const sigRows = [];
-    for (let i = 0; i < sigTable.childNodes.length; i++) {
-      if (sigTable.childNodes[i].nodeName === 'w:tr') sigRows.push(sigTable.childNodes[i]);
-    }
-    // Cập nhật cấu hình người ký: chức vụ, họ tên và ngày xác nhận nếu template có các nhãn tương ứng.
-    const signerGroups = [
-      {cellIndex: 0, title:data.ubnd_signer_title, name:data.ubnd_signer_name, date:data.ubnd_verified_date},
-      {cellIndex: 1, title:data.police_signer_title, name:data.police_signer_name, date:data.police_verified_date},
-      {cellIndex: 2, title:data.dolisa_signer_title, name:data.dolisa_signer_name, date:data.dolisa_verified_date}
-    ];
+  const cemName = (data.grave_cemetery_name || data.cemetery_name || '').trim();
+  if (paragraphs[26]) formatLine(paragraphs[26], `Tên nghĩa trang: ${cemName}`);
 
-    // Cập nhật người ký nếu có
-    if (sigRows.length >= 1) {
-      const r0Cells = [];
-      for (let j = 0; j < sigRows[0].childNodes.length; j++) {
-        if (sigRows[0].childNodes[j].nodeName === 'w:tc') r0Cells.push(sigRows[0].childNodes[j]);
-      }
-      if (r0Cells.length >= 1 && data.ubnd_signer_name) {
-        const pList = r0Cells[0].getElementsByTagName('w:p');
-        if (pList.length > 0) {
-          const lastP = pList[pList.length - 1];
-          replaceFirst(doc, lastP, 'Họ và tên', data.ubnd_signer_name);
-        }
-      }
-      if (r0Cells.length >= 2 && data.police_signer_name) {
-        const pList = r0Cells[1].getElementsByTagName('w:p');
-        if (pList.length > 0) {
-          const lastP = pList[pList.length - 1];
-          replaceFirst(doc, lastP, 'Họ và tên', data.police_signer_name);
-        }
-      }
-    }
-    if (sigRows.length >= 2) {
-      const r1Cells = [];
-      for (let j = 0; j < sigRows[1].childNodes.length; j++) {
-        if (sigRows[1].childNodes[j].nodeName === 'w:tc') r1Cells.push(sigRows[1].childNodes[j]);
-      }
-      if (r1Cells.length >= 1 && data.dolisa_signer_name) {
-        const pList = r1Cells[0].getElementsByTagName('w:p');
-        if (pList.length > 0) {
-          const lastP = pList[pList.length - 1];
-          replaceFirst(doc, lastP, 'Họ và tên', data.dolisa_signer_name);
-        }
-      }
-    }
+  const cemType = (data.cemetery_type || '').trim();
+  const isOtherCem = cemType.includes('Ngoài');
+  if (paragraphs[27]) {
+    formatLine(paragraphs[27], `   ${isOtherCem ? '[  ]' : '[X]'} Nghĩa trang liệt sĩ                                                                  ${isOtherCem ? '[X]' : '[  ]'} Ngoài nghĩa trang liệt sĩ`);
+  }
+
+  const cemAddress = (data.cemetery_address || [data.grave_commune, data.grave_district, data.grave_province].filter(Boolean).join(', ') || '').trim();
+  if (paragraphs[28]) formatLine(paragraphs[28], `Nghĩa trang thuộc tỉnh/thành phố (ghi rõ địa chỉ chi tiết, xã, huyện, tỉnh): ${cemAddress}`);
+
+  const exhPlace = (data.exhumation_place || '').trim();
+  if (paragraphs[30]) formatLine(paragraphs[30], `Địa điểm quy tập hoặc an táng hài cốt trước khi tiếp nhận: ${exhPlace}`);
+
+  const exhUnit = (data.exhumation_unit || '').trim();
+  if (paragraphs[31]) formatLine(paragraphs[31], `Đơn vị quy tập hoặc an táng hài cốt trước khi tiếp nhận: ${exhUnit}`);
+
+  const burialDate = (data.cemetery_burial_date || '').trim();
+  if (paragraphs[32]) formatLine(paragraphs[32], `Thời gian đưa vào an táng trong nghĩa trang liệt sĩ: ${burialDate}`);
+
+  const gravePos = (data.grave_position || [
+    data.grave_number ? 'Số mộ: ' + data.grave_number : '',
+    data.grave_row ? 'Hàng: ' + data.grave_row : '',
+    data.grave_plot ? 'Lô: ' + data.grave_plot : '',
+    data.grave_area ? 'Khu: ' + data.grave_area : ''
+  ].filter(Boolean).join(', ') || '').trim();
+  if (paragraphs[33]) {
+    formatLine(paragraphs[33], `Vị trí mộ trong nghĩa trang liệt sĩ: ${gravePos || 'Số mộ...., hàng......., lô...., khu .......................................'}`);
   }
 
   const serializer = new XMLSerializer();

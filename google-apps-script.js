@@ -78,8 +78,6 @@ const M1_HEADERS = [
   'Quê quán NĐD',
   'Nơi thường trú NĐD',
   'Số điện thoại NĐD',
-  'Quan hệ với liệt sĩ',
-  'Chế độ trợ cấp đang hưởng',
   'Mã số hồ sơ liệt sĩ',
   'Mã hồ sơ Bộ quản lý',
   'Mã hồ sơ tỉnh quản lý',
@@ -106,10 +104,7 @@ const M1_HEADERS = [
   'Địa điểm quy tập / an táng trước khi tiếp nhận',
   'Đơn vị quy tập / an táng trước khi tiếp nhận',
   'Thời gian đưa vào an táng tại nghĩa trang',
-  'Vị trí mộ cụ thể (Khu, Lô, Hàng, Số mộ)',
-  'Thông tin ghi trên bia mộ & Nội dung cụ thể',
-  'Tình trạng hài cốt trong mộ & Quy tập',
-  'Ghi chú về phần mộ / Di vật kèm theo',
+  'Vị trí mộ trong nghĩa trang liệt sĩ',
   'Trạng thái phiếu'
 ];
 
@@ -323,8 +318,8 @@ function saveM01_(p) {
   const fileId = clean_(p.file_id || p.maSoHoSoLS);
   const existing = findM01Row_(sheet, recordId, fileId, martyrName);
 
-  // Vị trí mộ cụ thể: ghép hoặc lấy trường đầy đủ
-  const graveLocation = clean_(p.grave_location) || [
+  // Vị trí mộ cụ thể: lấy trường vị trí hoặc ghép
+  const graveLocation = clean_(p.grave_position || p.grave_location) || [
     (p.grave_area || p.area_number) ? ('Khu: ' + clean_(p.grave_area || p.area_number)) : '',
     (p.grave_plot || p.plot_number) ? ('Lô: ' + clean_(p.grave_plot || p.plot_number)) : '',
     (p.grave_row || p.row_number) ? ('Hàng: ' + clean_(p.grave_row || p.row_number)) : '',
@@ -335,16 +330,6 @@ function saveM01_(p) {
   const cemeteryAddress = clean_(p.cemetery_address || p.diaChiNghiaTrang) || [
     clean_(p.grave_commune), clean_(p.grave_district), clean_(p.grave_province)
   ].filter(Boolean).join(', ');
-
-  // Thông tin ghi trên bia mộ & Nội dung cụ thể
-  const graveStele = clean_(p.grave_stele) || [
-    clean_(p.grave_stele_info), clean_(p.grave_stele_content)
-  ].filter(Boolean).join(' - ');
-
-  // Tình trạng hài cốt trong mộ & Quy tập
-  const graveRemains = clean_(p.grave_remains) || [
-    clean_(p.grave_remains_status), clean_(p.grave_gathered_status)
-  ].filter(Boolean).join('; ');
 
   const row = [
     savedAt,
@@ -358,8 +343,6 @@ function saveM01_(p) {
     clean_(p.rep_hometown || p.queQuanNDD),
     clean_(p.rep_address || p.noiThuongTruNDD),
     clean_(p.rep_phone || p.soDienThoai),
-    clean_(p.rep_relationship || p.quanHeVoiLS),
-    clean_(p.rep_subsidy_type || p.cheDoTroCap),
     fileId,
     clean_(p.ministry_file || p.maBoQuanLy),
     clean_(p.province_file || p.maTinhQuanLy),
@@ -387,9 +370,6 @@ function saveM01_(p) {
     clean_(p.exhumation_unit || p.donViQuyTapAnTang),
     clean_(p.cemetery_burial_date || p.thoiGianDuaVaoAnTang),
     graveLocation,
-    graveStele,
-    graveRemains,
-    clean_(p.grave_notes || p.ghiChuMo),
     clean_(p.trangThai || p.status) || (existing ? 'Đã cập nhật' : 'Mới')
   ];
 
@@ -411,8 +391,8 @@ function findM01Row_(sheet, recordId, fileId, martyrName) {
   const data = sheet.getRange(2, 1, lastRow - 1, M1_HEADERS.length).getValues();
   const rid=clean_(recordId), fid=clean_(fileId), name=clean_(martyrName).toLowerCase();
   for(let i=0;i<data.length;i++) if(rid && clean_(data[i][1])===rid) return {row:i+2};
-  for(let i=0;i<data.length;i++) if(fid && clean_(data[i][13])===fid) return {row:i+2};
-  for(let i=0;i<data.length;i++) if(name && clean_(data[i][16]).toLowerCase()===name) return {row:i+2};
+  for(let i=0;i<data.length;i++) if(fid && clean_(data[i][11])===fid) return {row:i+2};
+  for(let i=0;i<data.length;i++) if(name && clean_(data[i][14]).toLowerCase()===name) return {row:i+2};
   return null;
 }
 
@@ -422,7 +402,7 @@ function formatM01Sheet_(sheet) {
   styleHeader_(sheet, M1_HEADERS.length);
 
   // Các mã số quan trọng phải lưu dạng TEXT để không mất số 0 đầu.
-  [6, 12, 13, 26].forEach(function(col) {
+  [6, 12, 13, 25].forEach(function(col) {
     sheet.getRange(2, col, Math.max(sheet.getMaxRows() - 1, 1), 1)
       .setNumberFormat('@');
   });
@@ -433,7 +413,7 @@ function setupM01() {
   const sheet = getOrCreateSheet_(ss, M1_SHEET_NAME, M1_HEADERS);
 
   // Định dạng các cột mã số dưới dạng TEXT để giữ số 0 đầu.
-  [6, 12, 13, 26].forEach(function(col) {
+  [6, 12, 13, 25].forEach(function(col) {
     sheet.getRange(2, col, Math.max(sheet.getMaxRows() - 1, 1), 1)
       .setNumberFormat('@');
   });
@@ -681,7 +661,7 @@ function m1RowToRecord_(row) {
 
 function m1RowToFrontend_(row) {
   return {
-    record_id: clean_(row[1]) || clean_(row[13]) || ('M01-' + normalizeDate_(row[0])),
+    record_id: clean_(row[1]) || clean_(row[11]) || ('M01-' + normalizeDate_(row[0])),
     form_type: 'm01',
     loaiPhieu: 'Mẫu 01',
     rep_name: clean_(row[2]),
@@ -693,42 +673,37 @@ function m1RowToFrontend_(row) {
     rep_hometown: clean_(row[8]),
     rep_address: clean_(row[9]),
     rep_phone: clean_(row[10]),
-    rep_relationship: clean_(row[11]),
-    rep_subsidy_type: clean_(row[12]),
-    file_id: clean_(row[13]),
-    ministry_file: clean_(row[14]),
-    province_file: clean_(row[15]),
-    martyr_name: clean_(row[16]),
-    martyr_alias: clean_(row[17]),
-    martyr_dob: clean_(row[18]),
-    martyr_gender: clean_(row[19]),
-    martyr_hometown: clean_(row[20]),
-    martyr_rank: clean_(row[21]),
-    martyr_unit: clean_(row[22]),
-    martyr_death_date: clean_(row[23]),
-    martyr_death_place: clean_(row[24]),
-    burial_place: clean_(row[25]),
-    certificate_no: clean_(row[26]),
-    decision_no: clean_(row[27]),
-    decision_date: clean_(row[28]),
-    father: clean_(row[29]),
-    mother: clean_(row[30]),
-    wife: clean_(row[31]),
-    grave_burial_type: clean_(row[32]),
-    tomb_status: clean_(row[32]),
-    grave_cemetery_name: clean_(row[33]),
-    cemetery_name: clean_(row[33]),
-    cemetery_type: clean_(row[34]),
-    cemetery_address: clean_(row[35]),
-    exhumation_place: clean_(row[36]),
-    exhumation_unit: clean_(row[37]),
-    cemetery_burial_date: clean_(row[38]),
-    grave_location: clean_(row[39]),
-    grave_stele: clean_(row[40]),
-    grave_stele_content: clean_(row[40]),
-    grave_remains: clean_(row[41]),
-    grave_notes: clean_(row[42]),
-    trangThai: clean_(row[43]) || 'Mới',
+    file_id: clean_(row[11]),
+    ministry_file: clean_(row[12]),
+    province_file: clean_(row[13]),
+    martyr_name: clean_(row[14]),
+    martyr_alias: clean_(row[15]),
+    martyr_dob: clean_(row[16]),
+    martyr_gender: clean_(row[17]),
+    martyr_hometown: clean_(row[18]),
+    martyr_rank: clean_(row[19]),
+    martyr_unit: clean_(row[20]),
+    martyr_death_date: clean_(row[21]),
+    martyr_death_place: clean_(row[22]),
+    burial_place: clean_(row[23]),
+    certificate_no: clean_(row[24]),
+    decision_no: clean_(row[25]),
+    decision_date: clean_(row[26]),
+    father: clean_(row[27]),
+    mother: clean_(row[28]),
+    wife: clean_(row[29]),
+    grave_burial_type: clean_(row[30]),
+    tomb_status: clean_(row[30]),
+    grave_cemetery_name: clean_(row[31]),
+    cemetery_name: clean_(row[31]),
+    cemetery_type: clean_(row[32]),
+    cemetery_address: clean_(row[33]),
+    exhumation_place: clean_(row[34]),
+    exhumation_unit: clean_(row[35]),
+    cemetery_burial_date: clean_(row[36]),
+    grave_position: clean_(row[37]),
+    grave_location: clean_(row[37]),
+    trangThai: clean_(row[38]) || 'Mới',
     saved_at: clean_(row[0])
   };
 }

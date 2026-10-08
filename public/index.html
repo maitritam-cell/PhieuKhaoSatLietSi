@@ -43,10 +43,9 @@ input.input-error,select.input-error{border-color:#dc2626!important;outline:2px 
 .table-records tr:hover{background:#f8fafc}
 @media(max-width:720px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.status{width:100%;margin-left:0}}
 </style></head>
-<body><section id="staffLogin" class="wrap" style="max-width:520px;margin:8vh auto;display:block"><div class="card"><h1>Đăng nhập cán bộ</h1><p class="sub">Tài khoản cán bộ phục vụ phân công rà soát theo địa bàn.</p><label>Email</label><input id="staffLoginEmail" type="email" autocomplete="username" placeholder="Email tài khoản"><label style="margin-top:12px">Mật khẩu</label><input id="staffLoginPassword" type="password" autocomplete="current-password" placeholder="Mật khẩu"><button id="staffLoginBtn" class="btn primary" style="margin-top:14px;width:100%;justify-content:center">Đăng nhập cán bộ</button><div id="staffLoginMessage" class="note" style="margin-top:12px"></div></div></section><div id="staffTopbar" style="display:none;max-width:1100px;margin:12px auto;padding:0 16px;text-align:right"><span id="staffIdentity" style="margin-right:10px"></span><button id="staffLogoutBtn" class="btn secondary">Đăng xuất</button></div><div id="staffApp" style="display:none"><div id="toast" class="toast" style="display:none;"></div><div class="wrap"><div class="card">
+<body><div id="toast" class="toast" style="display:none;"></div><div class="wrap"><div class="card">
 <h1>Ứng dụng lập Phiếu khảo sát liệt sĩ</h1>
-<div class="sub">Nhập thông tin → Lưu Google Sheets → Tra cứu & Sửa phiếu → Xuất Mẫu 01 (Word) & Mẫu 02 (Word/PDF) theo chuẩn Bộ Công an.</div>
-<div style="margin:0 0 14px;"><a href="/assignments.html" style="display:inline-flex;align-items:center;gap:7px;padding:9px 12px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">👥 Quản lý rà soát / Giao hồ sơ cho cán bộ</a></div>
+<div class="sub">Nhập thông tin → Lưu Google Sheets → Tra cứu & Sửa phiếu → Xuất Mẫu 02 (Word/PDF).</div>
 <div style="margin:0 0 14px;display:none;gap:8px;flex-wrap:wrap;"><button type="button" class="btn btn-outline" onclick="openScriptConfigModal()" style="font-size:13px;">⚙️ Cài đặt Google Sheets</button><button type="button" class="btn btn-outline" onclick="openScriptConfigModal();setTimeout(testScriptConnection,150)" style="font-size:13px;">🔌 Kiểm tra kết nối</button></div>
 
 <!-- Banner thông báo khi đang trong chế độ chỉnh sửa phiếu -->
@@ -70,13 +69,8 @@ input.input-error,select.input-error{border-color:#dc2626!important;outline:2px 
       <button type="button" id="btnSyncSheets" class="btn btn-outline" style="display:none;padding:6px 12px;font-size:13px;" onclick="fetchFromGoogleSheets()" title="Đồng bộ danh sách từ Google Sheets">🔄 Tải từ Google Sheet</button>
     </div>
   </div>
-  <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
-    <input id="recordSearch" placeholder="Tìm nhanh theo họ tên liệt sĩ, mã phiếu, mã hồ sơ, số CCCD hoặc SĐT người đại diện..." style="flex:1;min-width:240px;">
-    <select id="filterFormType" style="max-width:240px;padding:8px 12px;font-weight:600;" onchange="renderRecords()">
-      <option value="">Tất cả biểu mẫu</option>
-      <option value="m01">Chỉ Mẫu 01 (Đã xác định phần mộ)</option>
-      <option value="m02">Chỉ Mẫu 02 (Chưa xác định & Thu ADN)</option>
-    </select>
+  <div style="display:flex;gap:10px;margin-bottom:12px;">
+    <input id="recordSearch" placeholder="Tìm nhanh theo họ tên liệt sĩ, mã phiếu, mã hồ sơ, số CCCD hoặc SĐT người đại diện..." style="flex:1;">
     <button type="button" class="btn btn-outline" onclick="renderRecords()">Tìm kiếm</button>
   </div>
   <div class="rel table-records" style="max-height:260px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;">
@@ -85,7 +79,6 @@ input.input-error,select.input-error{border-color:#dc2626!important;outline:2px 
         <tr>
           <th style="width:40px;text-align:center;">STT</th>
           <th>Mã phiếu</th>
-          <th>Biểu mẫu</th>
           <th>Họ tên liệt sĩ</th>
           <th>Mã hồ sơ</th>
           <th>Người đại diện & SĐT</th>
@@ -95,215 +88,115 @@ input.input-error,select.input-error{border-color:#dc2626!important;outline:2px 
         </tr>
       </thead>
       <tbody id="recordRows">
-        <tr><td colspan="9" style="text-align:center;padding:16px;color:#64748b;">Chưa có phiếu đã lưu trên thiết bị này.</td></tr>
+        <tr><td colspan="8" style="text-align:center;padding:16px;color:#64748b;">Chưa có phiếu đã lưu trên thiết bị này.</td></tr>
       </tbody>
     </table>
   </div>
 </div>
 
-<!-- KHU VỰC CHỌN BIỂU MẪU KHẢO SÁT (MẪU 01 / MẪU 02) -->
-<div class="form-type-selector-card" style="background:#ffffff;border:2px solid #3b82f6;border-radius:12px;padding:12px 16px;margin:20px 0 16px;box-shadow:0 4px 6px -1px rgba(59,130,246,0.1);">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-    <strong style="color:#1e3a8a;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">📋 Chọn loại biểu mẫu khảo sát:</strong>
-    <span id="currentFormBadge" style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;background:#dbeafe;color:#1e40af;">Đang chọn: MẪU 02</span>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" id="formTypeTabs">
-    <button type="button" id="tabBtnM01" class="btn" onclick="switchFormType('m01')" style="padding:12px 14px;border-radius:8px;font-size:13.5px;font-weight:700;text-align:left;border:2px solid #cbd5e1;background:#f8fafc;color:#334155;cursor:pointer;transition:all 0.2s;">
-      <div style="font-size:15px;color:#0f172a;margin-bottom:2px;">📋 MẪU 01 (Đã xác định phần mộ)</div>
-      <div style="font-size:12px;font-weight:normal;color:#64748b;">Khảo sát thông tin phần mộ & người hưởng trợ cấp</div>
-    </button>
-    <button type="button" id="tabBtnM02" class="btn" onclick="switchFormType('m02')" style="padding:12px 14px;border-radius:8px;font-size:13.5px;font-weight:700;text-align:left;border:2px solid #2563eb;background:#eff6ff;color:#1d4ed8;cursor:pointer;transition:all 0.2s;">
-      <div style="font-size:15px;color:#1d4ed8;margin-bottom:2px;">🧬 MẪU 02 (Chưa xác định & Thu ADN)</div>
-      <div style="font-size:12px;font-weight:normal;color:#3b82f6;">Khảo sát thân nhân dòng ngoại phục vụ thu mẫu ADN</div>
-    </button>
+
+<div class="section" style="padding:12px 16px;">
+  <div id="formTypeHeader" style="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+    <div>
+      <div id="formMainTitle" style="font-weight:800;font-size:17px;">PHIẾU KHẢO SÁT THÔNG TIN LIỆT SĨ CHƯA XÁC ĐỊNH THÔNG TIN PHẦN MỘ VÀ THÂN NHÂN (MẪU 02)</div>
+      <div id="formSubTitle" class="note">(Phục vụ thu nhận mẫu ADN xác định danh tính hài cốt liệt sĩ)</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button type="button" id="tabBtnM01" class="btn btn-outline" onclick="switchFormType('m01')">Mẫu 01</button>
+      <button type="button" id="tabBtnM02" class="btn btn-outline" onclick="switchFormType('m02')">Mẫu 02</button>
+      <span id="currentFormBadge" style="padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;">Đang chọn: MẪU 02</span>
+    </div>
   </div>
 </div>
 
-<div id="formTitleBox" style="text-align:center;margin-bottom:18px;padding:12px 16px;background:#f8fafc;border-radius:10px;border-left:5px solid #2563eb;">
-  <h2 id="formMainTitle" style="margin:0 0 4px;font-size:16.5px;color:#0f172a;text-transform:uppercase;">PHIẾU KHẢO SÁT THÔNG TIN LIỆT SĨ CHƯA XÁC ĐỊNH THÔNG TIN PHẦN MỘ VÀ THÂN NHÂN (MẪU 02)</h2>
-  <div id="formSubTitle" style="font-size:13px;color:#64748b;font-style:italic;">(Phục vụ thu nhận mẫu ADN xác định danh tính hài cốt liệt sĩ)</div>
-</div>
-
-<div class="section"><h2>1. Người đại diện thân nhân / người hưởng trợ cấp thờ cúng</h2><div class="grid">
-<div><label>Họ và tên <span class="req">*</span></label><input id="rep_name"></div><div><label>Ngày tháng năm sinh <span class="req">*</span> <small style="font-weight:normal;color:#64748b;">(năm hoặc dd/mm/yyyy)</small></label><input id="rep_dob" placeholder="YYYY hoặc dd/mm/yyyy" maxlength="10"></div>
-<div><label>Giới tính <span class="req">*</span></label><select id="rep_gender"><option value="">-- Chọn --</option><option>Nam</option><option>Nữ</option></select></div><div><label>Số Căn cước <span class="req">*</span> <small style="font-weight:normal;color:#64748b;">(đủ 12 số)</small></label><input id="rep_id" inputmode="numeric" maxlength="12" placeholder="Nhập đủ 12 chữ số"></div>
+<div class="section"><h2>1. Người đại diện thân nhân hoặc hưởng trợ cấp thờ cúng liệt sĩ</h2><div class="grid">
+<div><label>Họ và tên</label><input id="rep_name"></div><div><label>Ngày tháng năm sinh</label><input id="rep_dob" placeholder="dd/mm/yyyy" maxlength="10"></div>
+<div><label>Giới tính</label><select id="rep_gender"><option value="">-- Chọn --</option><option>Nam</option><option>Nữ</option></select></div><div><label>Số ĐDCN</label><input id="rep_id" inputmode="numeric" maxlength="12" placeholder="Nhập đủ 12 chữ số"></div>
 <div><label>Ngày cấp</label><input id="rep_issue_date" placeholder="dd/mm/yyyy"></div><div><label>Nơi cấp</label><input id="rep_issue_place"></div>
-<div class="full"><label>Quê quán <span class="req">*</span></label><input id="rep_hometown"></div><div class="full"><label>Nơi thường trú <span class="req">*</span></label><input id="rep_address"></div><div><label>Số điện thoại <span class="req">*</span></label><input id="rep_phone" inputmode="tel" placeholder="Ví dụ: 0912345678"></div>
-
-<div id="m01_rep_extra" style="display:none;grid-column:1 / -1;background:#eff6ff;padding:12px;border-radius:8px;border:1px solid #bfdbfe;margin-top:6px;">
-  <div class="grid" style="gap:10px;">
-    <div>
-      <label style="font-weight:600;color:#1e40af;">Quan hệ với liệt sĩ (Người đại diện) <span class="req">*</span></label>
-      <select id="rep_relationship">
-        <option value="">-- Chọn quan hệ --</option>
-        <option value="Con đẻ">Con đẻ</option>
-        <option value="Vợ / Chồng">Vợ / Chồng</option>
-        <option value="Bố đẻ">Bố đẻ</option>
-        <option value="Mẹ đẻ">Mẹ đẻ</option>
-        <option value="Anh / Chị / Em ruột">Anh / Chị / Em ruột</option>
-        <option value="Cháu nội / ngoại">Cháu nội / ngoại</option>
-        <option value="Người thờ cúng được ủy quyền">Người thờ cúng được ủy quyền</option>
-        <option value="Khác">Khác</option>
-      </select>
-    </div>
-    <div>
-      <label style="font-weight:600;color:#1e40af;">Chế độ trợ cấp đang hưởng <span class="req">*</span></label>
-      <select id="rep_subsidy_type">
-        <option value="">-- Chọn chế độ hưởng --</option>
-        <option value="Trợ cấp thờ cúng liệt sĩ hàng năm">Trợ cấp thờ cúng liệt sĩ hàng năm</option>
-        <option value="Trợ cấp tiền tuất liệt sĩ hàng tháng">Trợ cấp tiền tuất liệt sĩ hàng tháng</option>
-        <option value="Hưởng cả trợ cấp tuất và thờ cúng">Hưởng cả trợ cấp tuất và thờ cúng</option>
-        <option value="Chưa hưởng chế độ trợ cấp">Chưa hưởng chế độ trợ cấp</option>
-      </select>
-    </div>
-  </div>
-</div>
+<div class="full"><label>Quê quán</label><input id="rep_hometown"></div><div class="full"><label>Nơi thường trú</label><input id="rep_address"></div>
+<div><label>Số điện thoại</label><input id="rep_phone" inputmode="tel"></div>
 </div></div>
 
 <div class="section"><h2>2. Thông tin về liệt sĩ</h2><div class="grid">
 <div><label>Mã số hồ sơ liệt sĩ</label><input id="file_id"></div><div><label>Mã hồ sơ Bộ quản lý</label><input id="ministry_file"></div>
-<div><label>Mã hồ sơ tỉnh quản lý</label><input id="province_file"></div><div><label>Họ và tên liệt sĩ <span class="req">*</span></label><input id="martyr_name"></div>
-<div><label>Bí danh</label><input id="martyr_alias"></div><div><label>Ngày tháng năm sinh <span class="req">*</span> <small style="font-weight:normal;color:#64748b;">(năm hoặc dd/mm/yyyy)</small></label><input id="martyr_dob" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY hoặc dd/mm/yyyy"></div>
-<div><label>Giới tính <span class="req">*</span></label><select id="martyr_gender"><option value="">-- Chọn --</option><option>Nam</option><option>Nữ</option></select></div>
-<div class="full"><label>Quê quán <span class="req">*</span></label><input id="martyr_hometown"></div>
-<div class="full"><label>Cấp bậc, chức vụ khi hy sinh <span class="req">*</span></label><input id="martyr_rank"></div>
-<div class="full"><label>Cơ quan, đơn vị khi hy sinh <span class="req">*</span></label><input id="martyr_unit"></div>
-<div><label>Ngày tháng năm hy sinh <span class="req">*</span></label><input id="martyr_death_date" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY hoặc dd/mm/yyyy"></div><div><label>Nơi hy sinh (nếu có)</label><input id="martyr_death_place"></div>
+<div><label>Mã hồ sơ tỉnh quản lý</label><input id="province_file"></div><div><label>Họ và tên liệt sĩ</label><input id="martyr_name"></div>
+<div><label>Bí danh</label><input id="martyr_alias"></div><div><label>Ngày tháng năm sinh</label><input id="martyr_dob" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY hoặc dd/mm/yyyy"></div>
+<div><label>Giới tính</label><select id="martyr_gender"><option value="">-- Chọn --</option><option>Nam</option><option>Nữ</option></select></div>
+<div class="full"><label>Quê quán</label><input id="martyr_hometown"></div>
+<div class="full"><label>Cấp bậc, chức vụ khi hy sinh</label><input id="martyr_rank"></div>
+<div class="full"><label>Cơ quan, đơn vị khi hy sinh</label><input id="martyr_unit"></div>
+<div><label>Ngày tháng năm hy sinh</label><input id="martyr_death_date" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY hoặc dd/mm/yyyy"></div><div><label>Nơi hy sinh (nếu có)</label><input id="martyr_death_place"></div>
 <div class="full"><label>Nơi an táng ban đầu</label><input id="burial_place"></div>
-<div><label>Bằng Tổ quốc ghi công số <span class="req">*</span></label><input id="certificate_no"></div><div><label>Quyết định số <span class="req">*</span></label><input id="decision_no"></div>
-<div><label>Ngày quyết định <span class="req">*</span></label><input id="decision_date" placeholder="dd/mm/yyyy"></div>
-<div><label>Con ông</label><input id="father"></div><div><label>Con bà</label><input id="mother"></div><div><label>Vợ / Chồng</label><input id="wife"></div>
+<div><label>Bằng Tổ quốc ghi công số</label><input id="certificate_no"></div><div><label>Quyết định số</label><input id="decision_no"></div>
+<div><label>Ngày quyết định</label><input id="decision_date" placeholder="dd/mm/yyyy"></div>
+<div><label>Con ông</label><input id="father"></div><div><label>Con bà</label><input id="mother"></div><div><label>Vợ/Chồng</label><input id="wife"></div>
 </div></div>
 
-<!-- PHẦN 3: THÔNG TIN PHẦN MỘ ĐÃ XÁC ĐỊNH (DÀNH CHO MẪU 01) -->
 <div class="section" id="section-m01-grave" style="display:none;">
   <h2>3. Thông tin phần mộ liệt sĩ đã xác định</h2>
   <div class="grid">
-    <div>
-      <label>Tình trạng phần mộ / Hình thức an táng <span class="req">*</span></label>
+    <div class="full">
+      <label>Thông tin về phần mộ liệt sĩ</label>
       <select id="grave_burial_type">
-        <option value="An táng trong nghĩa trang liệt sĩ">An táng trong nghĩa trang liệt sĩ</option>
-        <option value="Đã quy tập vào nghĩa trang liệt sĩ">Đã quy tập vào nghĩa trang liệt sĩ</option>
-        <option value="An táng ngoài nghĩa trang liệt sĩ (gia tộc, quê hương)">An táng ngoài nghĩa trang liệt sĩ (gia tộc, quê hương)</option>
-        <option value="Chưa quy tập">Chưa quy tập</option>
+        <option value="">-- Chọn --</option>
+        <option value="Mộ có hài cốt liệt sĩ">Mộ có hài cốt liệt sĩ</option>
+        <option value="Mộ không có hài cốt liệt sĩ">Mộ không có hài cốt liệt sĩ</option>
       </select>
     </div>
-    <div>
-      <label>Tên nghĩa trang / Nơi an táng hiện nay <span class="req">*</span></label>
-      <input id="grave_cemetery_name" placeholder="Ví dụ: Nghĩa trang liệt sĩ Quốc gia Đường 9">
+    <div class="full">
+      <label>Tên nghĩa trang</label>
+      <input id="grave_cemetery_name">
     </div>
     <div>
       <label>Loại nghĩa trang</label>
       <select id="cemetery_type">
-        <option value="Nghĩa trang liệt sĩ Quốc gia">Nghĩa trang liệt sĩ Quốc gia</option>
-        <option value="Nghĩa trang liệt sĩ cấp Tỉnh">Nghĩa trang liệt sĩ cấp Tỉnh</option>
-        <option value="Nghĩa trang liệt sĩ cấp Huyện">Nghĩa trang liệt sĩ cấp Huyện</option>
-        <option value="Nghĩa trang liệt sĩ cấp Xã">Nghĩa trang liệt sĩ cấp Xã</option>
-        <option value="Nghĩa trang gia tộc / Quê hương">Nghĩa trang gia tộc / Quê hương</option>
+        <option value="">-- Chọn --</option>
+        <option value="Nghĩa trang liệt sĩ">Nghĩa trang liệt sĩ</option>
+        <option value="Ngoài nghĩa trang liệt sĩ">Ngoài nghĩa trang liệt sĩ</option>
       </select>
     </div>
-    <div>
-      <label>Thời gian đưa vào an táng tại nghĩa trang</label>
+    <div class="full">
+      <label>Nghĩa trang thuộc tỉnh/thành phố (ghi rõ địa chỉ chi tiết, xã, huyện, tỉnh)</label>
+      <input id="cemetery_address">
+    </div>
+    <div class="full">
+      <label>Địa điểm quy tập hoặc an táng hài cốt trước khi tiếp nhận</label>
+      <input id="exhumation_place">
+    </div>
+    <div class="full">
+      <label>Đơn vị quy tập hoặc an táng hài cốt trước khi tiếp nhận</label>
+      <input id="exhumation_unit">
+    </div>
+    <div class="full">
+      <label>Thời gian đưa vào an táng trong nghĩa trang liệt sĩ</label>
       <input id="cemetery_burial_date" placeholder="Năm (YYYY) hoặc dd/mm/yyyy">
     </div>
-    <div>
-      <label>Tỉnh / Thành phố nơi an táng</label>
-      <input id="grave_province" placeholder="Tỉnh / Thành phố">
-    </div>
-    <div>
-      <label>Quận / Huyện nơi an táng</label>
-      <input id="grave_district" placeholder="Quận / Huyện / Thị xã">
-    </div>
     <div class="full">
-      <label>Xã / Phường nơi an táng</label>
-      <input id="grave_commune" placeholder="Xã / Phường / Thị trấn">
-    </div>
-    
-    <div>
-      <label>Địa điểm quy tập / an táng trước khi tiếp nhận</label>
-      <input id="exhumation_place" placeholder="Ví dụ: Cao điểm 544, Gio Linh, Quảng Trị">
-    </div>
-    <div>
-      <label>Đơn vị quy tập / an táng trước khi tiếp nhận</label>
-      <input id="exhumation_unit" placeholder="Ví dụ: Đội K54, Bộ CHQS tỉnh Quảng Trị">
-    </div>
-
-    <div class="full" style="background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e2e8f0;">
-      <strong style="color:#0f172a;display:block;margin-bottom:8px;">📍 Vị trí cụ thể của mộ trong nghĩa trang:</strong>
-      <div class="grid">
-        <div><label>Khu mộ</label><input id="grave_area" placeholder="Ví dụ: Khu A"></div>
-        <div><label>Lô mộ</label><input id="grave_plot" placeholder="Ví dụ: Lô 02"></div>
-        <div><label>Hàng mộ</label><input id="grave_row" placeholder="Ví dụ: Hàng 05"></div>
-        <div><label>Mộ số</label><input id="grave_number" placeholder="Ví dụ: Số 14"></div>
-      </div>
-    </div>
-
-    <div>
-      <label>Thông tin ghi trên bia mộ</label>
-      <select id="grave_stele_info">
-        <option value="Đầy đủ thông tin (Họ tên, quê quán, năm sinh, năm hy sinh)">Đầy đủ thông tin (Họ tên, quê quán, năm sinh, năm hy sinh)</option>
-        <option value="Có một phần thông tin">Có một phần thông tin</option>
-        <option value="Bia chưa có thông tin">Bia chưa có thông tin</option>
-      </select>
-    </div>
-    <div>
-      <label>Nội dung ghi cụ thể trên bia mộ (nếu có)</label>
-      <input id="grave_stele_content" placeholder="Ghi chính xác nội dung chữ trên bia mộ">
-    </div>
-
-    <div>
-      <label>Tình trạng hài cốt trong phần mộ</label>
-      <select id="grave_remains_status">
-        <option value="Có hài cốt trong phần mộ">Có hài cốt trong phần mộ</option>
-        <option value="Mộ tượng trưng (chưa có hài cốt)">Mộ tượng trưng (chưa có hài cốt)</option>
-        <option value="Đã lấy mẫu hài cốt di dời">Đã lấy mẫu hài cốt di dời</option>
-      </select>
-    </div>
-    <div>
-      <label>Tình trạng quy tập</label>
-      <select id="grave_gathered_status">
-        <option value="Đã quy tập vào nghĩa trang liệt sĩ">Đã quy tập vào nghĩa trang liệt sĩ</option>
-        <option value="Chưa quy tập">Chưa quy tập</option>
-      </select>
-    </div>
-
-    <div class="full">
-      <label>Ghi chú về phần mộ / Di vật kèm theo</label>
-      <textarea id="grave_notes" placeholder="Ghi chú thêm về hiện trạng mộ, các di vật kèm theo nếu có..."></textarea>
+      <label>Vị trí mộ trong nghĩa trang liệt sĩ (Số mộ, hàng, lô, khu)</label>
+      <input id="grave_position" placeholder="Ví dụ: Số mộ 12, hàng 4, lô A, khu 1">
     </div>
   </div>
 </div>
-
-<!-- PHẦN 3: THÔNG TIN THÂN NHÂN THU MẪU ADN (DÀNH CHO MẪU 02) -->
-<div class="section" id="section-m02-relatives">
-<h2>3. Thông tin thân nhân (Diện thu mẫu ADN)</h2>
-<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
-  <strong>Liệt sĩ có thân nhân thuộc diện thu mẫu ADN:</strong>
-  <label style="display:flex;align-items:center;gap:7px;margin:0;font-weight:600;cursor:pointer;">
-    <input id="has_relatives_yes" type="checkbox" style="width:18px;height:18px;" onchange="setRelativesChoice('Có')"> Có thân nhân thuộc diện thu mẫu
-  </label>
-  <label style="display:flex;align-items:center;gap:7px;margin:0;font-weight:600;cursor:pointer;">
-    <input id="has_relatives_no" type="checkbox" style="width:18px;height:18px;" onchange="setRelativesChoice('Không')"> Không có thân nhân thuộc diện thu mẫu
-  </label>
+<div class="section" id="section-m02-relatives"><h2>3. Thông tin thân nhân</h2>
+<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:14px 16px;margin-bottom:12px;">
+  <strong>Liệt sĩ có thân nhân:</strong>
+  <label style="display:flex;align-items:center;gap:7px;margin:0;font-weight:600;cursor:pointer;"><input id="has_relatives_yes" type="checkbox" style="width:18px;height:18px;" onchange="setRelativesChoice('Có')"> Có thân nhân</label>
+  <label style="display:flex;align-items:center;gap:7px;margin:0;font-weight:600;cursor:pointer;"><input id="has_relatives_no" type="checkbox" style="width:18px;height:18px;" onchange="setRelativesChoice('Không')"> Không có thân nhân</label>
 </div>
-<div id="relativesTableWrap" style="display:none;">
-  <div style="background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;">
-    💡 <strong>Cách nhập:</strong> Bấm vào diện có thân nhân để mở ô nhập liệu. Nếu một diện có <strong>2 người trở lên</strong> (ví dụ 2 anh em), bấm nút dấu <strong>[ ＋ ]</strong> phía sau diện đó để hiện thêm người tiếp tục nhập.
-  </div>
-  <div id="relativesCategoriesList"></div>
-</div>
-</div>
-
+<div id="relativesTableWrap" style="display:none;"><div class="note">Chỉ hiển thị bảng khi chọn “Có thân nhân”.</div>
+<div class="rel"><table><thead><tr><th>STT</th><th>Đối tượng</th><th>ĐDCN/CCCD/CMND</th><th>Họ và tên</th><th>Ngày sinh</th><th>Giới tính</th><th>Họ tên bố</th><th>Họ tên mẹ</th><th>Nơi thường trú</th><th>Trạng thái</th><th>Chữ ký và ghi rõ họ tên</th></tr></thead><tbody id="relbody"></tbody></table></div>
+</div></div>
 <div class="actions">
 <button class="btn danger" onclick="clearAll()">Xóa biểu mẫu</button>
 <button id="btnSaveSheets" class="btn primary" style="background:#0f766e;" onclick="saveToSheets()">Lưu vào Google Sheets</button>
+
 <button id="btnWord" class="btn primary" onclick="generateWord()" disabled>Xuất Word</button>
 <button id="btnPdf" class="btn pdfbtn" onclick="generatePdf()" disabled>Xuất PDF đúng Mẫu 02</button>
 <span id="status" class="status"></span>
 </div>
 </div></div>
 
-<div id="script-config-modal" class="modal-overlay" style="display:none;">
+<div id="script-config-modal" class="modal-overlay" style="display:none;visibility:hidden;">
   <div class="modal-card">
     <div class="modal-header">
       <h3>Cài đặt kết nối Google Sheets (Đầy đủ 33 cột & Sửa dòng)</h3>
@@ -420,6 +313,6 @@ if (!window.PDFLib) {
   document.write('<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"><\/script>');
 }
 </script>
-<script src="/app.js?v=staff-auth-native-3"></script>
-</div></body>
+<script src="/app.js"></script>
+</body>
 </html>
