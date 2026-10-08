@@ -42,14 +42,38 @@ async function authChanged(user){
   ]);
  }catch(e){msg(e.message,'error');}
 }
+async function loginWithTimeout(email,password){
+ const timeoutMs=15000;
+ const loginPromise=sb.auth.signInWithPassword({email,password});
+ const timeoutPromise=new Promise((_,reject)=>setTimeout(()=>reject(new Error('Đăng nhập quá thời gian 15 giây. Hãy kiểm tra kết nối mạng rồi thử lại.')),timeoutMs));
+ return Promise.race([loginPromise,timeoutPromise]);
+}
 $('loginBtn').onclick=async()=>{
- clearMsg();const email=$('email').value.trim(),password=$('password').value;
+ clearMsg();
+ const email=($('email')?.value||'').trim();
+ const password=$('password')?.value||'';
+ const btn=$('loginBtn');
  if(!email||!password)return msg('Nhập email và mật khẩu.','error');
- $('loginBtn').disabled=true;
- const {data,error}=await sb.auth.signInWithPassword({email,password});
- $('loginBtn').disabled=false;
- if(error)return msg('Đăng nhập thất bại: '+error.message,'error');
- await authChanged(data.user);
+ if(!window.supabase||!sb)return msg('Không tải được thư viện đăng nhập Supabase. Hãy nhấn Ctrl+F5 để tải lại trang.','error');
+ if(btn){
+  btn.disabled=true;
+  btn.textContent='Đang đăng nhập...';
+ }
+ try{
+  const result=await loginWithTimeout(email,password);
+  const {data,error}=result||{};
+  if(error)throw new Error(error.message||'Thông tin đăng nhập không hợp lệ.');
+  if(!data?.user)throw new Error('Đăng nhập không trả về tài khoản. Vui lòng thử lại.');
+  await authChanged(data.user);
+ }catch(e){
+  console.error('Login error:',e);
+  msg('Đăng nhập thất bại: '+(e?.message||'Lỗi không xác định.'),'error');
+ }finally{
+  if(btn){
+   btn.disabled=false;
+   btn.textContent='Đăng nhập';
+  }
+ }
 };
 $('logoutBtn').onclick=async()=>{await sb.auth.signOut();profile=null;me=null;authChanged(null);};
 $('refreshBtn').onclick=loadAssignments;
