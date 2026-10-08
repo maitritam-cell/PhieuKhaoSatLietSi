@@ -663,7 +663,7 @@ function m1RowToRecord_(row) {
     rep_subsidy_type: clean_(row[12]),
     has_relatives: 'Không',
     saved_at: clean_(row[0]),
-    status: clean_(row[43]) || 'Mới'
+    status: clean_(row[38]) || 'Mới'
   };
 }
 
