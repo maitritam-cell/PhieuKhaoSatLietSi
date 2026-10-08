@@ -166,6 +166,7 @@ function applyConfirmationBlock(doc, body) {
   // và ô Sở Nội vụ ở giữa phía dưới được giữ nguyên như mẫu gốc.
   const cells = body.getElementsByTagName('w:tc');
   const used = new Set();
+  const matchedCells = [];
 
   for (const block of blocks) {
     for (let i = 0; i < cells.length; i++) {
@@ -180,7 +181,51 @@ function applyConfirmationBlock(doc, body) {
       if (block.keywords.some(keyword => text.includes(keyword))) {
         replaceCell(cell, block.lines);
         used.add(i);
+        matchedCells.push(cell);
         break;
+      }
+    }
+  }
+
+  // Đảm bảo hai ô xác nhận trên cùng hàng chiếm hai nửa bằng nhau.
+  // Chỉ cập nhật cột UBND/Công an; khu vực Sở Nội vụ phía dưới không đổi.
+  const [ubndCell, policeCell] = matchedCells;
+  if (ubndCell && policeCell && ubndCell.parentNode === policeCell.parentNode) {
+    const row = ubndCell.parentNode;
+    const rowCells = Array.from(row.childNodes).filter(node => node.nodeName === 'w:tc');
+    const getCellWidth = (cell) => {
+      const tcPr = Array.from(cell.childNodes).find(node => node.nodeName === 'w:tcPr');
+      const tcW = tcPr && Array.from(tcPr.childNodes).find(node => node.nodeName === 'w:tcW');
+      return Number(tcW?.getAttribute('w:w')) || 0;
+    };
+    const totalWidth = getCellWidth(ubndCell) + getCellWidth(policeCell);
+    if (totalWidth > 0) {
+      const equalWidth = String(Math.round(totalWidth / 2));
+      for (const cell of [ubndCell, policeCell]) {
+        let tcPr = Array.from(cell.childNodes).find(node => node.nodeName === 'w:tcPr');
+        if (!tcPr) {
+          tcPr = doc.createElementNS(W, 'w:tcPr');
+          cell.insertBefore(tcPr, cell.firstChild);
+        }
+        let tcW = Array.from(tcPr.childNodes).find(node => node.nodeName === 'w:tcW');
+        if (!tcW) {
+          tcW = doc.createElementNS(W, 'w:tcW');
+          tcPr.insertBefore(tcW, tcPr.firstChild);
+        }
+        tcW.setAttribute('w:w', equalWidth);
+        tcW.setAttribute('w:type', 'dxa');
+      }
+
+      // Đồng bộ lưới cột của bảng nếu bảng chỉ có hai cột xác nhận.
+      const table = row.parentNode;
+      const grid = Array.from(table.childNodes).find(node => node.nodeName === 'w:tblGrid');
+      const gridCols = grid && Array.from(grid.childNodes).filter(node => node.nodeName === 'w:gridCol');
+      if (rowCells.length === 2 && gridCols?.length === 2) {
+        const gridTotal = gridCols.reduce((sum, col) => sum + (Number(col.getAttribute('w:w')) || 0), 0);
+        if (gridTotal > 0) {
+          const gridHalf = String(Math.round(gridTotal / 2));
+          gridCols.forEach(col => col.setAttribute('w:w', gridHalf));
+        }
       }
     }
   }
