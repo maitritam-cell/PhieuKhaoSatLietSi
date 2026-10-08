@@ -665,6 +665,70 @@ function saveLocal(d){
   putRecords(list);
 }
 
+function getRecordCompleteness(record){
+  const isM01 = record?.form_type === 'm01' || record?.loaiPhieu === 'Mẫu 01';
+  const d = record && typeof record === 'object' ? record : {};
+  const missing = [];
+
+  const required = isM01 ? [
+    ['rep_name','Họ tên người đại diện'],
+    ['rep_dob','Ngày sinh người đại diện'],
+    ['rep_gender','Giới tính người đại diện'],
+    ['rep_id','Số ĐDCN/CCCD người đại diện'],
+    ['rep_hometown','Quê quán người đại diện'],
+    ['rep_address','Nơi thường trú người đại diện'],
+    ['rep_phone','Số điện thoại người đại diện'],
+    ['martyr_name','Họ tên liệt sĩ'],
+    ['martyr_dob','Ngày sinh liệt sĩ'],
+    ['martyr_gender','Giới tính liệt sĩ'],
+    ['martyr_hometown','Quê quán liệt sĩ'],
+    ['martyr_rank','Cấp bậc, chức vụ khi hy sinh'],
+    ['martyr_unit','Cơ quan, đơn vị khi hy sinh'],
+    ['martyr_death_date','Ngày hy sinh'],
+    ['certificate_no','Số Bằng Tổ quốc ghi công'],
+    ['decision_no','Số quyết định'],
+    ['decision_date','Ngày quyết định'],
+    ['grave_cemetery_name','Tên nghĩa trang / nơi an táng']
+  ] : [
+    ['rep_name','Họ tên người đại diện'],
+    ['rep_dob','Ngày sinh người đại diện'],
+    ['rep_gender','Giới tính người đại diện'],
+    ['rep_id','Số ĐDCN/CCCD người đại diện'],
+    ['rep_hometown','Quê quán người đại diện'],
+    ['rep_address','Nơi thường trú người đại diện'],
+    ['rep_phone','Số điện thoại người đại diện'],
+    ['martyr_name','Họ tên liệt sĩ'],
+    ['martyr_dob','Ngày sinh liệt sĩ'],
+    ['martyr_gender','Giới tính liệt sĩ'],
+    ['martyr_hometown','Quê quán liệt sĩ'],
+    ['martyr_rank','Cấp bậc, chức vụ khi hy sinh'],
+    ['martyr_unit','Cơ quan, đơn vị khi hy sinh'],
+    ['martyr_death_date','Ngày hy sinh'],
+    ['certificate_no','Số Bằng Tổ quốc ghi công'],
+    ['decision_no','Số quyết định'],
+    ['decision_date','Ngày quyết định']
+  ];
+
+  required.forEach(([key,label])=>{
+    if(!String(d[key] ?? '').trim()) missing.push(label);
+  });
+
+  if(!isM01){
+    const choice=String(d.has_relatives||'').trim();
+    if(!choice) missing.push('Lựa chọn thân nhân thuộc diện thu mẫu ADN');
+    if(choice==='Có'){
+      const rels=Array.isArray(d.relatives)?d.relatives:[];
+      const persons=rels.filter(r=>r && (String(r.name||'').trim() || String(r.id||'').trim()));
+      if(!persons.length) missing.push('Thông tin ít nhất 01 thân nhân thuộc diện thu mẫu ADN');
+    }
+  }
+
+  const total=required.length + (!isM01 ? 1 + (String(d.has_relatives||'').trim()==='Có' ? 1 : 0) : 0);
+  const done=Math.max(0,total-missing.length);
+  const percent=total ? Math.round(done*100/total) : 100;
+  return {complete:missing.length===0, missing, done, total, percent};
+}
+
 function renderRecords(){
   const q=($('recordSearch')?.value||'').trim().toLowerCase();
   const selectedType=($('filterFormType')?.value||'').trim();
@@ -677,6 +741,15 @@ function renderRecords(){
   const badge=$('recordCountBadge');
   if(badge)badge.textContent=filteredList.length+' phiếu';
 
+  const completeCount=filteredList.filter(x=>getRecordCompleteness(x).complete).length;
+  const incompleteCount=filteredList.length-completeCount;
+  const summary=$('recordCompletenessSummary');
+  if(summary){
+    summary.innerHTML='<span style="color:#047857;font-weight:700;">✓ Đủ: '+completeCount+'</span>'+
+      '<span style="margin-left:12px;color:#b45309;font-weight:700;">⚠ Chưa đủ: '+incompleteCount+'</span>'+
+      '<span style="margin-left:12px;color:#64748b;">(theo các trường bắt buộc)</span>';
+  }
+
   const rows=filteredList.filter(x=>{
     const isM01 = x.form_type === 'm01' || x.loaiPhieu === 'Mẫu 01';
     if(selectedType === 'm01' && !isM01) return false;
@@ -688,21 +761,29 @@ function renderRecords(){
     const emptyMsg = isTerritoryFiltered
       ? `Không có phiếu nào thuộc địa bàn được phân công (${currentStaffTerritories.join(', ')}). Bấm "🔄 Tải từ Google Sheet" để đồng bộ dữ liệu.`
       : 'Chưa có phiếu phù hợp. Hãy nhập phiếu và bấm "Lưu vào Google Sheets".';
-    body.innerHTML='<tr><td colspan="9" class="empty" style="text-align:center;padding:16px;color:#64748b;">'+escapeHtml(emptyMsg)+'</td></tr>';
+    body.innerHTML='<tr><td colspan="10" style="text-align:center;padding:16px;color:#64748b;">'+escapeHtml(emptyMsg)+'</td></tr>';
     return;
   }
 
   body.innerHTML=rows.map((x,idx)=>{
     const isM01 = x.form_type === 'm01' || x.loaiPhieu === 'Mẫu 01';
-    return '<tr>'+
+    const completeness=getRecordCompleteness(x);
+    const missingTitle=completeness.missing.length
+      ? 'Còn thiếu: '+completeness.missing.join('; ')
+      : 'Đã đủ các trường bắt buộc';
+    const badgeHtml=completeness.complete
+      ? '<span title="'+escapeAttr(missingTitle)+'" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700;background:#dcfce7;color:#166534;white-space:nowrap;">✓ Đủ 100%</span>'
+      : '<span title="'+escapeAttr(missingTitle)+'" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700;background:#fef3c7;color:#92400e;white-space:nowrap;">⚠ Thiếu '+completeness.missing.length+'</span>';
+    return '<tr style="vertical-align:middle;">'+
       '<td style="text-align:center;">'+(idx+1)+'</td>'+
       '<td><strong>'+escapeHtml(x.record_id||x.file_id||'')+'</strong></td>'+
-      '<td><span style="display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700;background:'+(isM01?'#dbeafe;color:#1e40af':'#ede9fe;color:#6d28d9')+';">'+(isM01?'Mẫu 01':'Mẫu 02')+'</span></td>'+
-      '<td><strong style="color:#0f172a;">'+escapeHtml(x.martyr_name||'')+'</strong>'+(x.martyr_dob?`<br><small style="color:#64748b;">Sinh: ${escapeHtml(cleanDateDisplay(x.martyr_dob))}</small>`:'')+'</td>'+
+      '<td style="text-align:center;"><span style="display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;background:'+(isM01?'#dbeafe;color:#1e40af':'#ede9fe;color:#6d28d9')+';">'+(isM01?'Mẫu 01':'Mẫu 02')+'</span></td>'+
+      '<td><strong style="color:#0f172a;">'+escapeHtml(x.martyr_name||'')+'</strong>'+(x.martyr_dob?'<br><small style="color:#64748b;">Sinh: '+escapeHtml(cleanDateDisplay(x.martyr_dob))+'</small>':'')+'</td>'+
       '<td>'+escapeHtml(x.file_id||'--')+'</td>'+
-      '<td>'+escapeHtml(x.rep_name||'')+(x.rep_phone?`<br><small style="color:#0369a1;">📞 ${escapeHtml(x.rep_phone)}</small>`:'')+'</td>'+
+      '<td>'+escapeHtml(x.rep_name||'--')+(x.rep_phone?'<br><small style="color:#0369a1;">📞 '+escapeHtml(x.rep_phone)+'</small>':'')+'</td>'+
       '<td style="font-size:12px;">'+escapeHtml(x.saved_at?new Date(x.saved_at).toLocaleString('vi-VN'):'')+'</td>'+
-      '<td><span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;background:'+(x.trangThai==='Đã cập nhật'?'#fef3c7;color:#b45309':'#ecfdf5;color:#047857')+';">'+escapeHtml(x.trangThai||'Mới')+'</span></td>'+
+      '<td>'+badgeHtml+'</td>'+
+      '<td><span style="display:inline-block;padding:3px 7px;border-radius:4px;font-size:11px;font-weight:600;background:'+(x.trangThai==='Đã cập nhật'?'#fef3c7;color:#b45309':'#ecfdf5;color:#047857')+';">'+escapeHtml(x.trangThai||'Mới')+'</span></td>'+
       '<td style="text-align:center;white-space:nowrap;">'+
         '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="openRecord(\''+escapeAttr(x.record_id||'')+'\')">✏️ Sửa</button>'+
         '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectWord(\''+escapeAttr(x.record_id||'')+'\')">📄 Word</button>'+
@@ -712,6 +793,7 @@ function renderRecords(){
     '</tr>';
   }).join('');
 }
+
 
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function escapeAttr(v){return String(v??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
