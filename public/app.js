@@ -906,6 +906,7 @@ async function saveToSheets(){
       const msg = isEditingExisting
         ? `Đã cập nhật thành công thông tin phiếu "${d.record_id}" của liệt sĩ "${d.martyr_name}" vào ${targetSheetDesc}!`
         : `Đã lưu thành công thông tin liệt sĩ "${d.martyr_name}" vào ${targetSheetDesc}!`;
+      markSaved();
       setStatus(msg);
       showNotification('success','Lưu thành công!',msg);
       alert(msg + (isM01 ? '\n\nĐã sẵn sàng xuất Word Mẫu 01.' : '\n\nNút Xuất Word và Xuất PDF đúng Mẫu 02 đã sẵn sàng.'));
