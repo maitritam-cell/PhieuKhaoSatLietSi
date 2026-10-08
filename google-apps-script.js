@@ -15,11 +15,62 @@ const REL_SHEET_NAME = 'Thân nhân họ ngoại';
 const TZ = 'Asia/Ho_Chi_Minh';
 
 function getSpreadsheet_() {
-  try {
-    const active = SpreadsheetApp.getActiveSpreadsheet();
-    if (active) return active;
-  } catch (err) {}
+  // Luôn mở đúng workbook được cấu hình, tránh trường hợp Apps Script
+  // đang gắn với một Spreadsheet khác nhưng lại đọc nhầm dữ liệu.
   return SpreadsheetApp.openById(SPREADSHEET_ID);
+}
+
+function normalizeSheetName_(name) {
+  return clean_(name)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function findM01Sheet_(ss) {
+  const exact = ss.getSheetByName(M1_SHEET_NAME);
+  if (exact) return exact;
+
+  const aliases = {
+    m01: true,
+    mau01: true,
+    mau01_01: true,
+    mau011: true,
+    mau01_1: true
+  };
+
+  const sheets = ss.getSheets();
+  for (let i = 0; i < sheets.length; i++) {
+    const normalized = normalizeSheetName_(sheets[i].getName());
+    if (aliases[normalized]) return sheets[i];
+  }
+
+  return null;
+}
+
+function sheetDiagnostics_(ss) {
+  const sheets = ss.getSheets().map(function(sheet) {
+    return {
+      name: sheet.getName(),
+      rows: sheet.getLastRow(),
+      columns: sheet.getLastColumn()
+    };
+  });
+
+  const m1 = findM01Sheet_(ss);
+
+  return {
+    spreadsheet_id: SPREADSHEET_ID,
+    spreadsheet_url: ss.getUrl(),
+    expected_m01_name: M1_SHEET_NAME,
+    resolved_m01_name: m1 ? m1.getName() : '',
+    m01_found: !!m1,
+    m01_rows: m1 ? Math.max(m1.getLastRow() - 1, 0) : 0,
+    m01_columns: m1 ? m1.getLastColumn() : 0,
+    sheets: sheets
+  };
 }
 
 const MAIN_HEADERS = [
@@ -238,7 +289,20 @@ function doPost(e) {
 function doGet(e) {
   try {
     const ss = getSpreadsheet_();
-    const m1 = getOrCreateSheet_(ss, M1_SHEET_NAME, M1_HEADERS);
+    const action = clean_(e && e.parameter && e.parameter.action).toLowerCase();
+
+    // Endpoint chẩn đoán để kiểm tra chính xác Web App đang nhìn vào workbook/sheet nào.
+    if (action === 'diagnose' || action === 'diagnostic') {
+      return jsonResponse({
+        ok: true,
+        type: 'diagnostic',
+        ...sheetDiagnostics_(ss)
+      });
+    }
+
+    // Khi đọc không được tự tạo sheet M01, vì việc tự tạo sheet rỗng
+    // sẽ che giấu lỗi triển khai hoặc lỗi tên workbook.
+    const m1 = findM01Sheet_(ss);
     const main = getOrCreateSheet_(ss, MAIN_SHEET_NAME, MAIN_HEADERS);
     const rel = getOrCreateSheet_(ss, REL_SHEET_NAME, REL_HEADERS);
 
@@ -285,7 +349,7 @@ function doGet(e) {
       records.push(rec);
     });
 
-    const m1Rows = readData_(m1, M1_HEADERS.length);
+    const m1Rows = m1 ? readData_(m1, M1_HEADERS.length) : [];
     m1Rows.forEach(function(row) {
       const rec = m1RowToRecord_(row);
       const searchText = [
@@ -309,6 +373,9 @@ function doGet(e) {
     return jsonResponse({
       ok: true,
       total: records.length,
+      m01_found: !!m1,
+      m01_sheet_name: m1 ? m1.getName() : '',
+      m01_rows: m1Rows.length,
       records: records
     });
   } catch (err) {
