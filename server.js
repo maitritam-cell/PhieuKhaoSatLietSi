@@ -125,7 +125,9 @@ function applyConfirmationBlock(doc, body) {
 
   const blocks = [
     {
-      keyword: 'Xác nhận của UBND phường',
+      // Mẫu gốc đang ghi "Xác nhận của UBND cấp xã", không phải "UBND phường".
+      // Vì vậy phải nhận diện cả cách ghi của mẫu gốc.
+      keywords: ['Xác nhận của UBND phường', 'Xác nhận của UBND cấp xã', 'UBND cấp xã'],
       lines: [
         { text: 'Phan Rang, ngày …… tháng 9 năm 2026', italic: true },
         { text: 'Xác nhận của UBND phường' },
@@ -135,7 +137,8 @@ function applyConfirmationBlock(doc, body) {
       ]
     },
     {
-      keyword: 'Xác nhận của Công an phường',
+      // Mẫu gốc đang ghi "Xác nhận của Công an cấp xã".
+      keywords: ['Xác nhận của Công an phường', 'Xác nhận của Công an cấp xã', 'Công an cấp xã'],
       lines: [
         { text: 'Phan Rang, ngày …… tháng 8 năm 2026', italic: true },
         { text: 'Xác nhận của Công an phường' },
@@ -146,7 +149,7 @@ function applyConfirmationBlock(doc, body) {
       ]
     },
     {
-      keyword: 'Xác nhận của Sở Nội vụ',
+      keywords: ['Xác nhận của Sở Nội vụ'],
       lines: [
         { text: 'Khánh Hòa, ngày …… tháng …… năm 2026', italic: true },
         { text: 'Xác nhận của Sở Nội vụ' },
@@ -155,7 +158,6 @@ function applyConfirmationBlock(doc, body) {
       ]
     }
   ];
-
   // Quan trọng: thay trực tiếp NỘI DUNG TRONG Ô đang có của mẫu,
   // không xóa ô rồi chèn xuống cuối tài liệu. Nhờ vậy bố cục 2 ô phía trên
   // và ô Sở Nội vụ ở giữa phía dưới được giữ nguyên như mẫu gốc.
@@ -172,7 +174,7 @@ function applyConfirmationBlock(doc, body) {
         .replace(/\\s+/g, ' ')
         .trim();
 
-      if (text.includes(block.keyword)) {
+      if (block.keywords.some(keyword => text.includes(keyword))) {
         replaceCell(cell, block.lines);
         used.add(i);
         break;
