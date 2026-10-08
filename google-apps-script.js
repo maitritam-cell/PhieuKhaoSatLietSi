@@ -67,17 +67,14 @@ const REL_HEADERS = [
 const M1_SHEET_NAME = 'M01';
 
 const M1_HEADERS = [
-  'Thời gian lưu','Mã phiếu Mẫu 01','Họ tên người đại diện','Ngày sinh NĐD','Giới tính NĐD',
-  'Số ĐDCN/CCCD NĐD','Ngày cấp NĐD','Nơi cấp NĐD','Quê quán NĐD','Nơi thường trú NĐD','Số điện thoại NĐD',
-  'Mã số hồ sơ liệt sĩ','Mã hồ sơ Bộ quản lý','Mã hồ sơ tỉnh quản lý','Họ tên liệt sĩ','Bí danh','Ngày sinh LS',
-  'Giới tính LS','Quê quán LS','Cấp bậc, chức vụ khi hy sinh','Cơ quan, đơn vị khi hy sinh','Ngày hy sinh',
-  'Nơi hy sinh','Nơi an táng ban đầu','Số Bằng Tổ quốc ghi công','Quyết định số','Ngày quyết định','Con ông',
-  'Con bà','Vợ/Chồng','Tình trạng mộ','Tên nghĩa trang','Loại nghĩa trang','Địa chỉ nghĩa trang chi tiết',
-  'Địa điểm quy tập/an táng trước khi tiếp nhận','Đơn vị quy tập/an táng trước khi tiếp nhận',
-  'Thời gian đưa vào an táng tại nghĩa trang liệt sĩ','Số mộ','Hàng','Lô','Khu','Xác nhận UBND cấp xã',
-  'Chức vụ người ký UBND','Họ tên người ký UBND','Ngày xác nhận UBND','Xác nhận Công an cấp xã',
-  'Chức vụ người ký Công an','Họ tên người ký Công an','Ngày xác nhận Công an','Xác nhận Sở Nội vụ',
-  'Chức vụ người ký Sở Nội vụ','Họ tên người ký Sở Nội vụ','Ngày xác nhận Sở Nội vụ','Trạng thái phiếu'
+  'Thời gian lưu','Mã phiếu Mẫu 01',
+  'Họ tên người đại diện','Ngày sinh NĐD','Giới tính NĐD','Số ĐDCN/CCCD NĐD','Ngày cấp NĐD','Nơi cấp NĐD','Quê quán NĐD','Nơi thường trú NĐD','Số điện thoại NĐD','Quan hệ với liệt sĩ','Chế độ trợ cấp đang hưởng',
+  'Mã số hồ sơ liệt sĩ','Mã hồ sơ Bộ quản lý','Mã hồ sơ tỉnh quản lý','Họ tên liệt sĩ','Bí danh','Ngày sinh LS','Giới tính LS','Quê quán LS','Cấp bậc, chức vụ khi hy sinh','Cơ quan, đơn vị khi hy sinh','Ngày hy sinh','Nơi hy sinh','Nơi an táng ban đầu','Số Bằng Tổ quốc ghi công','Quyết định số','Ngày quyết định','Con ông','Con bà','Vợ',
+  'Hình thức an táng / Tình trạng mộ','Tên nghĩa trang liệt sĩ / Nơi an táng','Loại nghĩa trang','Địa chỉ nghĩa trang chi tiết','Địa điểm quy tập / an táng trước khi tiếp nhận','Đơn vị quy tập / an táng trước khi tiếp nhận','Thời gian đưa vào an táng tại nghĩa trang','Khu','Lô','Hàng','Số mộ',
+  'Thông tin ghi trên bia mộ & Nội dung cụ thể','Tình trạng hài cốt trong mộ & Quy tập','Ghi chú về phần mộ / Di vật kèm theo',
+  'Xác nhận UBND cấp xã','Chức vụ người ký UBND','Họ tên người ký UBND','Ngày xác nhận UBND',
+  'Xác nhận Công an cấp xã','Chức vụ người ký Công an','Họ tên người ký Công an','Ngày xác nhận Công an',
+  'Xác nhận Sở Nội vụ','Chức vụ người ký Sở Nội vụ','Họ tên người ký Sở Nội vụ','Ngày xác nhận Sở Nội vụ','Trạng thái phiếu'
 ];
 
 const RELATIONSHIPS = [
@@ -297,6 +294,8 @@ function saveM01_(p) {
     clean_(p.rep_issue_date || p.ngayCapCCCD), clean_(p.rep_issue_place || p.noiCapCCCD),
     clean_(p.rep_hometown || p.queQuanNDD), clean_(p.rep_address || p.noiThuongTruNDD),
     clean_(p.rep_phone || p.soDienThoai),
+    clean_(p.rep_relationship || p.quanHeVoiLietSi),
+    clean_(p.rep_subsidy_type || p.cheDoTroCapDangHuong),
     fileId, clean_(p.ministry_file || p.maBoQuanLy), clean_(p.province_file || p.maTinhQuanLy),
     martyrName, clean_(p.martyr_alias || p.biDanh), clean_(p.martyr_dob || p.ngaySinh),
     clean_(p.martyr_gender || p.gioiTinhLS), clean_(p.martyr_hometown || p.queQuan),
@@ -305,14 +304,20 @@ function saveM01_(p) {
     clean_(p.burial_place || p.noiAnTang), clean_(p.certificate_no || p.soBangTQGC),
     clean_(p.decision_no || p.soQuyetDinh), clean_(p.decision_date || p.ngayQuyetDinh),
     clean_(p.father || p.hoTenBo), clean_(p.mother || p.hoTenMe), clean_(p.wife || p.hoTenVo),
-    clean_(p.tomb_status || p.tinhTrangMo || p.tinhTrangMoLS),
-    clean_(p.cemetery_name || p.tenNghiaTrang), clean_(p.cemetery_type || p.loaiNghiaTrang),
+    clean_(p.grave_burial_type || p.tinhTrangMo || p.tinhTrangMoLS),
+    clean_(p.grave_cemetery_name || p.cemetery_name || p.tenNghiaTrang),
+    clean_(p.cemetery_type || p.loaiNghiaTrang),
     clean_(p.cemetery_address || p.diaChiNghiaTrang),
     clean_(p.exhumation_place || p.diaDiemQuyTapAnTang),
     clean_(p.exhumation_unit || p.donViQuyTapAnTang),
     clean_(p.cemetery_burial_date || p.thoiGianDuaVaoAnTang),
-    clean_(p.grave_number || p.soMo), clean_(p.row_number || p.hangMo),
-    clean_(p.plot_number || p.loMo), clean_(p.area_number || p.khuMo),
+    clean_(p.grave_area || p.area_number || p.khuMo),
+    clean_(p.grave_plot || p.plot_number || p.loMo),
+    clean_(p.grave_row || p.row_number || p.hangMo),
+    clean_(p.grave_number || p.soMo),
+    clean_(p.grave_stele_info || p.thongTinBiaMo),
+    clean_(p.grave_remains_status || p.tinhTrangHaiCotQuyTap),
+    clean_(p.grave_notes || p.ghiChuPhanMoDiVat),
     clean_(p.verified_by_ubnd || p.xacNhanUBND), clean_(p.ubnd_signer_title || p.chucVuNguoiKyUBND),
     clean_(p.ubnd_signer_name || p.hoTenNguoiKyUBND), clean_(p.ubnd_verified_date || p.ngayXacNhanUBND),
     clean_(p.verified_by_police || p.xacNhanCongAn), clean_(p.police_signer_title || p.chucVuNguoiKyCongAn),
@@ -340,8 +345,8 @@ function findM01Row_(sheet, recordId, fileId, martyrName) {
   const data = sheet.getRange(2, 1, lastRow - 1, M1_HEADERS.length).getValues();
   const rid=clean_(recordId), fid=clean_(fileId), name=clean_(martyrName).toLowerCase();
   for(let i=0;i<data.length;i++) if(rid && clean_(data[i][1])===rid) return {row:i+2};
-  for(let i=0;i<data.length;i++) if(fid && clean_(data[i][11])===fid) return {row:i+2};
-  for(let i=0;i<data.length;i++) if(name && clean_(data[i][14]).toLowerCase()===name) return {row:i+2};
+  for(let i=0;i<data.length;i++) if(fid && clean_(data[i][13])===fid) return {row:i+2};
+  for(let i=0;i<data.length;i++) if(name && clean_(data[i][16]).toLowerCase()===name) return {row:i+2};
   return null;
 }
 
@@ -351,7 +356,7 @@ function formatM01Sheet_(sheet) {
   styleHeader_(sheet, M1_HEADERS.length);
 
   // Các mã số quan trọng phải lưu dạng TEXT để không mất số 0 đầu.
-  [6, 12, 13, 26].forEach(function(col) {
+  [6, 14, 15, 27, 28].forEach(function(col) {
     sheet.getRange(2, col, Math.max(sheet.getMaxRows() - 1, 1), 1)
       .setNumberFormat('@');
   });
