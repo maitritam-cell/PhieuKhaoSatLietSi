@@ -309,15 +309,13 @@ function switchFormType(type){
 function collect(){
   const ids=[
     'rep_name','rep_dob','rep_gender','rep_id','rep_issue_date','rep_issue_place','rep_hometown','rep_address','rep_phone',
-    'rep_relationship','rep_subsidy_type',
     'file_id','ministry_file','province_file','martyr_name','martyr_alias','martyr_dob','martyr_gender','martyr_hometown','martyr_rank',
     'martyr_unit','martyr_death_date','martyr_death_place','burial_place','certificate_no','decision_no','decision_date','father','mother','wife',
-    'grave_burial_type','grave_cemetery_name','cemetery_type','cemetery_burial_date',
-    'grave_province','grave_district','grave_commune',
-    'exhumation_place','exhumation_unit',
-    'grave_area','grave_plot','grave_row','grave_number',
-    'grave_stele_info','grave_stele_content','grave_remains_status','grave_gathered_status','grave_notes',
-    'ubnd_signer_name','ubnd_signer_title','police_signer_name','police_signer_title','dolisa_signer_name','dolisa_signer_title'
+    'grave_burial_type','grave_cemetery_name','cemetery_type','cemetery_address','cemetery_burial_date',
+    'exhumation_place','exhumation_unit','grave_area','grave_plot','grave_row','grave_number',
+    'ubnd_signer_name','ubnd_signer_title','ubnd_verified_date',
+    'police_signer_name','police_signer_title','police_verified_date',
+    'dolisa_signer_name','dolisa_signer_title','dolisa_verified_date'
   ];
   const d={
     record_id: currentRecordId || makeRecordId(),
@@ -328,6 +326,17 @@ function collect(){
     const e=$(id);
     if(e) d[id]=(e.value||'').trim();
   });
+
+  // Chuẩn hóa tên trường M01 để khớp trực tiếp với saveM01_() và M1_HEADERS.
+  d.tomb_status = d.grave_burial_type || '';
+  d.cemetery_name = d.grave_cemetery_name || '';
+  d.cemetery_address = d.cemetery_address || '';
+  d.row_number = d.grave_row || '';
+  d.plot_number = d.grave_plot || '';
+  d.area_number = d.grave_area || '';
+  d.ubnd_verified_date = d.ubnd_verified_date || '';
+  d.police_verified_date = d.police_verified_date || '';
+  d.dolisa_verified_date = d.dolisa_verified_date || '';
 
   d.has_relatives=$('has_relatives_yes')?.checked?'Có':($('has_relatives_no')?.checked?'Không':'');
   d.relatives=relativesList.filter(p=>p && ((p.name||'').trim() || (p.id||'').trim() || (p.dob||'').trim() || (p.address||'').trim())).map((r,i)=>{
