@@ -131,7 +131,7 @@ function applyConfirmationBlock(doc, body) {
       lines: [
         { text: 'Phan Rang, ngày …… tháng 9 năm 2026', italic: true },
         { text: 'Xác nhận của UBND phường' },
-        { text: 'về nội dung khai trên bản khai là đúng' },
+        { text: 'về nội dung khai trên bản khai là đúng', after: 280 },
         // Chừa khoảng trống chữ ký giữa chức vụ và họ tên, đủ để ký tay.
         { text: 'CHỦ TỊCH', bold: true, after: 960 },
         { text: 'Lê Hoài Nam', bold: true, after: 40 }
