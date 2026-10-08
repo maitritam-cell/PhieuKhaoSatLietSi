@@ -500,10 +500,6 @@ function validateForm(){
   }
 
   if(currentFormType === 'm01'){
-    const repRel = ($('rep_relationship')?.value || '').trim();
-    if(!repRel) addError('rep_relationship', 'Quan hệ với liệt sĩ của người đại diện (Mẫu 01)');
-    const repSub = ($('rep_subsidy_type')?.value || '').trim();
-    if(!repSub) addError('rep_subsidy_type', 'Chế độ trợ cấp đang hưởng (Mẫu 01)');
     const cem = ($('grave_cemetery_name')?.value || '').trim();
     if(!cem) addError('grave_cemetery_name', 'Tên nghĩa trang / Nơi an táng phần mộ liệt sĩ');
   } else {
