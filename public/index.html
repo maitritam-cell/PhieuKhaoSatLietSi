@@ -70,29 +70,33 @@ input.input-error,select.input-error{border-color:#dc2626!important;outline:2px 
       <button type="button" id="btnSyncSheets" class="btn btn-outline" style="display:none;padding:6px 12px;font-size:13px;" onclick="fetchFromGoogleSheets()" title="Đồng bộ danh sách từ Google Sheets">🔄 Tải từ Google Sheet</button>
     </div>
   </div>
-  <div style="display:flex;gap:10px;margin-bottom:12px;">
+  <div style="display:flex;gap:10px;margin-bottom:6px;">
     <input id="recordSearch" placeholder="Tìm nhanh theo họ tên liệt sĩ, mã phiếu, mã hồ sơ, số CCCD hoặc SĐT người đại diện..." style="flex:1;">
     <button type="button" class="btn btn-outline" onclick="renderRecords()">Tìm kiếm</button>
   </div>
-  <div class="rel table-records" style="max-height:260px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;">
-    <table>
+  <div id="recordCompletenessSummary" style="font-size:12px;margin:0 0 8px;padding:4px 2px;"></div>
+  <div class="rel table-records" style="max-height:300px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;">
+    <table style="min-width:1120px;">
       <thead>
         <tr>
           <th style="width:40px;text-align:center;">STT</th>
-          <th>Mã phiếu</th>
-          <th>Họ tên liệt sĩ</th>
-          <th>Mã hồ sơ</th>
-          <th>Người đại diện & SĐT</th>
-          <th>Thời gian lưu</th>
-          <th>Trạng thái</th>
-          <th style="text-align:center;min-width:180px;">Thao tác</th>
+          <th style="min-width:150px;">Mã phiếu</th>
+          <th style="width:82px;text-align:center;">Loại phiếu</th>
+          <th style="min-width:150px;">Họ tên liệt sĩ</th>
+          <th style="min-width:110px;">Mã hồ sơ</th>
+          <th style="min-width:150px;">Người đại diện & SĐT</th>
+          <th style="min-width:135px;">Thời gian lưu</th>
+          <th style="width:110px;">Mức độ đầy đủ</th>
+          <th style="width:95px;">Trạng thái</th>
+          <th style="text-align:center;min-width:210px;">Thao tác</th>
         </tr>
       </thead>
       <tbody id="recordRows">
-        <tr><td colspan="8" style="text-align:center;padding:16px;color:#64748b;">Chưa có phiếu đã lưu trên thiết bị này.</td></tr>
+        <tr><td colspan="10" style="text-align:center;padding:16px;color:#64748b;">Chưa có phiếu đã lưu trên thiết bị này.</td></tr>
       </tbody>
     </table>
   </div>
+</div>
 </div>
 
 
