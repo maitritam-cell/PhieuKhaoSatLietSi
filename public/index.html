@@ -247,11 +247,74 @@ const REL_SHEET_NAME = 'Thân nhân họ ngoại';
 const TZ = 'Asia/Ho_Chi_Minh';
 
 function getSpreadsheet_() {
-  try {
-    const active = SpreadsheetApp.getActiveSpreadsheet();
-    if (active) return active;
-  } catch (err) {}
+  // Luôn mở đúng workbook được cấu hình, tránh trường hợp Apps Script
+  // đang gắn với một Spreadsheet khác nhưng lại đọc nhầm dữ liệu.
   return SpreadsheetApp.openById(SPREADSHEET_ID);
+}
+
+function normalizeSheetName_(name) {
+  return clean_(name)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function findM01Sheet_(ss) {
+  const exactNames = [M1_SHEET_NAME, 'Mẫu 01', 'Mau 01', 'mẫu 01', 'mau 01', 'M01', 'm01'];
+  for (let i = 0; i &lt; exactNames.length; i++) {
+    const s = ss.getSheetByName(exactNames[i]);
+    if (s) return s;
+  }
+
+  const sheets = ss.getSheets();
+  for (let i = 0; i &lt; sheets.length; i++) {
+    const name = sheets[i].getName();
+    const normalized = normalizeSheetName_(name);
+    if (normalized.includes('m01') || normalized.includes('mau01')) {
+      return sheets[i];
+    }
+  }
+
+  for (let i = 0; i &lt; sheets.length; i++) {
+    const name = sheets[i].getName().toLowerCase();
+    if (name.includes('01') &amp;&amp; (name.includes('mau') || name.includes('mẫu') || name.includes('phieu') || name.includes('phiếu') || name.includes('m01'))) {
+      return sheets[i];
+    }
+  }
+
+  return null;
+}
+
+function getOrCreateM01Sheet_(ss) {
+  // Dùng lại sheet M01/Mẫu 01 đã có để không tách dữ liệu thành nhiều tab.
+  const existing = findM01Sheet_(ss);
+  if (existing) return getOrCreateSheet_(ss, existing.getName(), M1_HEADERS);
+  return getOrCreateSheet_(ss, M1_SHEET_NAME, M1_HEADERS);
+}
+
+function sheetDiagnostics_(ss) {
+  const sheets = ss.getSheets().map(function(sheet) {
+    return {
+      name: sheet.getName(),
+      rows: sheet.getLastRow(),
+      columns: sheet.getLastColumn()
+    };
+  });
+
+  const m1 = findM01Sheet_(ss);
+
+  return {
+    spreadsheet_id: SPREADSHEET_ID,
+    spreadsheet_url: ss.getUrl(),
+    expected_m01_name: M1_SHEET_NAME,
+    resolved_m01_name: m1 ? m1.getName() : '',
+    m01_found: !!m1,
+    m01_rows: m1 ? Math.max(m1.getLastRow() - 1, 0) : 0,
+    m01_columns: m1 ? m1.getLastColumn() : 0,
+    sheets: sheets
+  };
 }
 
 const MAIN_HEADERS = [
@@ -470,7 +533,34 @@ function doPost(e) {
 function doGet(e) {
   try {
     const ss = getSpreadsheet_();
-    const m1 = getOrCreateSheet_(ss, M1_SHEET_NAME, M1_HEADERS);
+    const action = clean_(e &amp;&amp; e.parameter &amp;&amp; e.parameter.action).toLowerCase();
+
+    // Endpoint chẩn đoán để kiểm tra chính xác Web App đang nhìn vào workbook/sheet nào.
+    if (action === 'diagnose' || action === 'diagnostic') {
+      return jsonResponse({
+        ok: true,
+        type: 'diagnostic',
+        ...sheetDiagnostics_(ss)
+      });
+    }
+
+    // Khởi tạo riêng sheet Mẫu 01 khi được yêu cầu.
+    if (action === 'setup_m01' || action === 'setup-m01') {
+      const createdM1 = getOrCreateM01Sheet_(ss);
+      formatM01Sheet_(createdM1);
+      return jsonResponse({
+        ok: true,
+        type: 'setup_m01',
+        spreadsheet_id: SPREADSHEET_ID,
+        spreadsheet_url: ss.getUrl(),
+        sheet: createdM1.getName(),
+        columns: M1_HEADERS.length,
+        headers: M1_HEADERS,
+        message: 'Đã khởi tạo sheet riêng lưu dữ liệu Mẫu 01.'
+      });
+    }
+
+    const m1 = findM01Sheet_(ss);
     const main = getOrCreateSheet_(ss, MAIN_SHEET_NAME, MAIN_HEADERS);
     const rel = getOrCreateSheet_(ss, REL_SHEET_NAME, REL_HEADERS);
 
@@ -517,9 +607,10 @@ function doGet(e) {
       records.push(rec);
     });
 
-    const m1Rows = readData_(m1, M1_HEADERS.length);
+    const m1Headers = m1 ? m1.getRange(1, 1, 1, m1.getLastColumn()).getDisplayValues()[0] : [];
+    const m1Rows = m1 ? readData_(m1, m1.getLastColumn()) : [];
     m1Rows.forEach(function(row) {
-      const rec = m1RowToRecord_(row);
+      const rec = m1RowToRecord_(row, m1Headers);
       const searchText = [
         rec.record_id,
         rec.martyr_name,
@@ -532,8 +623,10 @@ function doGet(e) {
 
       if (q &amp;&amp; searchText.indexOf(q) === -1) return;
 
-      rec.data = m1RowToFrontend_(row);
+      rec.data = m1RowToFrontend_(row, m1Headers);
       rec.data.record_id = rec.record_id;
+      rec.data.form_type = 'm01';
+      rec.data.loaiPhieu = 'Mẫu 01';
       rec.data.relatives = [];
       records.push(rec);
     });
@@ -541,6 +634,9 @@ function doGet(e) {
     return jsonResponse({
       ok: true,
       total: records.length,
+      m01_found: !!m1,
+      m01_sheet_name: m1 ? m1.getName() : '',
+      m01_rows: m1Rows.length,
       records: records
     });
   } catch (err) {
@@ -550,7 +646,7 @@ function doGet(e) {
 
 function saveM01_(p) {
   const ss = getSpreadsheet_();
-  const sheet = getOrCreateSheet_(ss, M1_SHEET_NAME, M1_HEADERS);
+  const sheet = getOrCreateM01Sheet_(ss);
   const savedAt = formatNow_();
 
   const recordId = clean_(p.record_id || p.maPhieu || p.m01_record_id);
@@ -650,7 +746,7 @@ function formatM01Sheet_(sheet) {
 
 function setupM01() {
   const ss = getSpreadsheet_();
-  const sheet = getOrCreateSheet_(ss, M1_SHEET_NAME, M1_HEADERS);
+  const sheet = getOrCreateM01Sheet_(ss);
 
   // Định dạng các cột mã số dưới dạng TEXT để giữ số 0 đầu.
   [6, 12, 13, 25].forEach(function(col) {
@@ -877,74 +973,119 @@ function mainRowToFrontend_(row) {
   };
 }
 
-function m1RowToRecord_(row) {
+function normalizeHeader_(value) {
+  return clean_(value)
+    .normalize('NFD')
+    .replace(/[\\u0300-\\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function m1FindCol_(headers, aliases, fallback) {
+  const normalizedHeaders = (headers || []).map(normalizeHeader_);
+  const wanted = (aliases || []).map(normalizeHeader_);
+
+  for (let i = 0; i &lt; wanted.length; i++) {
+    const exact = normalizedHeaders.indexOf(wanted[i]);
+    if (exact &gt;= 0) return exact;
+  }
+
+  for (let i = 0; i &lt; normalizedHeaders.length; i++) {
+    if (wanted.some(function(w) {
+      return w &amp;&amp; (normalizedHeaders[i].indexOf(w) &gt;= 0 || w.indexOf(normalizedHeaders[i]) &gt;= 0);
+    })) return i;
+  }
+
+  return fallback;
+}
+
+function m1Cell_(row, headers, aliases, fallback) {
+  const col = m1FindCol_(headers, aliases, fallback);
+  return col &gt;= 0 &amp;&amp; col &lt; row.length ? clean_(row[col]) : '';
+}
+
+function m1RowToRecord_(row, headers) {
   return {
-    record_id: clean_(row[1]) || clean_(row[13]) || ('M01-' + normalizeDate_(row[0])),
+    record_id: m1Cell_(row, headers, ['Mã phiếu Mẫu 01', 'Mã phiếu', 'Mã phiếu M01'], 1) ||
+               m1Cell_(row, headers, ['Mã số hồ sơ liệt sĩ', 'Mã hồ sơ liệt sĩ'], 11) ||
+               ('M01-' + normalizeDate_(m1Cell_(row, headers, ['Thời gian lưu', 'Thời gian'], 0))),
     form_type: 'm01',
     loaiPhieu: 'Mẫu 01',
-    martyr_name: clean_(row[16]),
-    martyr_dob: clean_(row[18]),
-    martyr_death_date: clean_(row[23]),
-    martyr_hometown: clean_(row[20]),
-    file_id: clean_(row[13]),
-    ministry_file: clean_(row[14]),
-    province_file: clean_(row[15]),
-    rep_name: clean_(row[2]),
-    rep_phone: clean_(row[10]),
-    rep_relationship: clean_(row[11]),
-    rep_subsidy_type: clean_(row[12]),
+    martyr_name: m1Cell_(row, headers, ['Họ tên liệt sĩ', 'Họ và tên liệt sĩ', 'Tên liệt sĩ'], 14),
+    martyr_dob: m1Cell_(row, headers, ['Ngày sinh LS', 'Ngày tháng năm sinh LS', 'Ngày sinh liệt sĩ'], 16),
+    martyr_death_date: m1Cell_(row, headers, ['Ngày hy sinh', 'Ngày tháng năm hy sinh'], 21),
+    martyr_hometown: m1Cell_(row, headers, ['Quê quán LS', 'Quê quán liệt sĩ'], 18),
+    file_id: m1Cell_(row, headers, ['Mã số hồ sơ liệt sĩ', 'Mã hồ sơ liệt sĩ'], 11),
+    ministry_file: m1Cell_(row, headers, ['Mã hồ sơ Bộ quản lý', 'Mã hồ sơ Bộ'], 12),
+    province_file: m1Cell_(row, headers, ['Mã hồ sơ tỉnh quản lý', 'Mã hồ sơ Tỉnh'], 13),
+    rep_name: m1Cell_(row, headers, ['Họ tên người đại diện', 'Họ và tên người đại diện', 'Người đại diện'], 2),
+    rep_dob: m1Cell_(row, headers, ['Ngày sinh NĐD', 'Ngày sinh người đại diện'], 3),
+    rep_gender: m1Cell_(row, headers, ['Giới tính NĐD', 'Giới tính người đại diện'], 4),
+    rep_id: m1Cell_(row, headers, ['Số ĐDCN/CCCD NĐD', 'Số CCCD/ĐDCN NĐD', 'Số CCCD/ĐDCN'], 5),
+    rep_issue_date: m1Cell_(row, headers, ['Ngày cấp NĐD', 'Ngày cấp'], 6),
+    rep_issue_place: m1Cell_(row, headers, ['Nơi cấp NĐD', 'Nơi cấp'], 7),
+    rep_hometown: m1Cell_(row, headers, ['Quê quán NĐD', 'Quê quán người đại diện'], 8),
+    rep_address: m1Cell_(row, headers, ['Nơi thường trú NĐD', 'Nơi thường trú người đại diện', 'Nơi thường trú'], 9),
+    rep_phone: m1Cell_(row, headers, ['Số điện thoại NĐD', 'Số điện thoại'], 10),
     has_relatives: 'Không',
-    saved_at: clean_(row[0]),
-    status: clean_(row[43]) || 'Mới'
+    saved_at: m1Cell_(row, headers, ['Thời gian lưu', 'Thời gian'], 0),
+    status: m1Cell_(row, headers, ['Trạng thái phiếu', 'Trạng thái'], 38) || 'Mới'
   };
 }
 
-function m1RowToFrontend_(row) {
+function m1RowToFrontend_(row, headers) {
   return {
-    record_id: clean_(row[1]) || clean_(row[11]) || ('M01-' + normalizeDate_(row[0])),
+    record_id: m1Cell_(row, headers, ['Mã phiếu Mẫu 01', 'Mã phiếu', 'Mã phiếu M01'], 1) ||
+               m1Cell_(row, headers, ['Mã số hồ sơ liệt sĩ', 'Mã hồ sơ liệt sĩ'], 11) ||
+               ('M01-' + normalizeDate_(m1Cell_(row, headers, ['Thời gian lưu', 'Thời gian'], 0))),
     form_type: 'm01',
     loaiPhieu: 'Mẫu 01',
-    rep_name: clean_(row[2]),
-    rep_dob: clean_(row[3]),
-    rep_gender: clean_(row[4]),
-    rep_id: clean_(row[5]),
-    rep_issue_date: clean_(row[6]),
-    rep_issue_place: clean_(row[7]),
-    rep_hometown: clean_(row[8]),
-    rep_address: clean_(row[9]),
-    rep_phone: clean_(row[10]),
-    file_id: clean_(row[11]),
-    ministry_file: clean_(row[12]),
-    province_file: clean_(row[13]),
-    martyr_name: clean_(row[14]),
-    martyr_alias: clean_(row[15]),
-    martyr_dob: clean_(row[16]),
-    martyr_gender: clean_(row[17]),
-    martyr_hometown: clean_(row[18]),
-    martyr_rank: clean_(row[19]),
-    martyr_unit: clean_(row[20]),
-    martyr_death_date: clean_(row[21]),
-    martyr_death_place: clean_(row[22]),
-    burial_place: clean_(row[23]),
-    certificate_no: clean_(row[24]),
-    decision_no: clean_(row[25]),
-    decision_date: clean_(row[26]),
-    father: clean_(row[27]),
-    mother: clean_(row[28]),
-    wife: clean_(row[29]),
-    grave_burial_type: clean_(row[30]),
-    tomb_status: clean_(row[30]),
-    grave_cemetery_name: clean_(row[31]),
-    cemetery_name: clean_(row[31]),
-    cemetery_type: clean_(row[32]),
-    cemetery_address: clean_(row[33]),
-    exhumation_place: clean_(row[34]),
-    exhumation_unit: clean_(row[35]),
-    cemetery_burial_date: clean_(row[36]),
-    grave_position: clean_(row[37]),
-    grave_location: clean_(row[37]),
-    trangThai: clean_(row[38]) || 'Mới',
-    saved_at: clean_(row[0])
+
+    rep_name: m1Cell_(row, headers, ['Họ tên người đại diện', 'Họ và tên người đại diện', 'Người đại diện'], 2),
+    rep_dob: m1Cell_(row, headers, ['Ngày sinh NĐD', 'Ngày sinh người đại diện'], 3),
+    rep_gender: m1Cell_(row, headers, ['Giới tính NĐD', 'Giới tính người đại diện'], 4),
+    rep_id: m1Cell_(row, headers, ['Số ĐDCN/CCCD NĐD', 'Số CCCD/ĐDCN NĐD', 'Số CCCD/ĐDCN'], 5),
+    rep_issue_date: m1Cell_(row, headers, ['Ngày cấp NĐD', 'Ngày cấp'], 6),
+    rep_issue_place: m1Cell_(row, headers, ['Nơi cấp NĐD', 'Nơi cấp'], 7),
+    rep_hometown: m1Cell_(row, headers, ['Quê quán NĐD', 'Quê quán người đại diện'], 8),
+    rep_address: m1Cell_(row, headers, ['Nơi thường trú NĐD', 'Nơi thường trú người đại diện', 'Nơi thường trú'], 9),
+    rep_phone: m1Cell_(row, headers, ['Số điện thoại NĐD', 'Số điện thoại'], 10),
+
+    file_id: m1Cell_(row, headers, ['Mã số hồ sơ liệt sĩ', 'Mã hồ sơ liệt sĩ'], 11),
+    ministry_file: m1Cell_(row, headers, ['Mã hồ sơ Bộ quản lý', 'Mã hồ sơ Bộ'], 12),
+    province_file: m1Cell_(row, headers, ['Mã hồ sơ tỉnh quản lý', 'Mã hồ sơ Tỉnh'], 13),
+
+    martyr_name: m1Cell_(row, headers, ['Họ tên liệt sĩ', 'Họ và tên liệt sĩ', 'Tên liệt sĩ'], 14),
+    martyr_alias: m1Cell_(row, headers, ['Bí danh'], 15),
+    martyr_dob: m1Cell_(row, headers, ['Ngày sinh LS', 'Ngày tháng năm sinh LS', 'Ngày sinh liệt sĩ'], 16),
+    martyr_gender: m1Cell_(row, headers, ['Giới tính LS', 'Giới tính liệt sĩ'], 17),
+    martyr_hometown: m1Cell_(row, headers, ['Quê quán LS', 'Quê quán liệt sĩ'], 18),
+    martyr_rank: m1Cell_(row, headers, ['Cấp bậc, chức vụ khi hy sinh', 'Cấp bậc, chức vụ'], 19),
+    martyr_unit: m1Cell_(row, headers, ['Cơ quan, đơn vị khi hy sinh', 'Cơ quan, đơn vị'], 20),
+    martyr_death_date: m1Cell_(row, headers, ['Ngày hy sinh', 'Ngày tháng năm hy sinh'], 21),
+    martyr_death_place: m1Cell_(row, headers, ['Nơi hy sinh'], 22),
+    burial_place: m1Cell_(row, headers, ['Nơi an táng ban đầu'], 23),
+    certificate_no: m1Cell_(row, headers, ['Số Bằng Tổ quốc ghi công', 'Số Bằng TQGC'], 24),
+    decision_no: m1Cell_(row, headers, ['Quyết định số', 'Số Quyết định'], 25),
+    decision_date: m1Cell_(row, headers, ['Ngày quyết định', 'Ngày QĐ'], 26),
+    father: m1Cell_(row, headers, ['Con ông', 'Cha'], 27),
+    mother: m1Cell_(row, headers, ['Con bà', 'Mẹ'], 28),
+    wife: m1Cell_(row, headers, ['Vợ/Chồng', 'Vợ'], 29),
+
+    grave_burial_type: m1Cell_(row, headers, ['Hình thức an táng / Tình trạng mộ', 'Hình thức an táng', 'Tình trạng mộ'], 30),
+    tomb_status: m1Cell_(row, headers, ['Hình thức an táng / Tình trạng mộ', 'Tình trạng mộ'], 30),
+    grave_cemetery_name: m1Cell_(row, headers, ['Tên nghĩa trang liệt sĩ / Nơi an táng', 'Tên nghĩa trang liệt sĩ', 'Nơi an táng'], 31),
+    cemetery_name: m1Cell_(row, headers, ['Tên nghĩa trang liệt sĩ / Nơi an táng', 'Tên nghĩa trang liệt sĩ', 'Nơi an táng'], 31),
+    cemetery_type: m1Cell_(row, headers, ['Loại nghĩa trang'], 32),
+    cemetery_address: m1Cell_(row, headers, ['Địa chỉ nghĩa trang chi tiết', 'Địa chỉ nghĩa trang'], 33),
+    exhumation_place: m1Cell_(row, headers, ['Địa điểm quy tập / an táng trước khi tiếp nhận', 'Địa điểm quy tập'], 34),
+    exhumation_unit: m1Cell_(row, headers, ['Đơn vị quy tập / an táng trước khi tiếp nhận', 'Đơn vị quy tập'], 35),
+    cemetery_burial_date: m1Cell_(row, headers, ['Thời gian đưa vào an táng tại nghĩa trang', 'Thời gian an táng'], 36),
+    grave_position: m1Cell_(row, headers, ['Vị trí mộ trong nghĩa trang liệt sĩ', 'Vị trí mộ cụ thể', 'Vị trí mộ'], 37),
+    grave_location: m1Cell_(row, headers, ['Vị trí mộ trong nghĩa trang liệt sĩ', 'Vị trí mộ cụ thể', 'Vị trí mộ'], 37),
+    trangThai: m1Cell_(row, headers, ['Trạng thái phiếu', 'Trạng thái'], 38) || 'Mới',
+    saved_at: m1Cell_(row, headers, ['Thời gian lưu', 'Thời gian'], 0)
   };
 }
 
