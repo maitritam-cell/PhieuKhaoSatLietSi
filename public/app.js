@@ -890,6 +890,9 @@ async function fetchFromGoogleSheets(isSilent = false){
             rep_phone: r.rep_phone,
             saved_at: r.saved_at,
             trangThai: r.status || 'Mới',
+            // Giữ loại biểu mẫu do máy chủ đã nhận diện; nếu thiếu mới dùng dữ liệu lồng bên trong.
+            form_type: r.form_type || recData.form_type || 'm02',
+            loaiPhieu: r.loaiPhieu || recData.loaiPhieu || 'Mẫu 02',
             ...recData
           });
         }
