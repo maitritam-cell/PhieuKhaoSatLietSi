@@ -869,6 +869,10 @@ async function fetchFromGoogleSheets(isSilent = false){
         const exists = currentList.find(c => (c.record_id && c.record_id === r.record_id) || (c.file_id && c.file_id === r.file_id));
         if(!exists){
           const recData = { ...(r.data || {}) };
+          const isM01 = r.form_type === 'm01' || r.loaiPhieu === 'Mẫu 01' || recData.form_type === 'm01' || recData.loaiPhieu === 'Mẫu 01' || String(r.record_id || '').startsWith('M01');
+          recData.form_type = isM01 ? 'm01' : 'm02';
+          recData.loaiPhieu = isM01 ? 'Mẫu 01' : 'Mẫu 02';
+
           if(recData.martyr_dob) recData.martyr_dob = cleanDateDisplay(recData.martyr_dob);
           if(recData.martyr_death_date) recData.martyr_death_date = cleanDateDisplay(recData.martyr_death_date);
           if(recData.rep_dob) recData.rep_dob = cleanDateDisplay(recData.rep_dob);
@@ -890,9 +894,8 @@ async function fetchFromGoogleSheets(isSilent = false){
             rep_phone: r.rep_phone,
             saved_at: r.saved_at,
             trangThai: r.status || 'Mới',
-            // Giữ loại biểu mẫu do máy chủ đã nhận diện; nếu thiếu mới dùng dữ liệu lồng bên trong.
-            form_type: r.form_type || recData.form_type || 'm02',
-            loaiPhieu: r.loaiPhieu || recData.loaiPhieu || 'Mẫu 02',
+            form_type: isM01 ? 'm01' : 'm02',
+            loaiPhieu: isM01 ? 'Mẫu 01' : 'Mẫu 02',
             ...recData
           });
         }

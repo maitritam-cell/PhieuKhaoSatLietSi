@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
 // Locate template files (Mẫu 02 and Mẫu 01)
@@ -926,37 +926,25 @@ app.get('/api/admin-records', async (req, res) => {
       if (gRes.ok) {
         const gData = await gRes.json();
         const sheetRecords = Array.isArray(gData.records) ? gData.records : [];
-        for (let sheetIndex = 0; sheetIndex < sheetRecords.length; sheetIndex++) {
-          const r = sheetRecords[sheetIndex] || {};
+        for (const r of sheetRecords) {
+          const key = String(r.record_id || r.file_id || r.martyr_name || '').trim();
+          if (!key) continue;
+
+          const previous = merged.get(key) || {};
+          const previousData = previous.data && typeof previous.data === 'object' ? previous.data : {};
           const currentData = r.data && typeof r.data === 'object' ? r.data : {};
+
           const isM01 = r.form_type === 'm01' ||
             r.loaiPhieu === 'Mẫu 01' ||
             currentData.form_type === 'm01' ||
             currentData.loaiPhieu === 'Mẫu 01';
 
-          // Một số dòng M01 được nhập trực tiếp trong Google Sheets chưa có
-          // thời gian lưu hoặc mã phiếu. Gán mã tạm theo thứ tự dòng để không
-          // làm các dòng này ghi đè lẫn nhau khi đưa về danh sách tra cứu.
-          const fallbackId = isM01 ? 'M01-DONG-' + (sheetIndex + 2) : '';
-          const candidateId = String(r.record_id || currentData.record_id || '').trim();
-          // Apps Script cũ tạo giá trị "M01-" khi cả thời gian lưu và mã phiếu đều trống.
-          // Giá trị này không phải mã phiếu, nên phải tách riêng từng dòng.
-          const unusableM01Id = isM01 && (!candidateId || candidateId === 'M01-');
-          const recordId = unusableM01Id
-            ? fallbackId
-            : String(candidateId || r.file_id || r.martyr_name || fallbackId).trim();
-          if (!recordId) continue;
-          const key = recordId;
-          const previous = merged.get(key) || {};
-          const previousData = previous.data && typeof previous.data === 'object' ? previous.data : {};
-          const normalizedData = { ...previousData, ...currentData, record_id: recordId };
           merged.set(key, {
             ...previous,
             ...r,
-            record_id: recordId,
             form_type: isM01 ? 'm01' : (r.form_type || previous.form_type || 'm02'),
             loaiPhieu: isM01 ? 'Mẫu 01' : (r.loaiPhieu || previous.loaiPhieu || 'Mẫu 02'),
-            data: normalizedData
+            data: { ...previousData, ...currentData }
           });
         }
         // Khi endpoint đọc dữ liệu trả về 0 Mẫu 01, gọi endpoint chẩn đoán
@@ -988,7 +976,7 @@ app.get('/api/admin-records', async (req, res) => {
   // cho cả Mẫu 01 lẫn Mẫu 02.
   records = records.map(r => {
     const d = r.data && typeof r.data === 'object' ? r.data : {};
-    const isM01 = r.form_type === 'm01' || r.loaiPhieu === 'Mẫu 01' || d.form_type === 'm01' || d.loaiPhieu === 'Mẫu 01';
+    const isM01 = r.form_type === 'm01' || r.loaiPhieu === 'Mẫu 01' || d.form_type === 'm01' || d.loaiPhieu === 'Mẫu 01' || String(r.record_id || '').toUpperCase().includes('M01') || String(r.file_id || '').toUpperCase().includes('M01') || !!d.grave_cemetery_name || !!d.cemetery_address || !!d.exhumation_place || !!d.grave_position;
     return {
       ...r,
       form_type: isM01 ? 'm01' : 'm02',
@@ -999,7 +987,11 @@ app.get('/api/admin-records', async (req, res) => {
       rep_name: r.rep_name || d.rep_name || d['Họ tên người đại diện'] || '',
       rep_phone: r.rep_phone || d.rep_phone || d['Số điện thoại NĐD'] || '',
       rep_address: r.rep_address || d.rep_address || d.noiThuongTruNDD || d['Nơi thường trú NĐD'] || '',
-      data: d
+      data: {
+        ...d,
+        form_type: isM01 ? 'm01' : 'm02',
+        loaiPhieu: isM01 ? 'Mẫu 01' : 'Mẫu 02'
+      }
     };
   });
 
@@ -1174,6 +1166,27 @@ app.get('/api/records', async (req, res) => {
     merged.set(key, { ...previous, ...r, data: { ...previousData, ...currentData } });
   }
   records = Array.from(merged.values());
+
+  records = records.map(r => {
+    const d = r.data && typeof r.data === 'object' ? r.data : {};
+    const isM01 = r.form_type === 'm01' || r.loaiPhieu === 'Mẫu 01' || d.form_type === 'm01' || d.loaiPhieu === 'Mẫu 01' || String(r.record_id || '').toUpperCase().includes('M01') || String(r.file_id || '').toUpperCase().includes('M01') || !!d.grave_cemetery_name || !!d.cemetery_address || !!d.exhumation_place || !!d.grave_position;
+    return {
+      ...r,
+      form_type: isM01 ? 'm01' : 'm02',
+      loaiPhieu: isM01 ? 'Mẫu 01' : 'Mẫu 02',
+      record_id: r.record_id || d.record_id || r.file_id || d.file_id || '',
+      martyr_name: r.martyr_name || d.martyr_name || d['Họ tên liệt sĩ'] || '',
+      file_id: r.file_id || d.file_id || d['Mã số hồ sơ liệt sĩ'] || '',
+      rep_name: r.rep_name || d.rep_name || d['Họ tên người đại diện'] || '',
+      rep_phone: r.rep_phone || d.rep_phone || d['Số điện thoại NĐD'] || '',
+      rep_address: r.rep_address || d.rep_address || d.noiThuongTruNDD || d['Nơi thường trú NĐD'] || '',
+      data: {
+        ...d,
+        form_type: isM01 ? 'm01' : 'm02',
+        loaiPhieu: isM01 ? 'Mẫu 01' : 'Mẫu 02'
+      }
+    };
+  });
 
   const qTerritories = (req.query.territories || '').split(',').map(s => s.trim()).filter(Boolean);
   const isTerritoryRestricted = (staff && staff.profile && staff.profile.role !== 'admin') || qTerritories.length > 0;

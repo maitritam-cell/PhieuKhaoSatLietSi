@@ -30,21 +30,34 @@ function normalizeSheetName_(name) {
 }
 
 function findM01Sheet_(ss) {
-  const exact = ss.getSheetByName(M1_SHEET_NAME);
-  if (exact) return exact;
-
-  const aliases = {
-    m01: true,
-    mau01: true,
-    mau01_01: true,
-    mau011: true,
-    mau01_1: true
-  };
+  const exactNames = [M1_SHEET_NAME, 'Mẫu 01', 'Mau 01', 'mẫu 01', 'mau 01', 'M01', 'm01'];
+  for (let i = 0; i < exactNames.length; i++) {
+    const s = ss.getSheetByName(exactNames[i]);
+    if (s) return s;
+  }
 
   const sheets = ss.getSheets();
   for (let i = 0; i < sheets.length; i++) {
-    const normalized = normalizeSheetName_(sheets[i].getName());
-    if (aliases[normalized]) return sheets[i];
+    const name = sheets[i].getName();
+    const normalized = normalizeSheetName_(name);
+    if (normalized.includes('m01') || normalized.includes('mau01')) {
+      return sheets[i];
+    }
+  }
+
+  for (let i = 0; i < sheets.length; i++) {
+    const name = sheets[i].getName().toLowerCase();
+    if (name.includes('01') && (name.includes('mau') || name.includes('mẫu') || name.includes('phieu') || name.includes('phiếu') || name.includes('m01'))) {
+      return sheets[i];
+    }
+  }
+
+  for (let i = 0; i < sheets.length; i++) {
+    const name = sheets[i].getName();
+    const norm = normalizeSheetName_(name);
+    if (norm !== 'thongtinkhaosat' && norm !== 'thannhanhongoai' && norm !== 'sheet1' && norm !== 'thongtinkhaosatlietxi') {
+      return sheets[i];
+    }
   }
 
   return null;
@@ -367,6 +380,8 @@ function doGet(e) {
 
       rec.data = m1RowToFrontend_(row, m1Headers);
       rec.data.record_id = rec.record_id;
+      rec.data.form_type = 'm01';
+      rec.data.loaiPhieu = 'Mẫu 01';
       rec.data.relatives = [];
       records.push(rec);
     });
