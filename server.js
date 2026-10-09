@@ -938,7 +938,13 @@ app.get('/api/admin-records', async (req, res) => {
           // thời gian lưu hoặc mã phiếu. Gán mã tạm theo thứ tự dòng để không
           // làm các dòng này ghi đè lẫn nhau khi đưa về danh sách tra cứu.
           const fallbackId = isM01 ? 'M01-DONG-' + (sheetIndex + 2) : '';
-          const recordId = String(r.record_id || currentData.record_id || r.file_id || r.martyr_name || fallbackId).trim();
+          const candidateId = String(r.record_id || currentData.record_id || '').trim();
+          // Apps Script cũ tạo giá trị "M01-" khi cả thời gian lưu và mã phiếu đều trống.
+          // Giá trị này không phải mã phiếu, nên phải tách riêng từng dòng.
+          const unusableM01Id = isM01 && (!candidateId || candidateId === 'M01-');
+          const recordId = unusableM01Id
+            ? fallbackId
+            : String(candidateId || r.file_id || r.martyr_name || fallbackId).trim();
           if (!recordId) continue;
           const key = recordId;
           const previous = merged.get(key) || {};
