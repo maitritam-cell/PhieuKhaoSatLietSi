@@ -805,9 +805,9 @@ function renderRecords(){
       '<td>'+badgeHtml+'</td>'+
       '<td><span style="display:inline-block;padding:3px 7px;border-radius:4px;font-size:11px;font-weight:600;background:'+(x.trangThai==='Đã cập nhật'?'#fef3c7;color:#b45309':'#ecfdf5;color:#047857')+';">'+escapeHtml(x.trangThai||'Mới')+'</span></td>'+
       '<td style="text-align:center;white-space:nowrap;">'+
-        '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="openRecord(\''+escapeAttr(x.record_id||'')+'\')">✏️ Sửa</button>'+
-        '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectWord(\''+escapeAttr(x.record_id||'')+'\')">📄 Word</button>'+
-        (!isM01 ? '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectPdf(\''+escapeAttr(x.record_id||'')+'\')">📑 PDF</button>' : '')+
+        '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="openRecord(\''+escapeAttr(x.record_id||'')+'\',\''+(isM01?'m01':'m02')+'\')">✏️ Sửa</button>'+
+        '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectWord(\''+escapeAttr(x.record_id||'')+'\',\''+(isM01?'m01':'m02')+'\')">📄 Word</button>'+
+        (!isM01 ? '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectPdf(\''+escapeAttr(x.record_id||'')+'\',\'m02\')">📑 PDF</button>' : '')+
         '<button type="button" class="btn danger" style="padding:4px 8px;font-size:12px;" onclick="deleteRecord(\''+escapeAttr(x.record_id||'')+'\')">🗑️</button>'+
       '</td>'+
     '</tr>';
@@ -837,9 +837,15 @@ function newRecord(){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-function openRecord(id){
+function openRecord(id, requestedType){
   const list=getRecords();
-  const item=list.find(x=>x.record_id===id||x.file_id===id);
+  // Mẫu 01/Mẫu 02 có thể cùng mã hồ sơ hoặc cùng mã phiếu cũ.
+  // Luôn lọc theo loại mẫu trước khi tìm mã để không nạp nhầm bản ghi.
+  const item=list.find(x=>{
+    const type=(x.form_type==='m01'||x.loaiPhieu==='Mẫu 01')?'m01':'m02';
+    if(requestedType && type!==requestedType) return false;
+    return String(x.record_id||'')===String(id||'') || (!requestedType && String(x.file_id||'')===String(id||''));
+  });
   if(!item){
     alert('Không tìm thấy thông tin phiếu trong danh sách lưu trên thiết bị.');
     return;
@@ -1173,8 +1179,12 @@ async function generateWord(){
   }
 }
 
-async function exportDirectWord(id){
-  const item=getRecords().find(x=>x.record_id===id||x.file_id===id);
+async function exportDirectWord(id, requestedType){
+  const item=getRecords().find(x=>{
+    const type=(x.form_type==='m01'||x.loaiPhieu==='Mẫu 01')?'m01':'m02';
+    if(requestedType && type!==requestedType) return false;
+    return String(x.record_id||'')===String(id||'') || (!requestedType && String(x.file_id||'')===String(id||''));
+  });
   if(!item){alert('Không tìm thấy dữ liệu.');return;}
   fill(item);
   setStatus('Đang xuất Word cho phiếu '+id+'...');
@@ -1193,8 +1203,12 @@ async function exportDirectWord(id){
   }
 }
 
-async function exportDirectPdf(id){
-  const item=getRecords().find(x=>x.record_id===id||x.file_id===id);
+async function exportDirectPdf(id, requestedType){
+  const item=getRecords().find(x=>{
+    const type=(x.form_type==='m01'||x.loaiPhieu==='Mẫu 01')?'m01':'m02';
+    if(requestedType && type!==requestedType) return false;
+    return String(x.record_id||'')===String(id||'') || (!requestedType && String(x.file_id||'')===String(id||''));
+  });
   if(!item){alert('Không tìm thấy dữ liệu.');return;}
   fill(item);
   await generatePdf();
