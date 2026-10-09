@@ -5910,6 +5910,11 @@ function initApp(){
 
   renderRecords();
   $('recordSearch')?.addEventListener('input',()=>renderRecords());
+  $('filterFormType')?.addEventListener('change',()=>{
+    renderRecords();
+    const selected=$('filterFormType')?.value||'';
+    if(selected==='m01' || selected==='m02') switchFormType(selected);
+  });
 
   const repIdEl=$('rep_id');
   if(repIdEl){
