@@ -926,25 +926,31 @@ app.get('/api/admin-records', async (req, res) => {
       if (gRes.ok) {
         const gData = await gRes.json();
         const sheetRecords = Array.isArray(gData.records) ? gData.records : [];
-        for (const r of sheetRecords) {
-          const key = String(r.record_id || r.file_id || r.martyr_name || '').trim();
-          if (!key) continue;
-
-          const previous = merged.get(key) || {};
-          const previousData = previous.data && typeof previous.data === 'object' ? previous.data : {};
+        for (let sheetIndex = 0; sheetIndex < sheetRecords.length; sheetIndex++) {
+          const r = sheetRecords[sheetIndex] || {};
           const currentData = r.data && typeof r.data === 'object' ? r.data : {};
-
           const isM01 = r.form_type === 'm01' ||
             r.loaiPhieu === 'Mẫu 01' ||
             currentData.form_type === 'm01' ||
             currentData.loaiPhieu === 'Mẫu 01';
 
+          // Một số dòng M01 được nhập trực tiếp trong Google Sheets chưa có
+          // thời gian lưu hoặc mã phiếu. Gán mã tạm theo thứ tự dòng để không
+          // làm các dòng này ghi đè lẫn nhau khi đưa về danh sách tra cứu.
+          const fallbackId = isM01 ? 'M01-DONG-' + (sheetIndex + 2) : '';
+          const recordId = String(r.record_id || currentData.record_id || r.file_id || r.martyr_name || fallbackId).trim();
+          if (!recordId) continue;
+          const key = recordId;
+          const previous = merged.get(key) || {};
+          const previousData = previous.data && typeof previous.data === 'object' ? previous.data : {};
+          const normalizedData = { ...previousData, ...currentData, record_id: recordId };
           merged.set(key, {
             ...previous,
             ...r,
+            record_id: recordId,
             form_type: isM01 ? 'm01' : (r.form_type || previous.form_type || 'm02'),
             loaiPhieu: isM01 ? 'Mẫu 01' : (r.loaiPhieu || previous.loaiPhieu || 'Mẫu 02'),
-            data: { ...previousData, ...currentData }
+            data: normalizedData
           });
         }
         // Khi endpoint đọc dữ liệu trả về 0 Mẫu 01, gọi endpoint chẩn đoán
