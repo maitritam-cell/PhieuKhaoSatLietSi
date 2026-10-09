@@ -866,10 +866,26 @@ async function fetchFromGoogleSheets(isSilent = false){
 
       const currentList = [];
       recordsToProcess.forEach(r => {
-        const exists = currentList.find(c => (c.record_id && c.record_id === r.record_id) || (c.file_id && c.file_id === r.file_id));
-        if(!exists){
           const recData = { ...(r.data || {}) };
-          const isM01 = r.form_type === 'm01' || r.loaiPhieu === 'Mẫu 01' || recData.form_type === 'm01' || recData.loaiPhieu === 'Mẫu 01' || String(r.record_id || '').startsWith('M01');
+          const isM01 = r.form_type === 'm01' || r.loaiPhieu === 'Mẫu 01' ||
+            recData.form_type === 'm01' || recData.loaiPhieu === 'Mẫu 01' ||
+            String(r.record_id || recData.record_id || '').toUpperCase().startsWith('M01');
+
+          // Mẫu 01 và Mẫu 02 có thể cùng dùng một mã hồ sơ liệt sĩ.
+          // Không được gộp/xóa nhầm Mẫu 01 chỉ vì file_id trùng Mẫu 02.
+          const incomingType = isM01 ? 'm01' : 'm02';
+          const incomingId = String(r.record_id || recData.record_id || '').trim();
+          const incomingFileId = String(r.file_id || recData.file_id || '').trim();
+          const exists = currentList.find(c => {
+            const currentType = (c.form_type === 'm01' || c.loaiPhieu === 'Mẫu 01') ? 'm01' : 'm02';
+            if (currentType !== incomingType) return false;
+            const currentId = String(c.record_id || '').trim();
+            if (incomingId && currentId) return currentId === incomingId;
+            const currentFileId = String(c.file_id || '').trim();
+            return !!incomingFileId && !!currentFileId && currentFileId === incomingFileId;
+          });
+
+          if(!exists){
           recData.form_type = isM01 ? 'm01' : 'm02';
           recData.loaiPhieu = isM01 ? 'Mẫu 01' : 'Mẫu 02';
 
