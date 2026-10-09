@@ -242,6 +242,7 @@ function setRelativesChoice(value){
 }
 
 let currentFormType = 'm02';
+let currentM01SheetRow = null;
 
 function switchFormType(type){
   currentFormType = type === 'm01' ? 'm01' : 'm02';
@@ -359,7 +360,8 @@ function collect(){
   const d={
     record_id: currentRecordId || makeRecordId(),
     form_type: currentFormType,
-    loaiPhieu: currentFormType === 'm01' ? 'Mẫu 01' : 'Mẫu 02'
+    loaiPhieu: currentFormType === 'm01' ? 'Mẫu 01' : 'Mẫu 02',
+    m01_sheet_row: currentFormType === 'm01' && Number(currentM01SheetRow) >= 2 ? Number(currentM01SheetRow) : ''
   };
   ids.forEach(id=>{
     const e=$(id);
@@ -450,6 +452,8 @@ function fill(d){
   isEditingExisting=true;
 
   const targetType = (d.form_type === 'm01' || d.loaiPhieu === 'Mẫu 01') ? 'm01' : 'm02';
+  currentM01SheetRow = targetType === 'm01' && Number(d.m01_sheet_row || d.data?.m01_sheet_row || 0) >= 2
+    ? Number(d.m01_sheet_row || d.data?.m01_sheet_row) : null;
   switchFormType(targetType);
 
   // Khôi phục chính xác lựa chọn "Có/Không thân nhân thuộc diện thu mẫu",
@@ -672,6 +676,11 @@ function saveLocal(d){
   const i=list.findIndex(x=>{
     const existingType=(x.form_type==='m01'||x.loaiPhieu==='Mẫu 01')?'m01':'m02';
     if(existingType!==incomingType)return false;
+    if(incomingType==='m01' && (item.m01_sheet_row || x.m01_sheet_row)){
+      const incomingRow=Number(item.m01_sheet_row||0), existingRow=Number(x.m01_sheet_row||0);
+      if(incomingRow && existingRow) return incomingRow===existingRow;
+      return false;
+    }
     const xId=String(x.record_id||'').trim(), dId=String(item.record_id||'').trim();
     if(xId&&dId)return xId===dId;
     const xFile=String(x.file_id||'').trim(), dFile=String(item.file_id||'').trim();
@@ -787,6 +796,7 @@ function renderRecords(){
 
   body.innerHTML=rows.map((x,idx)=>{
     const isM01 = x.form_type === 'm01' || x.loaiPhieu === 'Mẫu 01';
+    const sheetRowArg = isM01 && Number(x.m01_sheet_row||0)>=2 ? Number(x.m01_sheet_row) : 0;
     const completeness=getRecordCompleteness(x);
     const missingTitle=completeness.missing.length
       ? 'Còn thiếu: '+completeness.missing.join('; ')
@@ -805,10 +815,10 @@ function renderRecords(){
       '<td>'+badgeHtml+'</td>'+
       '<td><span style="display:inline-block;padding:3px 7px;border-radius:4px;font-size:11px;font-weight:600;background:'+(x.trangThai==='Đã cập nhật'?'#fef3c7;color:#b45309':'#ecfdf5;color:#047857')+';">'+escapeHtml(x.trangThai||'Mới')+'</span></td>'+
       '<td style="text-align:center;white-space:nowrap;">'+
-        '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="openRecord(\''+escapeAttr(x.record_id||'')+'\',\''+(isM01?'m01':'m02')+'\')">✏️ Sửa</button>'+
-        '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectWord(\''+escapeAttr(x.record_id||'')+'\',\''+(isM01?'m01':'m02')+'\')">📄 Word</button>'+
+        '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="openRecord(\''+escapeAttr(x.record_id||'')+'\',\''+(isM01?'m01':'m02')+'\','+sheetRowArg+')">✏️ Sửa</button>'+
+        '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectWord(\''+escapeAttr(x.record_id||'')+'\',\''+(isM01?'m01':'m02')+'\','+sheetRowArg+')">📄 Word</button>'+
         (!isM01 ? '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectPdf(\''+escapeAttr(x.record_id||'')+'\',\'m02\')">📑 PDF</button>' : '')+
-        '<button type="button" class="btn danger" style="padding:4px 8px;font-size:12px;" onclick="deleteRecord(\''+escapeAttr(x.record_id||'')+'\')">🗑️</button>'+
+        '<button type="button" class="btn danger" style="padding:4px 8px;font-size:12px;" onclick="deleteRecord(\''+escapeAttr(x.record_id||'')+'\','+sheetRowArg+',\''+(isM01?'m01':'m02')+'\')">🗑️</button>'+
       '</td>'+
     '</tr>';
   }).join('');
@@ -825,6 +835,7 @@ function newRecord(){
   setRelativesChoice('');
   renderRelativesUI();
   currentRecordId=makeRecordId();
+  currentM01SheetRow=null;
   isEditingExisting=false;
   currentSaved=false;
   localStorage.removeItem('phieu_liet_si_saved');
@@ -837,13 +848,13 @@ function newRecord(){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-function openRecord(id, requestedType){
+function openRecord(id, requestedType, requestedSheetRow){
   const list=getRecords();
-  // Mẫu 01/Mẫu 02 có thể cùng mã hồ sơ hoặc cùng mã phiếu cũ.
-  // Luôn lọc theo loại mẫu trước khi tìm mã để không nạp nhầm bản ghi.
+  const sheetRow=Number(requestedSheetRow||0);
   const item=list.find(x=>{
     const type=(x.form_type==='m01'||x.loaiPhieu==='Mẫu 01')?'m01':'m02';
     if(requestedType && type!==requestedType) return false;
+    if(type==='m01' && sheetRow>=2) return Number(x.m01_sheet_row||0)===sheetRow;
     return String(x.record_id||'')===String(id||'') || (!requestedType && String(x.file_id||'')===String(id||''));
   });
   if(!item){
@@ -863,10 +874,16 @@ function openRecord(id, requestedType){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-function deleteRecord(id){
+function deleteRecord(id, requestedSheetRow, requestedType){
   if(!confirm('Xóa phiếu '+id+' khỏi danh sách máy? Lưu ý: Dữ liệu trên Google Sheets sẽ không bị xóa.'))return;
-  putRecords(getRecords().filter(x=>x.record_id!==id&&x.file_id!==id));
-  if(currentRecordId===id){
+  const sheetRow=Number(requestedSheetRow||0);
+  putRecords(getRecords().filter(x=>{
+    const type=(x.form_type==='m01'||x.loaiPhieu==='Mẫu 01')?'m01':'m02';
+    if(requestedType && type!==requestedType) return true;
+    if(type==='m01' && sheetRow>=2) return Number(x.m01_sheet_row||0)!==sheetRow;
+    return x.record_id!==id && x.file_id!==id;
+  }));
+  if(currentRecordId===id && (!sheetRow || Number(currentM01SheetRow||0)===sheetRow)){
     newRecord();
   }
   renderRecords();
@@ -900,9 +917,15 @@ async function fetchFromGoogleSheets(isSilent = false){
           const incomingType = isM01 ? 'm01' : 'm02';
           const incomingId = String(r.record_id || recData.record_id || '').trim();
           const incomingFileId = String(r.file_id || recData.file_id || '').trim();
+          const incomingSheetRow = Number(r.m01_sheet_row || recData.m01_sheet_row || 0);
           const exists = currentList.find(c => {
             const currentType = (c.form_type === 'm01' || c.loaiPhieu === 'Mẫu 01') ? 'm01' : 'm02';
             if (currentType !== incomingType) return false;
+            if (incomingType === 'm01' && (incomingSheetRow || c.m01_sheet_row)) {
+              const currentSheetRow = Number(c.m01_sheet_row || 0);
+              if (incomingSheetRow && currentSheetRow) return currentSheetRow === incomingSheetRow;
+              return false;
+            }
             const currentId = String(c.record_id || '').trim();
             if (incomingId && currentId) return currentId === incomingId;
             const currentFileId = String(c.file_id || '').trim();
@@ -912,6 +935,9 @@ async function fetchFromGoogleSheets(isSilent = false){
           if(!exists){
           recData.form_type = isM01 ? 'm01' : 'm02';
           recData.loaiPhieu = isM01 ? 'Mẫu 01' : 'Mẫu 02';
+          if (incomingSheetRow >= 2) recData.m01_sheet_row = incomingSheetRow;
+          if (r.m01_duplicate_id || recData.m01_duplicate_id) recData.m01_duplicate_id = true;
+          if (r.source_record_id || recData.source_record_id) recData.source_record_id = r.source_record_id || recData.source_record_id;
 
           if(recData.martyr_dob) recData.martyr_dob = cleanDateDisplay(recData.martyr_dob);
           if(recData.martyr_death_date) recData.martyr_death_date = cleanDateDisplay(recData.martyr_death_date);
@@ -943,7 +969,9 @@ async function fetchFromGoogleSheets(isSilent = false){
       putRecords(currentList);
       renderRecords();
       const terrInfo = isTerritoryFiltered ? ` (${currentStaffTerritories.join(', ')})` : '';
-      const msg = `Đã tự động tải ${currentList.length} phiếu khảo sát${terrInfo}.`;
+      const m01Count = currentList.filter(x=>x.form_type==='m01' || x.loaiPhieu==='Mẫu 01').length;
+      const m02Count = currentList.length - m01Count;
+      const msg = `Đã tự động tải ${currentList.length} phiếu khảo sát (Mẫu 01: ${m01Count}, Mẫu 02: ${m02Count})${terrInfo}.`;
       setStatus(msg);
       if(!isSilent){
         showNotification('success', 'Đồng bộ Google Sheets', msg);
@@ -1033,6 +1061,7 @@ async function saveToSheets(){
     has_relatives: d.has_relatives || '',
     form_type: d.form_type || currentFormType,
     loaiPhieu: d.loaiPhieu || (currentFormType === 'm01' ? 'Mẫu 01' : 'Mẫu 02'),
+    m01_sheet_row: d.m01_sheet_row || '',
     grave_burial_type: d.grave_burial_type || '',
     tomb_status: d.grave_burial_type || '',
     grave_cemetery_name: d.grave_cemetery_name || '',
@@ -1179,10 +1208,12 @@ async function generateWord(){
   }
 }
 
-async function exportDirectWord(id, requestedType){
+async function exportDirectWord(id, requestedType, requestedSheetRow){
+  const sheetRow=Number(requestedSheetRow||0);
   const item=getRecords().find(x=>{
     const type=(x.form_type==='m01'||x.loaiPhieu==='Mẫu 01')?'m01':'m02';
     if(requestedType && type!==requestedType) return false;
+    if(type==='m01' && sheetRow>=2) return Number(x.m01_sheet_row||0)===sheetRow;
     return String(x.record_id||'')===String(id||'') || (!requestedType && String(x.file_id||'')===String(id||''));
   });
   if(!item){alert('Không tìm thấy dữ liệu.');return;}
@@ -1203,10 +1234,12 @@ async function exportDirectWord(id, requestedType){
   }
 }
 
-async function exportDirectPdf(id, requestedType){
+async function exportDirectPdf(id, requestedType, requestedSheetRow){
+  const sheetRow=Number(requestedSheetRow||0);
   const item=getRecords().find(x=>{
     const type=(x.form_type==='m01'||x.loaiPhieu==='Mẫu 01')?'m01':'m02';
     if(requestedType && type!==requestedType) return false;
+    if(type==='m01' && sheetRow>=2) return Number(x.m01_sheet_row||0)===sheetRow;
     return String(x.record_id||'')===String(id||'') || (!requestedType && String(x.file_id||'')===String(id||''));
   });
   if(!item){alert('Không tìm thấy dữ liệu.');return;}
