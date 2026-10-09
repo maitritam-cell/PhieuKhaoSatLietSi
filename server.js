@@ -1159,13 +1159,51 @@ app.get('/api/records', async (req, res) => {
     }
   }
 
-  // Tách khóa theo loại mẫu vì Mẫu 01 và Mẫu 02 có thể cùng mã hồ sơ liệt sĩ.
+  // Mẫu 01 đang có các mã phiếu bị trùng nhau trong Sheet. Không gộp theo mã phiếu,
+  // vì cách đó làm mất dòng mới/đầy đủ khi có hai dòng trùng mã.
+  const isM01Record = r => {
+    const d = r && r.data && typeof r.data === 'object' ? r.data : {};
+    return String(r.form_type || d.form_type || '').toLowerCase() === 'm01' ||
+      String(r.loaiPhieu || d.loaiPhieu || '') === 'Mẫu 01' ||
+      !!d.grave_cemetery_name || !!d.cemetery_address || !!d.exhumation_place || !!d.grave_position;
+  };
+  const recordIdentity = r => {
+    const d = r && r.data && typeof r.data === 'object' ? r.data : {};
+    return String(r.record_id || d.record_id || r.maPhieu || d.maPhieu || r.file_id || d.file_id || '').trim();
+  };
+  const m01IdentityCounts = new Map();
+  for (const r of sheetRecords) {
+    if (!isM01Record(r)) continue;
+    const identity = recordIdentity(r);
+    if (identity) m01IdentityCounts.set(identity, (m01IdentityCounts.get(identity) || 0) + 1);
+  }
+  const duplicateM01Ids = new Set([...m01IdentityCounts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([id]) => id));
+  let m01Ordinal = 0;
+  sheetRecords = sheetRecords.map(r => {
+    if (!isM01Record(r)) return r;
+    const d = r && r.data && typeof r.data === 'object' ? r.data : {};
+    m01Ordinal++;
+    const sheetRow = Number(r.m01_sheet_row || d.m01_sheet_row) || (m01Ordinal + 1);
+    const identity = recordIdentity(r);
+    const isDuplicateId = !!identity && duplicateM01Ids.has(identity);
+    return {
+      ...r,
+      m01_sheet_row: sheetRow,
+      m01_duplicate_id: isDuplicateId,
+      source_record_id: identity,
+      data: { ...d, m01_sheet_row: sheetRow, m01_duplicate_id: isDuplicateId, source_record_id: identity }
+    };
+  });
+
+  // Dùng số dòng làm khóa cho Mẫu 01 trùng mã, giữ cả hai dòng.
   const mergeRecordKey = r => {
     const d = r && r.data && typeof r.data === 'object' ? r.data : {};
-    const isM01 = r.form_type === 'm01' || r.loaiPhieu === 'Mẫu 01' ||
-      d.form_type === 'm01' || d.loaiPhieu === 'Mẫu 01' ||
-      !!d.grave_cemetery_name || !!d.cemetery_address || !!d.exhumation_place || !!d.grave_position;
-    const identity = String(r.record_id || d.record_id || r.maPhieu || d.maPhieu || r.file_id || d.file_id || '').trim();
+    const isM01 = isM01Record(r);
+    const identity = recordIdentity(r);
+    const row = Number(r.m01_sheet_row || d.m01_sheet_row || 0);
+    if (isM01 && (r.m01_duplicate_id || d.m01_duplicate_id) && row >= 2) return 'm01::row:' + row;
     return identity ? (isM01 ? 'm01::' : 'm02::') + identity : '';
   };
   const merged = new Map();
@@ -1174,6 +1212,9 @@ app.get('/api/records', async (req, res) => {
     if (key) merged.set(key, { ...r, data: r.data && typeof r.data === 'object' ? { ...r.data } : r.data });
   }
   for (const r of records) {
+    const identity = recordIdentity(r);
+    // Một bản ghi DB trùng mã không xác định được nó thuộc dòng M01 nào; nguồn chuẩn là Sheet.
+    if (isM01Record(r) && identity && duplicateM01Ids.has(identity)) continue;
     const key = mergeRecordKey(r);
     if (!key) continue;
     const previous = merged.get(key) || {};
