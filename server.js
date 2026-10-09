@@ -883,7 +883,15 @@ app.get('/api/admin-records', async (req, res) => {
   const appsScriptUrl = (req.query.appsScriptUrl || '').trim() || DEFAULT_APPS_SCRIPT_URL;
 
   // Hợp nhất cả Mẫu 02 (Supabase) và Mẫu 01 (Google Sheets M01).
-  // Trước đây endpoint trả về ngay sau khi đọc m02_records nên M01 không bao giờ xuất hiện.
+  // Khóa có loại mẫu để không ghi đè hai phiếu cùng mã hồ sơ nhưng khác mẫu.
+  const adminRecordKey = r => {
+    const d = r && r.data && typeof r.data === 'object' ? r.data : {};
+    const isM01 = r.form_type === 'm01' || r.loaiPhieu === 'Mẫu 01' ||
+      d.form_type === 'm01' || d.loaiPhieu === 'Mẫu 01' ||
+      !!d.grave_cemetery_name || !!d.cemetery_address || !!d.exhumation_place || !!d.grave_position;
+    const identity = String(r.record_id || d.record_id || r.file_id || d.file_id || r.martyr_name || d.martyr_name || '').trim();
+    return identity ? (isM01 ? 'm01::' : 'm02::') + identity : '';
+  };
   const merged = new Map();
   let googleAppsScriptDiagnostic = null;
 
@@ -906,7 +914,7 @@ app.get('/api/admin-records', async (req, res) => {
       if (dbRes.ok) {
         const dbRecords = await dbRes.json();
         for (const r of (dbRecords || [])) {
-          const key = String(r.record_id || r.file_id || r.martyr_name || '').trim();
+          const key = adminRecordKey(r);
           if (!key) continue;
           merged.set(key, {
             ...r,
@@ -927,7 +935,7 @@ app.get('/api/admin-records', async (req, res) => {
         const gData = await gRes.json();
         const sheetRecords = Array.isArray(gData.records) ? gData.records : [];
         for (const r of sheetRecords) {
-          const key = String(r.record_id || r.file_id || r.martyr_name || '').trim();
+          const key = adminRecordKey(r);
           if (!key) continue;
 
           const previous = merged.get(key) || {};
@@ -1151,14 +1159,22 @@ app.get('/api/records', async (req, res) => {
     }
   }
 
-  // Hợp nhất hai nguồn theo mã phiếu, tránh bỏ sót bản ghi chỉ có trên Google Sheets.
+  // Tách khóa theo loại mẫu vì Mẫu 01 và Mẫu 02 có thể cùng mã hồ sơ liệt sĩ.
+  const mergeRecordKey = r => {
+    const d = r && r.data && typeof r.data === 'object' ? r.data : {};
+    const isM01 = r.form_type === 'm01' || r.loaiPhieu === 'Mẫu 01' ||
+      d.form_type === 'm01' || d.loaiPhieu === 'Mẫu 01' ||
+      !!d.grave_cemetery_name || !!d.cemetery_address || !!d.exhumation_place || !!d.grave_position;
+    const identity = String(r.record_id || d.record_id || r.maPhieu || d.maPhieu || r.file_id || d.file_id || '').trim();
+    return identity ? (isM01 ? 'm01::' : 'm02::') + identity : '';
+  };
   const merged = new Map();
   for (const r of sheetRecords) {
-    const key = String(r.record_id || r.file_id || r.maPhieu || '').trim();
+    const key = mergeRecordKey(r);
     if (key) merged.set(key, { ...r, data: r.data && typeof r.data === 'object' ? { ...r.data } : r.data });
   }
   for (const r of records) {
-    const key = String(r.record_id || r.file_id || r.maPhieu || '').trim();
+    const key = mergeRecordKey(r);
     if (!key) continue;
     const previous = merged.get(key) || {};
     const previousData = previous.data && typeof previous.data === 'object' ? previous.data : {};
