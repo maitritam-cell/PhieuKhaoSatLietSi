@@ -377,8 +377,9 @@ function doGet(e) {
 
     const m1Headers = m1 ? m1.getRange(1, 1, 1, m1.getLastColumn()).getDisplayValues()[0] : [];
     const m1Rows = m1 ? readData_(m1, m1.getLastColumn()) : [];
-    m1Rows.forEach(function(row) {
+    m1Rows.forEach(function(row, m1Index) {
       const rec = m1RowToRecord_(row, m1Headers);
+      rec.m01_sheet_row = m1Index + 2;
       const searchText = [
         rec.record_id,
         rec.martyr_name,
@@ -393,6 +394,7 @@ function doGet(e) {
 
       rec.data = m1RowToFrontend_(row, m1Headers);
       rec.data.record_id = rec.record_id;
+      rec.data.m01_sheet_row = m1Index + 2;
       rec.data.form_type = 'm01';
       rec.data.loaiPhieu = 'Mẫu 01';
       rec.data.relatives = [];
@@ -420,7 +422,10 @@ function saveM01_(p) {
   const recordId = clean_(p.record_id || p.maPhieu || p.m01_record_id);
   const martyrName = clean_(p.martyr_name || p.hoTenLietSi);
   const fileId = clean_(p.file_id || p.maSoHoSoLS);
-  const existing = findM01Row_(sheet, recordId, fileId, martyrName);
+  const requestedRow = Number(p.m01_sheet_row || p.m01SheetRow || 0);
+  const existing = Number.isInteger(requestedRow) && requestedRow >= 2 && requestedRow <= sheet.getLastRow()
+    ? { row: requestedRow }
+    : findM01Row_(sheet, recordId, fileId, martyrName);
 
   // Vị trí mộ cụ thể: lấy trường vị trí hoặc ghép
   const graveLocation = clean_(p.grave_position || p.grave_location) || [
