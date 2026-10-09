@@ -653,12 +653,30 @@ function checkValidationAndReport(actionName){
 }
 
 function getRecords(){try{return JSON.parse(localStorage.getItem('phieu_liet_si_records')||'[]');}catch{return [];}}
-function putRecords(list){localStorage.setItem('phieu_liet_si_records',JSON.stringify(list.slice(0,300)));}
+function putRecords(list){
+  // Tổng dữ liệu hiện có: 231 phiếu Mẫu 01 và hơn 150 phiếu Mẫu 02.
+  // Giới hạn cũ 300 làm cắt mất những dòng Mẫu 01 được API trả sau Mẫu 02.
+  // Giữ tối đa 2000 phiếu để không mất phiếu khi đồng bộ danh sách.
+  try{
+    localStorage.setItem('phieu_liet_si_records',JSON.stringify(list.slice(0,2000)));
+  }catch(e){
+    console.error('Không thể lưu danh sách phiếu vào bộ nhớ trình duyệt:',e);
+    showNotification('error','Bộ nhớ trình duyệt đầy','Danh sách quá lớn nên trình duyệt không lưu được toàn bộ. Hãy thử xóa cache ứng dụng hoặc sử dụng trình duyệt khác.');
+  }
+}
 
 function saveLocal(d){
   const list=getRecords();
-  const i=list.findIndex(x=>(x.record_id&&x.record_id===d.record_id)||(x.file_id&&x.file_id===d.file_id));
   const item={...d,saved_at:new Date().toISOString()};
+  const incomingType=(item.form_type==='m01'||item.loaiPhieu==='Mẫu 01')?'m01':'m02';
+  const i=list.findIndex(x=>{
+    const existingType=(x.form_type==='m01'||x.loaiPhieu==='Mẫu 01')?'m01':'m02';
+    if(existingType!==incomingType)return false;
+    const xId=String(x.record_id||'').trim(), dId=String(item.record_id||'').trim();
+    if(xId&&dId)return xId===dId;
+    const xFile=String(x.file_id||'').trim(), dFile=String(item.file_id||'').trim();
+    return !!xFile&&!!dFile&&xFile===dFile;
+  });
   if(i>=0){
     list[i]=item;
   }else{
