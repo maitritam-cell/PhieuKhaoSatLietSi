@@ -52,15 +52,14 @@ function findM01Sheet_(ss) {
     }
   }
 
-  for (let i = 0; i < sheets.length; i++) {
-    const name = sheets[i].getName();
-    const norm = normalizeSheetName_(name);
-    if (norm !== 'thongtinkhaosat' && norm !== 'thannhanhongoai' && norm !== 'sheet1' && norm !== 'thongtinkhaosatlietxi') {
-      return sheets[i];
-    }
-  }
-
   return null;
+}
+
+function getOrCreateM01Sheet_(ss) {
+  // Dùng lại sheet M01/Mẫu 01 đã có để không tách dữ liệu thành nhiều tab.
+  const existing = findM01Sheet_(ss);
+  if (existing) return getOrCreateSheet_(ss, existing.getName(), M1_HEADERS);
+  return getOrCreateSheet_(ss, M1_SHEET_NAME, M1_HEADERS);
 }
 
 function sheetDiagnostics_(ss) {
@@ -313,8 +312,22 @@ function doGet(e) {
       });
     }
 
-    // Khi đọc không được tự tạo sheet M01, vì việc tự tạo sheet rỗng
-    // sẽ che giấu lỗi triển khai hoặc lỗi tên workbook.
+    // Khởi tạo riêng sheet Mẫu 01 khi được yêu cầu.
+    if (action === 'setup_m01' || action === 'setup-m01') {
+      const createdM1 = getOrCreateM01Sheet_(ss);
+      formatM01Sheet_(createdM1);
+      return jsonResponse({
+        ok: true,
+        type: 'setup_m01',
+        spreadsheet_id: SPREADSHEET_ID,
+        spreadsheet_url: ss.getUrl(),
+        sheet: createdM1.getName(),
+        columns: M1_HEADERS.length,
+        headers: M1_HEADERS,
+        message: 'Đã khởi tạo sheet riêng lưu dữ liệu Mẫu 01.'
+      });
+    }
+
     const m1 = findM01Sheet_(ss);
     const main = getOrCreateSheet_(ss, MAIN_SHEET_NAME, MAIN_HEADERS);
     const rel = getOrCreateSheet_(ss, REL_SHEET_NAME, REL_HEADERS);
@@ -401,7 +414,7 @@ function doGet(e) {
 
 function saveM01_(p) {
   const ss = getSpreadsheet_();
-  const sheet = getOrCreateSheet_(ss, M1_SHEET_NAME, M1_HEADERS);
+  const sheet = getOrCreateM01Sheet_(ss);
   const savedAt = formatNow_();
 
   const recordId = clean_(p.record_id || p.maPhieu || p.m01_record_id);
@@ -501,7 +514,7 @@ function formatM01Sheet_(sheet) {
 
 function setupM01() {
   const ss = getSpreadsheet_();
-  const sheet = getOrCreateSheet_(ss, M1_SHEET_NAME, M1_HEADERS);
+  const sheet = getOrCreateM01Sheet_(ss);
 
   // Định dạng các cột mã số dưới dạng TEXT để giữ số 0 đầu.
   [6, 12, 13, 25].forEach(function(col) {
