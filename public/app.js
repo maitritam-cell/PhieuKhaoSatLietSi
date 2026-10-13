@@ -279,7 +279,7 @@ function switchFormType(type){
     if(secGrave) secGrave.style.display = 'block';
     if(secRel) secRel.style.display = 'none';
     if(btnWord) btnWord.textContent = 'Xuất Word Mẫu 01';
-    if(btnPdf) btnPdf.style.display = 'none';
+    if(btnPdf){ btnPdf.textContent = 'In Mẫu 01'; btnPdf.style.display = 'inline-flex'; }
   } else {
     if(tabM02){
       tabM02.style.borderColor = '#2563eb';
@@ -301,7 +301,7 @@ function switchFormType(type){
     if(secGrave) secGrave.style.display = 'none';
     if(secRel) secRel.style.display = 'block';
     if(btnWord) btnWord.textContent = 'Xuất Word Mẫu 02';
-    if(btnPdf) btnPdf.style.display = 'inline-flex';
+    if(btnPdf){ btnPdf.textContent = 'In Mẫu 02'; btnPdf.style.display = 'inline-flex'; }
   }
 }
 
@@ -817,7 +817,7 @@ function renderRecords(){
       '<td style="text-align:center;white-space:nowrap;">'+
         '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="openRecord(\''+escapeAttr(x.record_id||'')+'\',\''+(isM01?'m01':'m02')+'\','+sheetRowArg+')">✏️ Sửa</button>'+
         '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectWord(\''+escapeAttr(x.record_id||'')+'\',\''+(isM01?'m01':'m02')+'\','+sheetRowArg+')">📄 Word</button>'+
-        (!isM01 ? '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectPdf(\''+escapeAttr(x.record_id||'')+'\',\'m02\')">📑 PDF</button>' : '')+
+        '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectPdf(\\''+escapeAttr(x.record_id||'')+'\\',\\''+(isM01?'m01':'m02')+'\\','+sheetRowArg+')">🖨️ In</button>'+
         '<button type="button" class="btn danger" style="padding:4px 8px;font-size:12px;" onclick="deleteRecord(\''+escapeAttr(x.record_id||'')+'\','+sheetRowArg+',\''+(isM01?'m01':'m02')+'\')">🗑️</button>'+
       '</td>'+
     '</tr>';
@@ -1185,6 +1185,87 @@ function downloadBlob(blob,name){
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 
+let docxRendererPromise = null;
+
+function loadExternalScript(src, test){
+  if(test()) return Promise.resolve();
+  return new Promise((resolve,reject)=>{
+    const existing=[...document.scripts].find(s=>s.src===src);
+    if(existing){
+      existing.addEventListener('load',()=>resolve(),{once:true});
+      existing.addEventListener('error',()=>reject(new Error('Không tải được thư viện xem trước Word.')),{once:true});
+      return;
+    }
+    const script=document.createElement('script');
+    script.src=src;
+    script.onload=resolve;
+    script.onerror=()=>reject(new Error('Không tải được thư viện xem trước Word.'));
+    document.head.appendChild(script);
+  });
+}
+
+async function ensureDocxRenderer(){
+  if(!docxRendererPromise){
+    docxRendererPromise=(async()=>{
+      await loadExternalScript('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',()=>!!window.JSZip);
+      await loadExternalScript('https://cdn.jsdelivr.net/npm/docx-preview@0.3.6/dist/docx-preview.min.js',()=>!!(window.docx&&window.docx.renderAsync));
+      if(!window.docx||!window.docx.renderAsync) throw new Error('Thư viện xem trước Word chưa sẵn sàng.');
+    })().catch(error=>{docxRendererPromise=null;throw error;});
+  }
+  return docxRendererPromise;
+}
+
+async function generateWordBlob(data){
+  const response=await fetch('/api/generate',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(data)
+  });
+  if(!response.ok) throw new Error(await response.text());
+  return response.blob();
+}
+
+async function printWordData(data){
+  const root=$('docxPrintRoot');
+  if(!root) throw new Error('Không tìm thấy khu vực in.');
+  setStatus('Đang chuẩn bị bản in từ Word...','loading');
+  try{
+    const blob=await generateWordBlob(data);
+    await ensureDocxRenderer();
+    root.replaceChildren();
+    await window.docx.renderAsync(blob,root,document.head,{
+      breakPages:true,
+      ignoreLastRenderedPageBreak:false,
+      renderHeaders:true,
+      renderFooters:true,
+      useBase64URL:true
+    });
+    document.body.classList.add('printing-docx');
+    await (document.fonts?.ready||Promise.resolve());
+    setStatus('Đã mở chế độ in.');
+    setTimeout(()=>window.print(),250);
+    window.onafterprint=()=>{
+      document.body.classList.remove('printing-docx');
+      root.replaceChildren();
+      window.onafterprint=null;
+    };
+  }catch(error){
+    document.body.classList.remove('printing-docx');
+    root.replaceChildren();
+    setStatus('Lỗi chuẩn bị bản in: '+error.message,'error');
+    alert('Không mở được bản in: '+error.message+'\nAnh có thể dùng nút Xuất Word rồi in trực tiếp từ Microsoft Word.');
+  }
+}
+
+async function printGeneratedWord(){
+  if(!checkValidationAndReport('in phiếu'))return;
+  if(localStorage.getItem('phieu_liet_si_saved')!=='1'){
+    alert('Vui lòng bấm "Lưu vào Google Sheets" trước khi in phiếu.');
+    return;
+  }
+  await printWordData(collect());
+}
+
 async function generateWord(){
   if(!checkValidationAndReport('xuất Word'))return;
   if(localStorage.getItem('phieu_liet_si_saved')!=='1'){
@@ -1244,7 +1325,7 @@ async function exportDirectPdf(id, requestedType, requestedSheetRow){
   });
   if(!item){alert('Không tìm thấy dữ liệu.');return;}
   fill(item);
-  await generatePdf();
+  await printWordData(item);
 }
 
 function openScriptConfigModal(){
