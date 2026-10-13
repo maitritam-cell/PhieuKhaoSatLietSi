@@ -525,9 +525,10 @@ async function fillDocumentM01(data) {
   if (paragraphs[26]) formatLine(paragraphs[26], `Tên nghĩa trang: ${valueOrBlank(cemName)}`);
 
   const cemType = (data.cemetery_type || '').trim();
+  const hasCemType = !!cemType;
   const isOtherCem = cemType.includes('Ngoài');
   if (paragraphs[27]) {
-    formatLine(paragraphs[27], `${isOtherCem ? '[  ]' : '[X]'} Nghĩa trang liệt sĩ       ${isOtherCem ? '[X]' : '[  ]'} Ngoài nghĩa trang liệt sĩ`);
+    formatLine(paragraphs[27], `${hasCemType && !isOtherCem ? '[X]' : '[  ]'} Nghĩa trang liệt sĩ       ${isOtherCem ? '[X]' : '[  ]'} Ngoài nghĩa trang liệt sĩ`);
   }
 
   // Mẫu gốc có một dòng chấm đệm ngay dưới hai lựa chọn nghĩa trang. Bỏ hẳn dòng này.
