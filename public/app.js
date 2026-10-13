@@ -1319,10 +1319,11 @@ function makeTextPng(text,widthPt,heightPt,opt={}){
   let size=(opt.fontSize||10)*96/72*scale;
   const family='"Times New Roman","Liberation Serif",Georgia,serif';
   const weight=opt.bold?'700':'400';
+  const style=opt.italic?'italic ':'';
   const align=opt.align||'left';
   const maxW=w-pad*2;
 
-  function setFont(px){ctx.font=`${weight} ${px}px ${family}`;}
+  function setFont(px){ctx.font=`${style}${weight} ${px}px ${family}`;}
   setFont(size);
   while(size>6*96/72*scale && ctx.measureText(text||'').width>maxW){
     size-=0.5*96/72*scale; setFont(size);
@@ -5755,15 +5756,10 @@ L1hSZWZTdG0gMTg0MjY5Pj4NCnN0YXJ0eHJlZg0KMTk2MzMwDQolJUVPRg==
       [126,156,522,171,d.rep_name],
       [177,172,354,187,d.rep_dob],
       [411,172,522,187,d.rep_gender,{align:'center'}],
-      [123,188,240,204,d.rep_id],
-      [291,188,354,204,d.rep_issue_date,{align:'center'}],
-      [402,188,522,204,d.rep_issue_place],
       [126,204,522,220,d.rep_hometown],
       [150,220,522,236,d.rep_address],
       [141,236,522,252,d.rep_phone],
       [150,282,522,298,d.file_id],
-      [153,298,411,314,d.martyr_name],
-      [462,298,522,314,d.martyr_alias],
       [177,314,354,330,d.martyr_dob],
       [411,314,522,330,d.martyr_gender,{align:'center'}],
       [126,330,522,346,d.martyr_hometown],
@@ -5772,14 +5768,76 @@ L1hSZWZTdG0gMTg0MjY5Pj4NCnN0YXJ0eHJlZg0KMTk2MzMwDQolJUVPRg==
       [192,378,522,394,d.martyr_death_date],
       [177,394,522,410,d.martyr_death_place],
       [174,410,522,426,d.burial_place],
-      [200,426,236,442,d.certificate_no,{align:'center',fontSize:9}],
-      [309,426,346,442,d.decision_no,{align:'center',fontSize:9}],
-      [348,426,469,442,d.decision_date,{align:'center',fontSize:8.5}],
       [117,458,522,474,d.father],
       [114,474,522,490,d.mother],
       [93,490,522,506,d.wife]
     ];
     for(const f of fields)await overlayBox(doc,p1,f[0],f[1],f[2],f[3],f[4],f[5]||{});
+
+    // Đồng bộ những dòng PDF đã được chuẩn hóa trong bản Word.
+    await overlayText(doc,p1,70,188,452,16,
+      `Số ĐDCN: ${d.rep_id||'............'}; Ngày cấp: ${d.rep_issue_date||d.ngayCapCCCD||d['Ngày cấp']||'......'}; Nơi cấp: ${d.rep_issue_place||d.noiCapCCCD||d['Nơi cấp']||'......'}`,
+      {fontSize:9.5}
+    );
+    if(d.martyr_name||d.martyr_alias){
+      await overlayText(doc,p1,70,298,452,16,
+        `Họ và tên liệt sĩ: ${d.martyr_name||''}; Bí danh: ${d.martyr_alias||''}`,
+        {fontSize:9.5}
+      );
+    }
+    const hasDecisionInfo=d.certificate_no||d.decision_no||d.decision_date;
+    if(hasDecisionInfo){
+      const rawDate=String(d.decision_date||'').trim();
+      let decisionDate='ngày.... tháng... năm ......';
+      const sep=rawDate.includes('/')?'/':'-';
+      const dateParts=rawDate.split(sep);
+      if(dateParts.length===3 && dateParts[2].length===4){
+        decisionDate=`ngày ${dateParts[0].padStart(2,'0')} tháng ${dateParts[1].padStart(2,'0')} năm ${dateParts[2]}`;
+      }else if(dateParts.length===3 && dateParts[0].length===4){
+        decisionDate=`ngày ${dateParts[2].padStart(2,'0')} tháng ${dateParts[1].padStart(2,'0')} năm ${dateParts[0]}`;
+      }else if(rawDate){
+        decisionDate=rawDate;
+      }
+      await overlayText(doc,p1,70,426,452,16,
+        `Bằng Tổ quốc ghi công số: ${d.certificate_no||'...........'}; Quyết định số: ${d.decision_no||'...........'};`,
+        {fontSize:8.7}
+      );
+      await overlayText(doc,p1,70,442,452,16,
+        `${decisionDate} của Thủ tướng Chính phủ.`,
+        {fontSize:8.7}
+      );
+    }
+
+    // Thay phần xác nhận mặc định của PDF bằng đúng nội dung và khoảng ký của Word.
+    const coverArea=(page,x,yTop,width,height)=>{
+      page.drawRectangle({x,y:page.getHeight()-yTop-height,width,height,color:window.PDFLib.rgb(1,1,1)});
+    };
+    coverArea(p1,44,544,252,106);
+    coverArea(p1,299,544,252,106);
+    coverArea(p1,140,683,315,80);
+
+    const signatureText=(x,y,width,text,options={})=>
+      overlayText(doc,p1,x,y,width,12,text,{fontSize:9.4,...options});
+    const sigLeft=44,sigWidth=252,sigRight=299;
+    await signatureText(sigLeft,546,sigWidth,'Phan Rang, ngày …… tháng 9 năm 2026',{italic:true});
+    await signatureText(sigLeft,558,sigWidth,'Xác nhận của UBND phường');
+    await signatureText(sigLeft,570,sigWidth,'về nội dung khai trên bản khai là đúng');
+    await signatureText(sigLeft,596,sigWidth,'CHỦ TỊCH',{bold:true});
+    await signatureText(sigLeft,646,sigWidth,'Lê Hoài Nam',{bold:true});
+
+    await signatureText(sigRight,546,sigWidth,'Phan Rang, ngày …… tháng 8 năm 2026',{italic:true});
+    await signatureText(sigRight,558,sigWidth,'Xác nhận của Công an phường');
+    await signatureText(sigRight,570,sigWidth,'về nội dung thông tin dữ liệu dân cư của các cá nhân',{fontSize:8.8});
+    await signatureText(sigRight,582,sigWidth,'trên bản khai là đúng.',{fontSize:8.8});
+    await signatureText(sigRight,596,sigWidth,'KT. TRƯỞNG CÔNG AN PHƯỜNG',{bold:true,fontSize:8.8});
+    await signatureText(sigRight,610,sigWidth,'PHÓ TRƯỞNG CÔNG AN PHƯỜNG',{bold:true,fontSize:8.8});
+    await signatureText(sigRight,646,sigWidth,'Trung tá Trương Thành Trung',{bold:true});
+
+    await signatureText(140,685,315,'Khánh Hòa, ngày …… tháng …… năm 2026',{italic:true});
+    await signatureText(140,697,315,'Xác nhận của Sở Nội vụ');
+    await signatureText(140,709,315,'nội dung khai trên bản khai là đúng.');
+    await signatureText(140,748,315,'GIÁM ĐỐC',{bold:true});
+
 
     // Trang 2 - đúng 6 dòng của mẫu gốc.
     const xs=[43.2,64.4,134.6,203.8,264.6,295.2,359.1,424.8,486.0,592.6,684.4,806.4];
