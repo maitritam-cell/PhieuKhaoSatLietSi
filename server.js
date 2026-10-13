@@ -484,59 +484,66 @@ async function fillDocumentM01(data) {
     p.appendChild(r);
   }
 
+  const blank = '........................................';
+  const valueOrBlank = value => String(value || '').trim() || blank;
+
   // 1. Thông tin người đại diện thân nhân hoặc hưởng trợ cấp thờ cúng liệt sĩ
-  if (paragraphs[4]) formatLine(paragraphs[4], `Họ và tên: ${data.rep_name || ''}`);
-  if (paragraphs[5]) formatLine(paragraphs[5], `Ngày tháng năm sinh: ${data.rep_dob || ''}; Giới tính: ${data.rep_gender || ''}`);
-  if (paragraphs[6]) formatLine(paragraphs[6], `Số ĐDCN: ${data.rep_id || '............'}; Ngày cấp: ${data.rep_issue_date || data.ngayCapCCCD || data['Ngày cấp'] || '......'}; Nơi cấp: ${data.rep_issue_place || data.noiCapCCCD || data['Nơi cấp'] || '......'}`);
-  if (paragraphs[7]) formatLine(paragraphs[7], `Quê quán: ${data.rep_hometown || ''}`);
-  if (paragraphs[8]) formatLine(paragraphs[8], `Nơi thường trú: ${data.rep_address || ''}`);
-  if (paragraphs[9]) formatLine(paragraphs[9], `Số điện thoại: ${data.rep_phone || ''}`);
+  if (paragraphs[4]) formatLine(paragraphs[4], `Họ và tên: ${valueOrBlank(data.rep_name)}`);
+  if (paragraphs[5]) formatLine(paragraphs[5], `Ngày tháng năm sinh: ${valueOrBlank(data.rep_dob)}; Giới tính: ${valueOrBlank(data.rep_gender)}`);
+  if (paragraphs[6]) formatLine(paragraphs[6], `Số ĐDCN: ${valueOrBlank(data.rep_id)}; Ngày cấp: ${valueOrBlank(data.rep_issue_date || data.ngayCapCCCD || data['Ngày cấp'])}; Nơi cấp: ${valueOrBlank(data.rep_issue_place || data.noiCapCCCD || data['Nơi cấp'])}`);
+  if (paragraphs[7]) formatLine(paragraphs[7], `Quê quán: ${valueOrBlank(data.rep_hometown)}`);
+  if (paragraphs[8]) formatLine(paragraphs[8], `Nơi thường trú: ${valueOrBlank(data.rep_address)}`);
+  if (paragraphs[9]) formatLine(paragraphs[9], `Số điện thoại: ${valueOrBlank(data.rep_phone)}`);
 
   // 2. Thông tin về liệt sĩ
-  if (paragraphs[11]) formatLine(paragraphs[11], `Mã số hồ sơ liệt sĩ: ${data.file_id || ''}`);
-  if (paragraphs[12]) formatLine(paragraphs[12], `Mã hồ sơ Bộ quản lý: ${data.ministry_file || ''}   Mã hồ sơ tỉnh quản lý: ${data.province_file || ''}`);
-  if (paragraphs[13]) formatLine(paragraphs[13], `Họ và tên liệt sĩ: ${data.martyr_name || ''}; Bí danh: ${data.martyr_alias || ''}`);
-  if (paragraphs[14]) formatLine(paragraphs[14], `Ngày tháng năm sinh: ${data.martyr_dob || ''}; Giới tính: ${data.martyr_gender || ''}`);
-  if (paragraphs[15]) formatLine(paragraphs[15], `Quê quán: ${data.martyr_hometown || ''}`);
-  if (paragraphs[16]) formatLine(paragraphs[16], `Cấp bậc, chức vụ khi hy sinh: ${data.martyr_rank || ''}`);
-  if (paragraphs[17]) formatLine(paragraphs[17], `Cơ quan, đơn vị khi hy sinh: ${data.martyr_unit || ''}`);
-  if (paragraphs[18]) formatLine(paragraphs[18], `Ngày tháng năm hy sinh: ${data.martyr_death_date || ''}`);
-  if (paragraphs[19]) formatLine(paragraphs[19], `Nơi hy sinh (nếu có): ${data.martyr_death_place || ''}`);
-  if (paragraphs[20]) formatLine(paragraphs[20], `Nơi an táng ban đầu: ${data.burial_place || ''}`);
+  if (paragraphs[11]) formatLine(paragraphs[11], `Mã số hồ sơ liệt sĩ: ${valueOrBlank(data.file_id)}`);
+  if (paragraphs[12]) formatLine(paragraphs[12], `Mã hồ sơ Bộ quản lý: ${valueOrBlank(data.ministry_file)}; Mã hồ sơ tỉnh quản lý: ${valueOrBlank(data.province_file)}`);
+  if (paragraphs[13]) formatLine(paragraphs[13], `Họ và tên liệt sĩ: ${valueOrBlank(data.martyr_name)}; Bí danh: ${valueOrBlank(data.martyr_alias)}`);
+  if (paragraphs[14]) formatLine(paragraphs[14], `Ngày tháng năm sinh: ${valueOrBlank(data.martyr_dob)}; Giới tính: ${valueOrBlank(data.martyr_gender)}`);
+  if (paragraphs[15]) formatLine(paragraphs[15], `Quê quán: ${valueOrBlank(data.martyr_hometown)}`);
+  if (paragraphs[16]) formatLine(paragraphs[16], `Cấp bậc, chức vụ khi hy sinh: ${valueOrBlank(data.martyr_rank)}`);
+  if (paragraphs[17]) formatLine(paragraphs[17], `Cơ quan, đơn vị khi hy sinh: ${valueOrBlank(data.martyr_unit)}`);
+  if (paragraphs[18]) formatLine(paragraphs[18], `Ngày tháng năm hy sinh: ${valueOrBlank(data.martyr_death_date)}`);
+  if (paragraphs[19]) formatLine(paragraphs[19], `Nơi hy sinh (nếu có): ${valueOrBlank(data.martyr_death_place)}`);
+  if (paragraphs[20]) formatLine(paragraphs[20], `Nơi an táng ban đầu: ${valueOrBlank(data.burial_place)}`);
 
   const certDateStr = formatVietnameseDecisionDate(data.decision_date);
   if (paragraphs[21]) formatLine(paragraphs[21], `Bằng Tổ quốc ghi công số: ${data.certificate_no || '...........'}; Quyết định số: ${data.decision_no || '...........'}; ${certDateStr} của Thủ tướng Chính phủ.`);
-  if (paragraphs[22]) formatLine(paragraphs[22], `Con ông: ${data.father || ''}`);
-  if (paragraphs[23]) formatLine(paragraphs[23], `Con bà: ${data.mother || ''}`);
-  if (paragraphs[24]) formatLine(paragraphs[24], `Vợ/Chồng: ${data.wife || ''}`);
+  if (paragraphs[22]) formatLine(paragraphs[22], `Con ông: ${valueOrBlank(data.father)}`);
+  if (paragraphs[23]) formatLine(paragraphs[23], `Con bà: ${valueOrBlank(data.mother)}`);
+  if (paragraphs[24]) formatLine(paragraphs[24], `Vợ/Chồng: ${valueOrBlank(data.wife)}`);
 
   // 3. Thông tin phần mộ liệt sĩ đã xác định
   const graveBurialType = (data.grave_burial_type || data.tomb_status || '').trim();
+  const hasBurialType = !!graveBurialType;
   const isNoRemains = graveBurialType.includes('không có');
   if (paragraphs[25]) {
-    formatLine(paragraphs[25], `Thông tin về phần mộ liệt sĩ:   ${isNoRemains ? '[  ]' : '[X]'} Mộ có hài cốt liệt sĩ      ${isNoRemains ? '[X]' : '[  ]'} Mộ không có hài cốt liệt sĩ`);
+    formatLine(paragraphs[25], `Thông tin về phần mộ liệt sĩ:   ${hasBurialType && !isNoRemains ? '[X]' : '[  ]'} Mộ có hài cốt liệt sĩ      ${isNoRemains ? '[X]' : '[  ]'} Mộ không có hài cốt liệt sĩ`);
   }
 
   const cemName = (data.grave_cemetery_name || data.cemetery_name || '').trim();
-  if (paragraphs[26]) formatLine(paragraphs[26], `Tên nghĩa trang: ${cemName}`);
+  if (paragraphs[26]) formatLine(paragraphs[26], `Tên nghĩa trang: ${valueOrBlank(cemName)}`);
 
   const cemType = (data.cemetery_type || '').trim();
   const isOtherCem = cemType.includes('Ngoài');
   if (paragraphs[27]) {
-    formatLine(paragraphs[27], `   ${isOtherCem ? '[  ]' : '[X]'} Nghĩa trang liệt sĩ                                                                  ${isOtherCem ? '[X]' : '[  ]'} Ngoài nghĩa trang liệt sĩ`);
+    formatLine(paragraphs[27], `${isOtherCem ? '[  ]' : '[X]'} Nghĩa trang liệt sĩ       ${isOtherCem ? '[X]' : '[  ]'} Ngoài nghĩa trang liệt sĩ`);
   }
 
+  // Mẫu gốc có một dòng chấm đệm ngay dưới hai lựa chọn nghĩa trang. Bỏ hẳn dòng này.
+  if (paragraphs[29]?.parentNode) paragraphs[29].parentNode.removeChild(paragraphs[29]);
+
   const cemAddress = (data.cemetery_address || [data.grave_commune, data.grave_district, data.grave_province].filter(Boolean).join(', ') || '').trim();
-  if (paragraphs[28]) formatLine(paragraphs[28], `Nghĩa trang thuộc tỉnh/thành phố (ghi rõ địa chỉ chi tiết, xã, huyện, tỉnh): ${cemAddress}`);
+  if (paragraphs[28]) formatLine(paragraphs[28], `Nghĩa trang thuộc tỉnh/thành phố (ghi rõ địa chỉ chi tiết, xã, huyện, tỉnh): ${valueOrBlank(cemAddress)}`);
 
   const exhPlace = (data.exhumation_place || '').trim();
-  if (paragraphs[30]) formatLine(paragraphs[30], `Địa điểm quy tập hoặc an táng hài cốt trước khi tiếp nhận: ${exhPlace}`);
+  if (paragraphs[30]) formatLine(paragraphs[30], `Địa điểm quy tập hoặc an táng hài cốt trước khi tiếp nhận: ${valueOrBlank(exhPlace)}`);
 
   const exhUnit = (data.exhumation_unit || '').trim();
-  if (paragraphs[31]) formatLine(paragraphs[31], `Đơn vị quy tập hoặc an táng hài cốt trước khi tiếp nhận: ${exhUnit}`);
+  if (paragraphs[31]) formatLine(paragraphs[31], `Đơn vị quy tập hoặc an táng hài cốt trước khi tiếp nhận: ${valueOrBlank(exhUnit)}`);
 
   const burialDate = (data.cemetery_burial_date || '').trim();
-  if (paragraphs[32]) formatLine(paragraphs[32], `Thời gian đưa vào an táng trong nghĩa trang liệt sĩ: ${burialDate}`);
+  if (paragraphs[32]) formatLine(paragraphs[32], `Thời gian đưa vào an táng trong nghĩa trang liệt sĩ: ${valueOrBlank(burialDate)}`);
 
   const gravePos = (data.grave_position || [
     data.grave_number ? 'Số mộ: ' + data.grave_number : '',
