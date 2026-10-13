@@ -817,7 +817,7 @@ function renderRecords(){
       '<td style="text-align:center;white-space:nowrap;">'+
         '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="openRecord(\''+escapeAttr(x.record_id||'')+'\',\''+(isM01?'m01':'m02')+'\','+sheetRowArg+')">✏️ Sửa</button>'+
         '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectWord(\''+escapeAttr(x.record_id||'')+'\',\''+(isM01?'m01':'m02')+'\','+sheetRowArg+')">📄 Word</button>'+
-        '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectPdf(\\''+escapeAttr(x.record_id||'')+'\\',\\''+(isM01?'m01':'m02')+'\\','+sheetRowArg+')">🖨️ In</button>'+
+        '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectPdf(\''+escapeAttr(x.record_id||'')+'\',\''+(isM01?'m01':'m02')+'\','+sheetRowArg+')">🖨️ In</button>'+
         '<button type="button" class="btn danger" style="padding:4px 8px;font-size:12px;" onclick="deleteRecord(\''+escapeAttr(x.record_id||'')+'\','+sheetRowArg+',\''+(isM01?'m01':'m02')+'\')">🗑️</button>'+
       '</td>'+
     '</tr>';
