@@ -425,33 +425,10 @@ async function fillDocument(data) {
       .trim()
       .toLowerCase();
     const rowUsed = new Set();
+    const sourceRowByGroup = new Map();
+    const lastRowByGroup = new Map();
 
-    // Phụ lục 1 đã có sẵn từng hàng cho mỗi diện đối tượng. Đặt dữ liệu
-    // theo priority/relationship của người thân, không theo thứ tự người nhập.
-    // Nhờ vậy chỉ nhập diện 4 thì vẫn đi đúng hàng diện 4.
-    const orderedRelatives = relatives
-      .map((relative, index) => ({ relative: relative || {}, index }))
-      .sort((a, b) => {
-        const aPriority = Number(a.relative.priority) || (relationshipOrder.indexOf(a.relative.relationship) + 1) || 999;
-        const bPriority = Number(b.relative.priority) || (relationshipOrder.indexOf(b.relative.relationship) + 1) || 999;
-        return aPriority - bPriority || a.index - b.index;
-      });
-
-    for (const { relative: rel } of orderedRelatives) {
-      const priority = Number(rel.priority) || (relationshipOrder.indexOf(rel.relationship) + 1);
-      const relationship = String(rel.relationship || relationshipOrder[priority - 1] || '').trim().toLowerCase();
-
-      let rowIndex = -1;
-      if (relationship) {
-        rowIndex = rows.findIndex((row, index) => index >= 2 && !rowUsed.has(index) && textOfRow(row).includes(relationship));
-      }
-      if (rowIndex < 0 && priority >= 1 && priority <= 6) {
-        const defaultRow = priority + 1; // 2 hàng đầu là tiêu đề của bảng.
-        if (defaultRow < rows.length && !rowUsed.has(defaultRow)) rowIndex = defaultRow;
-      }
-      if (rowIndex < 0) continue;
-
-      const row = rows[rowIndex];
+    function writeRelative(row, rel) {
       const cells = [];
       for (let j = 0; j < row.childNodes.length; j++) {
         if (row.childNodes[j].nodeName === 'w:tc') cells.push(row.childNodes[j]);
@@ -471,7 +448,47 @@ async function fillDocument(data) {
         const colIdx = colIndices[k];
         if (colIdx < cells.length) setCellText(doc, cells[colIdx], vals[k]);
       }
-      rowUsed.add(rowIndex);
+    }
+
+    // Phụ lục 1 đã có sẵn từng hàng cho mỗi diện đối tượng. Đặt dữ liệu
+    // theo priority/relationship của người thân, không theo thứ tự người nhập.
+    // Nếu một diện có nhiều người, nhân bản hàng đúng diện đó để in đủ tất cả.
+    const orderedRelatives = relatives
+      .map((relative, index) => ({ relative: relative || {}, index }))
+      .sort((a, b) => {
+        const aPriority = Number(a.relative.priority) || (relationshipOrder.indexOf(a.relative.relationship) + 1) || 999;
+        const bPriority = Number(b.relative.priority) || (relationshipOrder.indexOf(b.relative.relationship) + 1) || 999;
+        return aPriority - bPriority || a.index - b.index;
+      });
+
+    for (const { relative: rel } of orderedRelatives) {
+      const priority = Number(rel.priority) || (relationshipOrder.indexOf(rel.relationship) + 1);
+      const relationship = String(rel.relationship || relationshipOrder[priority - 1] || '').trim().toLowerCase();
+      const groupKey = priority >= 1 ? String(priority) : relationship;
+
+      let row = null;
+      if (sourceRowByGroup.has(groupKey)) {
+        const sourceRow = sourceRowByGroup.get(groupKey);
+        const lastRow = lastRowByGroup.get(groupKey);
+        row = sourceRow.cloneNode(true);
+        lastRow.parentNode.insertBefore(row, lastRow.nextSibling);
+      } else {
+        let rowIndex = -1;
+        if (relationship) {
+          rowIndex = rows.findIndex((candidate, index) => index >= 2 && !rowUsed.has(index) && textOfRow(candidate).includes(relationship));
+        }
+        if (rowIndex < 0 && priority >= 1 && priority <= 6) {
+          const defaultRow = priority + 1; // 2 hàng đầu là tiêu đề của bảng.
+          if (defaultRow < rows.length && !rowUsed.has(defaultRow)) rowIndex = defaultRow;
+        }
+        if (rowIndex < 0) continue;
+        row = rows[rowIndex];
+        rowUsed.add(rowIndex);
+        sourceRowByGroup.set(groupKey, row);
+      }
+
+      writeRelative(row, rel);
+      lastRowByGroup.set(groupKey, row);
     }
   }
 
