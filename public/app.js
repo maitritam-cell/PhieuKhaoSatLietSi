@@ -1226,37 +1226,38 @@ async function generateWordBlob(data){
 }
 
 async function printWordData(data){
-  const root=$('docxPrintRoot');
-  if(!root) throw new Error('Không tìm thấy khu vực in.');
-  setStatus('Đang chuẩn bị bản in từ Word...','loading');
+  const printWindow=window.open('','_blank');
+  if(!printWindow){
+    alert('Trình duyệt đang chặn cửa sổ in. Hãy cho phép cửa sổ bật lên rồi bấm In lại.');
+    return;
+  }
+  const printDoc=printWindow.document;
+  printDoc.open();
+  printDoc.write('<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bản in phiếu khảo sát</title><style>@page{margin:0}html,body{margin:0;padding:0;background:#fff}.docx-wrapper{background:#fff!important;padding:0!important}.docx{box-shadow:none!important;margin:0 auto!important}</style></head><body><div id="docxPrintRoot"></div></body></html>');
+  printDoc.close();
   try{
+    setStatus('Đang chuẩn bị bản in từ Word...','loading');
     const blob=await generateWordBlob(data);
     await ensureDocxRenderer();
-    root.replaceChildren();
-    await window.docx.renderAsync(blob,root,document.head,{
+    const root=printDoc.getElementById('docxPrintRoot');
+    await window.docx.renderAsync(blob,root,printDoc.head,{
       breakPages:true,
       ignoreLastRenderedPageBreak:false,
       renderHeaders:true,
       renderFooters:true,
       useBase64URL:true
     });
-    document.body.classList.add('printing-docx');
-    await (document.fonts?.ready||Promise.resolve());
-    setStatus('Đã mở chế độ in.');
-    setTimeout(()=>window.print(),250);
-    window.onafterprint=()=>{
-      document.body.classList.remove('printing-docx');
-      root.replaceChildren();
-      window.onafterprint=null;
-    };
+    await (printDoc.fonts?.ready||Promise.resolve());
+    setStatus('Đã mở bản in.');
+    printWindow.onafterprint=()=>printWindow.close();
+    printWindow.focus();
+    setTimeout(()=>printWindow.print(),400);
   }catch(error){
-    document.body.classList.remove('printing-docx');
-    root.replaceChildren();
+    printWindow.close();
     setStatus('Lỗi chuẩn bị bản in: '+error.message,'error');
     alert('Không mở được bản in: '+error.message+'\nAnh có thể dùng nút Xuất Word rồi in trực tiếp từ Microsoft Word.');
   }
 }
-
 async function printGeneratedWord(){
   if(!checkValidationAndReport('in phiếu'))return;
   if(localStorage.getItem('phieu_liet_si_saved')!=='1'){
