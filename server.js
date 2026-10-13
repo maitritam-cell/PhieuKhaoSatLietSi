@@ -408,16 +408,54 @@ async function fillDocument(data) {
     for (let i = 0; i < table.childNodes.length; i++) {
       if (table.childNodes[i].nodeName === 'w:tr') rows.push(table.childNodes[i]);
     }
-    const relatives = data.relatives || [];
+    const relatives = Array.isArray(data.relatives) ? data.relatives : [];
     const colIndices = [2, 3, 4, 5, 6, 7, 8, 9, 10];
-    for (let i = 0; i < Math.min(relatives.length, 10); i++) {
-      if (i + 2 >= rows.length) break;
-      const row = rows[i + 2];
+    const relationshipOrder = [
+      'Mẹ đẻ liệt sĩ',
+      'Mẹ đẻ của mẹ đẻ liệt sĩ',
+      'Anh chị em cùng mẹ đẻ với liệt sĩ',
+      'Anh chị em cùng mẹ đẻ của mẹ đẻ liệt sĩ',
+      'Anh chị em con của chị gái, em gái mẹ đẻ liệt sĩ',
+      'Con của chị gái, em gái liệt sĩ'
+    ];
+    const textOfRow = row => Array.from(row.getElementsByTagName('w:t'))
+      .map(node => node.textContent || '')
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+    const rowUsed = new Set();
+
+    // Phụ lục 1 đã có sẵn từng hàng cho mỗi diện đối tượng. Đặt dữ liệu
+    // theo priority/relationship của người thân, không theo thứ tự người nhập.
+    // Nhờ vậy chỉ nhập diện 4 thì vẫn đi đúng hàng diện 4.
+    const orderedRelatives = relatives
+      .map((relative, index) => ({ relative: relative || {}, index }))
+      .sort((a, b) => {
+        const aPriority = Number(a.relative.priority) || (relationshipOrder.indexOf(a.relative.relationship) + 1) || 999;
+        const bPriority = Number(b.relative.priority) || (relationshipOrder.indexOf(b.relative.relationship) + 1) || 999;
+        return aPriority - bPriority || a.index - b.index;
+      });
+
+    for (const { relative: rel } of orderedRelatives) {
+      const priority = Number(rel.priority) || (relationshipOrder.indexOf(rel.relationship) + 1);
+      const relationship = String(rel.relationship || relationshipOrder[priority - 1] || '').trim().toLowerCase();
+
+      let rowIndex = -1;
+      if (relationship) {
+        rowIndex = rows.findIndex((row, index) => index >= 2 && !rowUsed.has(index) && textOfRow(row).includes(relationship));
+      }
+      if (rowIndex < 0 && priority >= 1 && priority <= 6) {
+        const defaultRow = priority + 1; // 2 hàng đầu là tiêu đề của bảng.
+        if (defaultRow < rows.length && !rowUsed.has(defaultRow)) rowIndex = defaultRow;
+      }
+      if (rowIndex < 0) continue;
+
+      const row = rows[rowIndex];
       const cells = [];
       for (let j = 0; j < row.childNodes.length; j++) {
         if (row.childNodes[j].nodeName === 'w:tc') cells.push(row.childNodes[j]);
       }
-      const rel = relatives[i] || {};
       const vals = [
         rel.id || '',
         rel.name || '',
@@ -431,10 +469,9 @@ async function fillDocument(data) {
       ];
       for (let k = 0; k < colIndices.length; k++) {
         const colIdx = colIndices[k];
-        if (colIdx < cells.length) {
-          setCellText(doc, cells[colIdx], vals[k]);
-        }
+        if (colIdx < cells.length) setCellText(doc, cells[colIdx], vals[k]);
       }
+      rowUsed.add(rowIndex);
     }
   }
 
