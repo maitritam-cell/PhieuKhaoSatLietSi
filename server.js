@@ -450,6 +450,19 @@ async function fillDocument(data) {
       Object.entries(appendixColumnWidths).forEach(([index, width]) => {
         if (gridColumns[Number(index)]) gridColumns[Number(index)].setAttribute('w:w', String(width));
       });
+
+      // Đồng bộ tổng độ rộng bảng với lưới cột, tránh Word tự co hẹp
+      // các cột Số định danh, Họ và tên, Ngày tháng năm sinh.
+      const totalWidth = gridColumns.reduce((sum, column) => sum + (Number(column.getAttribute('w:w')) || 0), 0);
+      if (totalWidth > 0 && tableProperties) {
+        let tblW = Array.from(tableProperties.childNodes).find(node => node.nodeName === 'w:tblW');
+        if (!tblW) {
+          tblW = doc.createElement('w:tblW');
+          tableProperties.insertBefore(tblW, tableProperties.firstChild);
+        }
+        tblW.setAttribute('w:w', String(totalWidth));
+        tblW.setAttribute('w:type', 'dxa');
+      }
     }
     rows.slice(2).forEach(row => {
       const cells = Array.from(row.childNodes).filter(node => node.nodeName === 'w:tc');
@@ -535,6 +548,30 @@ async function fillDocument(data) {
         const lastRow = lastRowByGroup.get(groupKey);
         row = sourceRow.cloneNode(true);
         lastRow.parentNode.insertBefore(row, lastRow.nextSibling);
+
+        // Với người thứ hai trở đi trong cùng một diện, gộp dọc cột STT
+        // và cột Diện đối tượng. Vì vậy số 6/tên diện chỉ hiện một lần.
+        const setVerticalMerge = (cell, mode) => {
+          if (!cell) return;
+          let tcPr = Array.from(cell.childNodes).find(node => node.nodeName === 'w:tcPr');
+          if (!tcPr) {
+            tcPr = doc.createElement('w:tcPr');
+            cell.insertBefore(tcPr, cell.firstChild);
+          }
+          let vMerge = Array.from(tcPr.childNodes).find(node => node.nodeName === 'w:vMerge');
+          if (!vMerge) {
+            vMerge = doc.createElement('w:vMerge');
+            tcPr.appendChild(vMerge);
+          }
+          vMerge.setAttribute('w:val', mode);
+        };
+        const sourceCells = Array.from(sourceRow.childNodes).filter(node => node.nodeName === 'w:tc');
+        const duplicateCells = Array.from(row.childNodes).filter(node => node.nodeName === 'w:tc');
+        [0, 1].forEach(index => {
+          setVerticalMerge(sourceCells[index], 'restart');
+          setVerticalMerge(duplicateCells[index], 'continue');
+          if (duplicateCells[index]) setCellText(doc, duplicateCells[index], '');
+        });
       } else {
         let rowIndex = -1;
         if (relationship) {
