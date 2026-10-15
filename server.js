@@ -408,6 +408,53 @@ async function fillDocument(data) {
     for (let i = 0; i < table.childNodes.length; i++) {
       if (table.childNodes[i].nodeName === 'w:tr') rows.push(table.childNodes[i]);
     }
+
+    // Khóa kích thước các cột Phụ lục 1 theo yêu cầu, dùng đơn vị twips
+    // (1 cm ≈ 567 twips) để Word không tự dồn hẹp các cột khi có dữ liệu dài.
+    const appendixColumnWidths = {
+      2: 1701, // Số ĐDCN/CCCD/CMND: 3 cm
+      3: 1701, // Họ và tên: 3 cm
+      4: 1701, // Ngày tháng năm sinh: 3 cm
+      5: 1134, // Giới tính: 2 cm
+      9: 1361, // Trạng thái: 2,4 cm
+      10: 1361 // Chữ ký và ghi rõ họ tên: 2,4 cm
+    };
+    const tableProperties = Array.from(table.childNodes).find(node => node.nodeName === 'w:tblPr');
+    if (tableProperties) {
+      let layout = Array.from(tableProperties.childNodes).find(node => node.nodeName === 'w:tblLayout');
+      if (!layout) {
+        layout = doc.createElement('w:tblLayout');
+        tableProperties.appendChild(layout);
+      }
+      layout.setAttribute('w:type', 'fixed');
+    }
+    const tableGrid = Array.from(table.childNodes).find(node => node.nodeName === 'w:tblGrid');
+    if (tableGrid) {
+      const gridColumns = Array.from(tableGrid.childNodes).filter(node => node.nodeName === 'w:gridCol');
+      Object.entries(appendixColumnWidths).forEach(([index, width]) => {
+        if (gridColumns[Number(index)]) gridColumns[Number(index)].setAttribute('w:w', String(width));
+      });
+    }
+    rows.slice(2).forEach(row => {
+      const cells = Array.from(row.childNodes).filter(node => node.nodeName === 'w:tc');
+      Object.entries(appendixColumnWidths).forEach(([index, width]) => {
+        const cell = cells[Number(index)];
+        if (!cell) return;
+        let tcPr = Array.from(cell.childNodes).find(node => node.nodeName === 'w:tcPr');
+        if (!tcPr) {
+          tcPr = doc.createElement('w:tcPr');
+          cell.insertBefore(tcPr, cell.firstChild);
+        }
+        let tcW = Array.from(tcPr.childNodes).find(node => node.nodeName === 'w:tcW');
+        if (!tcW) {
+          tcW = doc.createElement('w:tcW');
+          tcPr.insertBefore(tcW, tcPr.firstChild);
+        }
+        tcW.setAttribute('w:w', String(width));
+        tcW.setAttribute('w:type', 'dxa');
+      });
+    });
+
     const relatives = Array.isArray(data.relatives) ? data.relatives : [];
     const colIndices = [2, 3, 4, 5, 6, 7, 8, 9, 10];
     const relationshipOrder = [
