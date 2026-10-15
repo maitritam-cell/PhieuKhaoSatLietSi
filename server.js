@@ -90,13 +90,29 @@ function setParagraphText(doc, paragraph, text) {
   paragraph.appendChild(run);
 }
 
-function formatVietnameseDecisionDate(value) {
+function formatDateDisplay(value) {
   const raw = String(value || '').trim();
-  if (!raw) return 'ngày.... tháng... năm ......';
+  if (!raw) return '';
   let match = raw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
-  if (match) return 'ngày ' + match[1].padStart(2, '0') + ' tháng ' + match[2].padStart(2, '0') + ' năm ' + match[3];
+  if (match) return match[1].padStart(2, '0') + '/' + match[2].padStart(2, '0') + '/' + match[3];
   match = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (match) return 'ngày ' + match[3].padStart(2, '0') + ' tháng ' + match[2].padStart(2, '0') + ' năm ' + match[1];
+  if (match) return match[3].padStart(2, '0') + '/' + match[2].padStart(2, '0') + '/' + match[1];
+
+  // Google Sheets đôi khi trả Date thành chuỗi tiếng Anh, ví dụ:
+  // "Fri Nov 12 2021 07:00:00 GMT+0700 (Indochina Time)".
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    return String(parsed.getUTCDate()).padStart(2, '0') + '/' +
+      String(parsed.getUTCMonth() + 1).padStart(2, '0') + '/' + parsed.getUTCFullYear();
+  }
+  return raw;
+}
+
+function formatVietnameseDecisionDate(value) {
+  const raw = formatDateDisplay(value);
+  if (!raw) return 'ngày.... tháng... năm ......';
+  const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (match) return 'ngày ' + match[1] + ' tháng ' + match[2] + ' năm ' + match[3];
   return raw;
 }
 
@@ -387,7 +403,7 @@ async function fillDocument(data) {
     }
   }
 
-  const repIssueDate = data.rep_issue_date || data.ngayCapCCCD || data['Ngày cấp'] || '......';
+  const repIssueDate = formatDateDisplay(data.rep_issue_date || data.ngayCapCCCD || data['Ngày cấp']) || '......';
   const repIssuePlace = data.rep_issue_place || data.noiCapCCCD || data['Nơi cấp'] || '......';
   if (data.rep_id || repIssueDate || repIssuePlace) {
     setParagraphText(doc, paragraphs[6], `Số ĐDCN: ${data.rep_id || '............'}; Ngày cấp: ${repIssueDate}; Nơi cấp: ${repIssuePlace}`);
@@ -592,7 +608,7 @@ async function fillDocumentM01(data) {
   // 1. Thông tin người đại diện thân nhân hoặc hưởng trợ cấp thờ cúng liệt sĩ
   if (paragraphs[4]) formatLine(paragraphs[4], `Họ và tên: ${valueOrBlank(data.rep_name)}`);
   if (paragraphs[5]) formatLine(paragraphs[5], `Ngày tháng năm sinh: ${valueOrBlank(data.rep_dob)}; Giới tính: ${valueOrBlank(data.rep_gender)}`);
-  if (paragraphs[6]) formatLine(paragraphs[6], `Số ĐDCN: ${valueOrBlank(data.rep_id)}; Ngày cấp: ${valueOrBlank(data.rep_issue_date || data.ngayCapCCCD || data['Ngày cấp'])}; Nơi cấp: ${valueOrBlank(data.rep_issue_place || data.noiCapCCCD || data['Nơi cấp'])}`);
+  if (paragraphs[6]) formatLine(paragraphs[6], `Số ĐDCN: ${valueOrBlank(data.rep_id)}; Ngày cấp: ${valueOrBlank(formatDateDisplay(data.rep_issue_date || data.ngayCapCCCD || data['Ngày cấp']))}; Nơi cấp: ${valueOrBlank(data.rep_issue_place || data.noiCapCCCD || data['Nơi cấp'])}`);
   if (paragraphs[7]) formatLine(paragraphs[7], `Quê quán: ${valueOrBlank(data.rep_hometown)}`);
   if (paragraphs[8]) formatLine(paragraphs[8], `Nơi thường trú: ${valueOrBlank(data.rep_address)}`);
   if (paragraphs[9]) formatLine(paragraphs[9], `Số điện thoại: ${valueOrBlank(data.rep_phone)}`);
