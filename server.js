@@ -100,7 +100,7 @@ function formatVietnameseDecisionDate(value) {
   return raw;
 }
 
-function applyConfirmationBlock(doc, body) {
+function applyConfirmationBlock(doc, body, extraNameGap = 0) {
   const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 
   function makeParagraph(text, opts = {}) {
@@ -162,7 +162,7 @@ function applyConfirmationBlock(doc, body) {
         { text: 'Xác nhận của UBND phường' },
         { text: 'về nội dung khai trên bản khai là đúng', after: 280 },
         // Chừa khoảng trống chữ ký giữa chức vụ và họ tên, đủ để ký tay.
-        { text: 'CHỦ TỊCH', bold: true, after: 960 },
+        { text: 'CHỦ TỊCH', bold: true, after: 960 + extraNameGap },
         { text: 'Lê Hoài Nam', bold: true, after: 40 }
       ]
     },
@@ -175,7 +175,7 @@ function applyConfirmationBlock(doc, body) {
         { text: 'về nội dung thông tin dữ liệu dân cư của các cá nhân trên bản khai là đúng.' },
         { text: 'KT. TRƯỞNG CÔNG AN PHƯỜNG', bold: true, after: 40 },
         // Chức danh nằm trên chữ ký; chừa khoảng trống rộng để ký tay.
-        { text: 'PHÓ TRƯỞNG CÔNG AN PHƯỜNG', bold: true, after: 720 },
+        { text: 'PHÓ TRƯỞNG CÔNG AN PHƯỜNG', bold: true, after: 720 + extraNameGap },
         { text: 'Trung tá Trương Thành Trung', bold: true, after: 40 }
       ]
     },
@@ -492,7 +492,8 @@ async function fillDocument(data) {
     }
   }
 
-  applyConfirmationBlock(doc, body);
+  // Mẫu 02: tăng 12pt (240 twips) khoảng cách phía trên hai họ tên người ký.
+  applyConfirmationBlock(doc, body, 240);
 
   const serializer = new XMLSerializer();
   const newXml = serializer.serializeToString(doc);
