@@ -790,7 +790,7 @@ function renderRecords(){
     const emptyMsg = isTerritoryFiltered
       ? `Không có phiếu nào thuộc địa bàn được phân công (${currentStaffTerritories.join(', ')}). Bấm "🔄 Tải từ Google Sheet" để đồng bộ dữ liệu.`
       : 'Chưa có phiếu phù hợp. Hãy nhập phiếu và bấm "Lưu vào Google Sheets".';
-    body.innerHTML='<tr><td colspan="10" style="text-align:center;padding:16px;color:#64748b;">'+escapeHtml(emptyMsg)+'</td></tr>';
+    body.innerHTML='<tr><td colspan="11" style="text-align:center;padding:16px;color:#64748b;">'+escapeHtml(emptyMsg)+'</td></tr>';
     return;
   }
 
@@ -814,6 +814,7 @@ function renderRecords(){
       '<td style="font-size:12px;">'+escapeHtml(x.saved_at?new Date(x.saved_at).toLocaleString('vi-VN'):'')+'</td>'+
       '<td>'+badgeHtml+'</td>'+
       '<td><span style="display:inline-block;padding:3px 7px;border-radius:4px;font-size:11px;font-weight:600;background:'+(x.trangThai==='Đã cập nhật'?'#fef3c7;color:#b45309':'#ecfdf5;color:#047857')+';">'+escapeHtml(x.trangThai||'Mới')+'</span></td>'+
+      '<td style="text-align:center;"><label title="'+(x.printed?'Đã in phiếu':'Chưa in phiếu')+'" style="display:inline-flex;align-items:center;justify-content:center;cursor:pointer;"><input type="checkbox" '+(x.printed?'checked':'')+' onchange="toggleRecordPrinted(\''+escapeAttr(x.record_id||'')+'\',\''+(isM01?'m01':'m02')+'\','+sheetRowArg+',this.checked)" aria-label="Đã in phiếu"></label></td>'+
       '<td style="text-align:center;white-space:nowrap;">'+
         '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="openRecord(\''+escapeAttr(x.record_id||'')+'\',\''+(isM01?'m01':'m02')+'\','+sheetRowArg+')">✏️ Sửa</button>'+
         '<button type="button" class="btn btn-outline" style="padding:4px 8px;font-size:12px;margin-right:4px;" onclick="exportDirectWord(\''+escapeAttr(x.record_id||'')+'\',\''+(isM01?'m01':'m02')+'\','+sheetRowArg+')">📄 Word</button>'+
@@ -824,6 +825,22 @@ function renderRecords(){
   }).join('');
 }
 
+
+function toggleRecordPrinted(id, requestedType, requestedSheetRow, printed){
+  const sheetRow=Number(requestedSheetRow||0);
+  const list=getRecords();
+  const index=list.findIndex(x=>{
+    const type=(x.form_type==='m01'||x.loaiPhieu==='Mẫu 01')?'m01':'m02';
+    if(requestedType && type!==requestedType) return false;
+    if(type==='m01' && sheetRow>=2) return Number(x.m01_sheet_row||0)===sheetRow;
+    return String(x.record_id||'')===String(id||'') || String(x.file_id||'')===String(id||'');
+  });
+  if(index<0) return;
+  list[index]={...list[index],printed:!!printed,printed_at:printed?new Date().toISOString():''};
+  putRecords(list);
+  renderRecords();
+  setStatus(printed?'Đã tích phiếu đã in.':'Đã bỏ tích phiếu đã in.');
+}
 
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function escapeAttr(v){return String(v??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
@@ -964,6 +981,21 @@ async function fetchFromGoogleSheets(isSilent = false){
             loaiPhieu: isM01 ? 'Mẫu 01' : 'Mẫu 02',
             ...recData
           });
+        }
+      });
+      // Giữ dấu “Đã in” đã tích trên máy khi đồng bộ lại danh sách từ Google Sheets.
+      const previousList=getRecords();
+      currentList.forEach(item=>{
+        const type=(item.form_type==='m01'||item.loaiPhieu==='Mẫu 01')?'m01':'m02';
+        const previous=previousList.find(x=>{
+          const previousType=(x.form_type==='m01'||x.loaiPhieu==='Mẫu 01')?'m01':'m02';
+          if(previousType!==type) return false;
+          if(type==='m01' && Number(item.m01_sheet_row||0)>=2) return Number(x.m01_sheet_row||0)===Number(item.m01_sheet_row||0);
+          return String(x.record_id||'')===String(item.record_id||'') || (item.file_id && String(x.file_id||'')===String(item.file_id));
+        });
+        if(previous && typeof previous.printed==='boolean'){
+          item.printed=previous.printed;
+          item.printed_at=previous.printed_at||'';
         }
       });
       putRecords(currentList);
@@ -1326,6 +1358,8 @@ async function exportDirectPdf(id, requestedType, requestedSheetRow){
   });
   if(!item){alert('Không tìm thấy dữ liệu.');return;}
   fill(item);
+  // Khi người dùng bấm In, đánh dấu phiếu ngay trong danh sách để tiện theo dõi.
+  toggleRecordPrinted(id, requestedType, sheetRow, true);
   await printWordData(item);
 }
 
