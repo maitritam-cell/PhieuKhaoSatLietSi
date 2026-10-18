@@ -504,6 +504,29 @@ async function fillDocument(data) {
     const sourceRowByGroup = new Map();
     const lastRowByGroup = new Map();
 
+    function setRelativeCellText(row, cell, value) {
+      setCellText(doc, cell, value);
+
+      // Word dùng đơn vị nửa point: 22 = 11pt. Chỉ áp dụng cho dữ liệu
+      // thân nhân trong Phụ lục 1, không thay đổi cỡ chữ của phần tiêu đề.
+      const runs = Array.from(cell.getElementsByTagName('w:r'));
+      for (const run of runs) {
+        let rPr = Array.from(run.childNodes).find(node => node.nodeName === 'w:rPr');
+        if (!rPr) {
+          rPr = doc.createElementNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'w:rPr');
+          run.insertBefore(rPr, run.firstChild);
+        }
+        for (const tagName of ['w:sz', 'w:szCs']) {
+          let size = Array.from(rPr.childNodes).find(node => node.nodeName === tagName);
+          if (!size) {
+            size = doc.createElementNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', tagName);
+            rPr.appendChild(size);
+          }
+          size.setAttribute('w:val', '22');
+        }
+      }
+    }
+
     function writeRelative(row, rel) {
       const cells = [];
       for (let j = 0; j < row.childNodes.length; j++) {
@@ -522,7 +545,7 @@ async function fillDocument(data) {
       ];
       for (let k = 0; k < colIndices.length; k++) {
         const colIdx = colIndices[k];
-        if (colIdx < cells.length) setCellText(doc, cells[colIdx], vals[k]);
+        if (colIdx < cells.length) setRelativeCellText(row, cells[colIdx], vals[k]);
       }
     }
 
