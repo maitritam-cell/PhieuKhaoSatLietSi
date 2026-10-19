@@ -826,7 +826,7 @@ function renderRecords(){
 }
 
 
-function toggleRecordPrinted(id, requestedType, requestedSheetRow, printed){
+async function toggleRecordPrinted(id, requestedType, requestedSheetRow, printed){
   const sheetRow=Number(requestedSheetRow||0);
   const list=getRecords();
   const index=list.findIndex(x=>{
@@ -836,10 +836,31 @@ function toggleRecordPrinted(id, requestedType, requestedSheetRow, printed){
     return String(x.record_id||'')===String(id||'') || String(x.file_id||'')===String(id||'');
   });
   if(index<0) return;
-  list[index]={...list[index],printed:!!printed,printed_at:printed?new Date().toISOString():''};
+
+  const updated={...list[index],printed:!!printed,printed_at:printed?new Date().toISOString():''};
+  list[index]=updated;
   putRecords(list);
   renderRecords();
-  setStatus(printed?'Đã tích phiếu đã in.':'Đã bỏ tích phiếu đã in.');
+
+  // Lưu dấu tích cùng dữ liệu phiếu trên máy chủ. Vì vậy việc xóa lịch sử
+  // hoặc dữ liệu trình duyệt không làm mất trạng thái “Đã in”.
+  try{
+    const response=await fetch('/api/save-sheet',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':'Bearer '+(currentStaffSession?.access_token||'')
+      },
+      body:JSON.stringify({...updated,appsScriptUrl:getAppsScriptUrl()})
+    });
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok || result.ok===false) throw new Error(result.error||'Không thể lưu dấu tích lên hệ thống.');
+    setStatus(printed?'Đã tích và lưu phiếu đã in.':'Đã bỏ tích và lưu trạng thái phiếu.');
+  }catch(error){
+    console.error('Không thể lưu trạng thái đã in:',error);
+    setStatus('Chưa lưu được dấu tích lên hệ thống: '+error.message,'error');
+    showNotification('error','Chưa lưu được dấu tích','Dấu tích đang có trên màn hình, vui lòng thử tích lại khi kết nối ổn định.');
+  }
 }
 
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
