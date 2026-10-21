@@ -734,6 +734,65 @@ async function fillDocumentM01(data) {
     formatLine(paragraphs[33], `Vị trí mộ trong nghĩa trang liệt sĩ: ${gravePos || 'Số mộ...., hàng......., lô...., khu .......................................'}`);
   }
 
+  // Mẫu 01: toàn văn bản giãn dòng đơn và lề trên trang 0,5 cm.
+  const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const allParagraphs = Array.from(body.getElementsByTagName('w:p'));
+  allParagraphs.forEach(paragraph => {
+    let pPr = Array.from(paragraph.childNodes).find(node => node.nodeName === 'w:pPr');
+    if (!pPr) {
+      pPr = doc.createElementNS(W, 'w:pPr');
+      paragraph.insertBefore(pPr, paragraph.firstChild);
+    }
+    let spacing = Array.from(pPr.childNodes).find(node => node.nodeName === 'w:spacing');
+    if (!spacing) {
+      spacing = doc.createElementNS(W, 'w:spacing');
+      pPr.appendChild(spacing);
+    }
+    spacing.setAttribute('w:before', '0');
+    spacing.setAttribute('w:after', '0');
+    spacing.setAttribute('w:line', '240');
+    spacing.setAttribute('w:lineRule', 'auto');
+  });
+
+  const section = body.getElementsByTagName('w:sectPr')[0];
+  if (section) {
+    let pageMargins = Array.from(section.childNodes).find(node => node.nodeName === 'w:pgMar');
+    if (!pageMargins) {
+      pageMargins = doc.createElementNS(W, 'w:pgMar');
+      section.appendChild(pageMargins);
+    }
+    // 0,5 cm ≈ 283 twips.
+    pageMargins.setAttribute('w:top', '283');
+  }
+
+  // Dòng lựa chọn loại nghĩa trang được yêu cầu dùng Times New Roman, 11pt.
+  if (paragraphs[27]) {
+    const runs = Array.from(paragraphs[27].getElementsByTagName('w:r'));
+    runs.forEach(run => {
+      let rPr = Array.from(run.childNodes).find(node => node.nodeName === 'w:rPr');
+      if (!rPr) {
+        rPr = doc.createElementNS(W, 'w:rPr');
+        run.insertBefore(rPr, run.firstChild);
+      }
+      let fonts = Array.from(rPr.childNodes).find(node => node.nodeName === 'w:rFonts');
+      if (!fonts) {
+        fonts = doc.createElementNS(W, 'w:rFonts');
+        rPr.appendChild(fonts);
+      }
+      fonts.setAttribute('w:ascii', 'Times New Roman');
+      fonts.setAttribute('w:hAnsi', 'Times New Roman');
+      fonts.setAttribute('w:cs', 'Times New Roman');
+      for (const tagName of ['w:sz', 'w:szCs']) {
+        let size = Array.from(rPr.childNodes).find(node => node.nodeName === tagName);
+        if (!size) {
+          size = doc.createElementNS(W, tagName);
+          rPr.appendChild(size);
+        }
+        size.setAttribute('w:val', '22');
+      }
+    });
+  }
+
   applyConfirmationBlock(doc, body);
 
   const serializer = new XMLSerializer();
