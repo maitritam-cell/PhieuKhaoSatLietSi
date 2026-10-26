@@ -793,7 +793,8 @@ async function fillDocumentM01(data) {
     });
   }
 
-  applyConfirmationBlock(doc, body);
+  // Mẫu 01: thêm 18pt (360 twips) khoảng trống phía trên hai họ tên người ký.
+  applyConfirmationBlock(doc, body, 360);
 
   const serializer = new XMLSerializer();
   const newXml = serializer.serializeToString(doc);
